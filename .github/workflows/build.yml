@@ -9,9 +9,27 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: tradeops_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d tradeops_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
 
     steps:
       - name: Checkout
@@ -27,3 +45,71 @@ jobs:
 
       - name: Build
         run: dotnet build TradeOps.sln --configuration Release --no-restore
+
+      - name: API + PostgreSQL smoke test
+        env:
+          ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_ci;Username=postgres;Password=postgres
+          ASPNETCORE_URLS: http://127.0.0.1:5080
+          Telegram__Enabled: 'false'
+        run: |
+          set -euo pipefail
+
+          dotnet run \
+            --project src/TradeOps.Api \
+            --configuration Release \
+            --no-build \
+            > api.log 2>&1 &
+          API_PID=$!
+
+          cleanup() {
+            kill "$API_PID" 2>/dev/null || true
+            echo '--- API log ---'
+            cat api.log || true
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5080/health >/dev/null; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              echo 'API did not become ready.' >&2
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          SIGNAL_ID='d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58'
+
+          FIRST=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"quantity\":0.001,\"source\":\"ci\",\"signalId\":\"$SIGNAL_ID\"}" \
+            http://127.0.0.1:5080/api/signals)
+
+          echo "$FIRST"
+          echo "$FIRST" | grep -q '"status":"PartiallyFilled"'
+          echo "$FIRST" | grep -q '"filledQuantity":0.00060'
+
+          RECONCILIATION=$(curl --fail --silent --show-error \
+            -X POST \
+            http://127.0.0.1:5080/api/system/reconcile)
+
+          echo "$RECONCILIATION"
+          echo "$RECONCILIATION" | grep -q '"updated":1'
+
+          RETRY=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"quantity\":0.001,\"source\":\"ci-retry\",\"signalId\":\"$SIGNAL_ID\"}" \
+            http://127.0.0.1:5080/api/signals)
+
+          echo "$RETRY"
+          echo "$RETRY" | grep -q '"status":"Filled"'
+          echo "$RETRY" | grep -q '"filledQuantity":0.001000000000'
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Build Docker images
+        run: docker compose build api worker
