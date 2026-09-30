@@ -1,153 +1,193 @@
 # TradeOps
 
-C#/.NET trading automation demo based on the TradeOps handoff.
+C#/.NET trading execution and automation backend focused on reliable order handling rather than strategy research.
 
-## Current implementation
+TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-### Day 1
-- `TradeOps.sln`
-- `TradeOps.Api`
-- `TradeOps.Application`
-- `TradeOps.Domain`
-- `TradeOps.Infrastructure`
-- `TradeOps.Worker`
-- domain types: `Order`, `TradingSignal`, `OrderStatus`, `OrderSide`, `OrderType`
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. The demo uses synthetic signals and a mock exchange only.
 
-### Day 2
-- `IExchangeClient`
-- `MockExchangeClient`
-- `GET /api/account`
-- `GET /api/positions`
-- `GET /api/orders`
+## What this demo proves
 
-### Day 3
-- `POST /api/signals`
-- `IRiskEngine` / `RiskEngine`
-- `IOrderManager` / `OrderManager`
-- risk checks for trading enabled, emergency stop, allowed symbols, order size, max positions, projected position size, daily loss state
-- `GET /api/risk`
-- temporary in-memory daily PnL source (`IRiskState`)
+- deterministic `ClientOrderId` generation and idempotent signal retries;
+- PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
+- no blind retry after an ambiguous exchange timeout;
+- guarded order state transitions;
+- partial-fill handling;
+- reconciliation between local state and exchange state;
+- restart recovery through a background Worker;
+- exchange reconnect abstraction with exponential backoff;
+- structured logging;
+- optional fail-safe Telegram alerts;
+- reproducible Docker demo;
+- CI build + PostgreSQL runtime smoke test.
 
-### Day 4
-- EF Core + PostgreSQL order persistence
-- `TradeOpsDbContext`
-- unique index on `Order.ClientOrderId`
-- `IOrderRepository` / `EfOrderRepository`
-- atomic duplicate protection via PostgreSQL unique constraint
-- dedicated `IClientOrderIdGenerator`
-- optional caller-supplied `SignalId` for safe request retries
-- no blind order retry after timeout
-- lookup by `ClientOrderId` after timeout
-- `OrderStatus.Unknown` when exchange state cannot be confirmed
+## Stack
 
-### Day 5
-- explicit `IOrderStateMachine` / `OrderStateMachine`
-- guarded lifecycle transitions (`Submitted`, `Accepted`, `PartiallyFilled`, `Filled`, terminal states)
-- filled-quantity invariants for partial and complete fills
-- `IOrderReconciliationService` / `OrderReconciliationService`
-- reconciliation candidates loaded from PostgreSQL
-- identity checks before applying exchange state
-- unresolved exchange orders moved to `Unknown`
-- invalid exchange/local transitions reported as reconciliation issues instead of silently overwriting local state
-- deterministic mock partial fill: 60% on placement, 100% on subsequent reconciliation
-- `POST /api/system/reconcile`
-- GitHub Actions build for `main` and `TradeOps/**`
+```text
+C# / .NET 8
+ASP.NET Core
+Worker Service
+EF Core 8
+PostgreSQL 16
+Docker / Docker Compose
+GitHub Actions
+```
 
-### Day 6
-- background `TradeOps.Worker` performs restart recovery immediately on startup
-- periodic reconciliation loop
-- `IExchangeConnectionManager` abstraction for future REST/WebSocket adapters
-- reconnect/recovery retry loop with exponential backoff
-- `IAlertService` abstraction
-- Telegram alert adapter with fail-safe delivery
-- structured `ILogger<T>` events for execution and reconciliation
-- alerts for risk rejection, submitted orders, partial fills, fills, rejects, unknown states, reconciliation mismatches, disconnects and reconnects
-- Telegram secrets are supplied only through configuration/environment variables
-- mock exchange IDs are self-describing so a separate Worker process can reconstruct synthetic exchange state after restart
+## Solution
+
+```text
+TradeOps.sln
+
+src/
+├── TradeOps.Api
+├── TradeOps.Application
+├── TradeOps.Domain
+├── TradeOps.Infrastructure
+└── TradeOps.Worker
+```
+
+Responsibilities:
+
+- **Domain** — entities, enums and order state rules.
+- **Application** — execution use cases and contracts.
+- **Infrastructure** — EF Core/PostgreSQL, mock exchange and Telegram adapter.
+- **Api** — signal input, monitoring and manual reconciliation endpoints.
+- **Worker** — restart recovery, reconnect and periodic reconciliation.
 
 ## Execution flow
 
 ```text
+External signal
+      |
+      v
 POST /api/signals
-        |
-        v
- derive deterministic ClientOrderId
-        |
-        v
- check persisted order
-        |
-   existing? -------- yes ------> return existing order state
-        |
-       no
-        v
-    RiskEngine
-        |
-   allow/reject
-        |
-        v
- persist Created order
-        |
-        v
- OrderStateMachine: Created -> Submitted
-        |
-        v
- IExchangeClient.PlaceOrderAsync
-        |
-        v
- Mock: PartiallyFilled (60%)
-        |
-        v
- persist partial-fill state
-        |
-        +---- structured log
-        +---- optional Telegram alert
+      |
+      v
+Deterministic ClientOrderId
+      |
+      +---- existing order ----> return existing state
+      |
+      v
+RiskEngine
+      |
+ allow / reject
+      |
+      v
+Persist Created
+      |
+      v
+Created -> Submitted
+      |
+      v
+IExchangeClient.PlaceOrderAsync
+      |
+      v
+Mock exchange: PartiallyFilled (60%)
+      |
+      v
+Persist exchange state
+      |
+      +---- structured log
+      +---- optional Telegram alert
 ```
+
+A timeout does **not** trigger a blind second `PlaceOrderAsync`. TradeOps first looks up the exchange order by `ClientOrderId`; if the exchange state cannot be confirmed, the local order becomes `Unknown` and must be reconciled.
 
 ## Recovery flow
 
 ```text
 TradeOps.Worker starts
-        |
-        v
+      |
+      v
 EnsureConnectedAsync
-        |
-   success / failure
-        |
-        +---- failure ---> alert once ---> exponential backoff ---> retry
-        |
-        v
-load reconciliation candidates from PostgreSQL
-        |
-        v
-query exchange state
-        |
-        +---- valid ------> OrderStateMachine -> persist
-        +---- missing ----> Unknown + issue
-        +---- mismatch ---> issue; do not overwrite blindly
-        |
-        v
-periodic reconciliation
+      |
+      +---- failure ---> alert ---> exponential backoff ---> retry
+      |
+      v
+Load non-terminal persisted orders
+      |
+      v
+Query exchange state
+      |
+      +---- valid ------> OrderStateMachine -> persist
+      +---- missing ----> Unknown + issue
+      +---- mismatch ---> issue; do not overwrite blindly
+      |
+      v
+Periodic reconciliation
 ```
 
-With the current mock, a `PartiallyFilled` order advances to `Filled` during the next exchange lookup used by reconciliation. The mock `ExchangeOrderId` contains enough synthetic state for the separate Worker process to reconstruct that mock order after a process restart. This behavior exists only for the demo mock; real exchange adapters will query the external venue.
+The current mock uses self-describing synthetic exchange IDs so the separate Worker process can reconstruct mock exchange state after restart. A real exchange adapter would query the external venue instead.
 
-## Idempotency rule
+## Quick start with Docker
 
-For a retry of the same logical trading signal, reuse the same `signalId`. TradeOps derives the same `ClientOrderId` from that signal ID. PostgreSQL enforces uniqueness on `ClientOrderId`, so concurrent duplicate requests cannot create two local execution records.
+Requirements:
 
-Example:
+- Docker Engine / Docker Desktop;
+- Docker Compose v2;
+- `curl` only if you want to run the included demo script from the host.
+
+Start the complete stack:
+
+```bash
+docker compose up --build -d
+```
+
+This starts:
+
+```text
+PostgreSQL 16  -> localhost:54321
+TradeOps.Api   -> http://localhost:8080
+TradeOps.Worker
+```
+
+The API automatically applies the committed EF Core migration on startup.
+
+Check health:
+
+```bash
+curl http://localhost:8080/health
+```
+
+Run the deterministic demo:
+
+```bash
+bash scripts/demo.sh
+```
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Delete the demo database as well:
+
+```bash
+docker compose down -v
+```
+
+## Demo scenario
+
+The script uses the fixed logical signal ID:
+
+```text
+d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58
+```
+
+### 1. First submission
 
 ```json
 {
   "symbol": "BTCUSDT",
   "side": "Buy",
   "quantity": 0.001,
-  "source": "manual-demo",
+  "source": "docker-demo",
   "signalId": "d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58"
 }
 ```
 
-Expected first execution result with the current mock:
+Expected mock state:
 
 ```text
 RequestedQuantity = 0.001
@@ -155,51 +195,112 @@ FilledQuantity    = 0.0006
 Status            = PartiallyFilled
 ```
 
-After reconciliation:
+### 2. Reconciliation
+
+`POST /api/system/reconcile` queries the mock exchange again.
+
+Expected state:
 
 ```text
 FilledQuantity = 0.001
 Status         = Filled
 ```
 
-## Project references
+### 3. Idempotent retry
 
-- Application -> Domain
-- Infrastructure -> Application, Domain
-- Api -> Application, Infrastructure
-- Worker -> Application, Infrastructure
+The exact same `signalId` is submitted again. TradeOps derives the same `ClientOrderId`, loads the existing persisted order and returns it instead of creating a duplicate.
 
-## PostgreSQL configuration
-
-Default development connection string:
+## API
 
 ```text
-Host=localhost;Port=5432;Database=tradeops;Username=postgres
+GET  /health
+GET  /api/account
+GET  /api/positions
+GET  /api/orders
+GET  /api/risk
+POST /api/signals
+POST /api/system/reconcile
 ```
 
-Override credentials without committing secrets:
+## Order lifecycle
+
+Supported states:
+
+```text
+Created
+Submitted
+Accepted
+PartiallyFilled
+Filled
+Cancelled
+Rejected
+Unknown
+```
+
+The state machine validates transitions and fill invariants. For example, `PartiallyFilled` requires:
+
+```text
+0 < FilledQuantity < RequestedQuantity
+```
+
+and `Filled` requires the entire requested quantity to be filled.
+
+## Duplicate-order protection
+
+For retries of the same logical signal, the caller must reuse the same `signalId`.
+
+TradeOps then derives the same `ClientOrderId` and relies on both:
+
+1. an application-level lookup; and
+2. a PostgreSQL unique index on `ClientOrderId`.
+
+The database constraint is the final guard against concurrent duplicate requests racing each other.
+
+## PostgreSQL
+
+For local non-Docker development, configure:
+
+```text
+ConnectionStrings__TradeOpsDb
+```
+
+Example:
 
 ```bash
-ConnectionStrings__TradeOpsDb="Host=localhost;Port=5432;Database=tradeops;Username=postgres;Password=YOUR_PASSWORD" dotnet run --project src/TradeOps.Api
+export ConnectionStrings__TradeOpsDb='Host=localhost;Port=5432;Database=tradeops;Username=postgres;Password=YOUR_PASSWORD'
 ```
 
-Use the same connection string for `TradeOps.Worker`.
+The initial EF Core migration is committed under:
 
-## Telegram configuration
+```text
+src/TradeOps.Infrastructure/Persistence/Migrations
+```
 
-Telegram alerts are disabled by default. Do not commit a bot token or chat id.
-
-Example environment variables:
+Apply migrations manually when needed:
 
 ```bash
-Telegram__Enabled=true
-Telegram__BotToken="YOUR_BOT_TOKEN"
-Telegram__ChatId="YOUR_CHAT_ID"
+dotnet ef database update \
+  --project src/TradeOps.Infrastructure \
+  --startup-project src/TradeOps.Api
 ```
 
-The Telegram adapter is fail-safe: delivery errors are logged and do not fail the trading execution path.
+## Telegram alerts
 
-## Worker configuration
+Telegram is disabled by default. Never commit the bot token or chat id.
+
+Docker Compose reads optional host environment variables:
+
+```bash
+export TELEGRAM_ENABLED=true
+export TELEGRAM_BOT_TOKEN='YOUR_BOT_TOKEN'
+export TELEGRAM_CHAT_ID='YOUR_CHAT_ID'
+
+docker compose up --build -d
+```
+
+The adapter is fail-safe: Telegram delivery errors are logged but do not fail the order execution path.
+
+## Worker settings
 
 Defaults:
 
@@ -213,28 +314,14 @@ Defaults:
 }
 ```
 
-The retry delay grows exponentially until `MaxRetryDelaySeconds`.
+Retry delay grows exponentially until `MaxRetryDelaySeconds`.
 
-## EF Core migration
+## Local .NET development
 
-Generate and apply the migration in a .NET 8 environment:
-
-```bash
-dotnet tool install --global dotnet-ef --version 8.*
-dotnet ef migrations add InitialOrders \
-  --project src/TradeOps.Infrastructure \
-  --startup-project src/TradeOps.Api \
-  --output-dir Persistence/Migrations
-
-dotnet ef database update \
-  --project src/TradeOps.Infrastructure \
-  --startup-project src/TradeOps.Api
-```
-
-## Local validation
+Build:
 
 ```bash
-dotnet restore
+dotnet restore TradeOps.sln
 dotnet build TradeOps.sln
 ```
 
@@ -244,20 +331,28 @@ Run API:
 dotnet run --project src/TradeOps.Api
 ```
 
-Run recovery Worker in another terminal:
+Run Worker in another terminal using the same PostgreSQL connection string:
 
 ```bash
 dotnet run --project src/TradeOps.Worker
 ```
 
-Endpoints:
+## CI
 
-```text
-GET  /health
-GET  /api/account
-GET  /api/positions
-GET  /api/orders
-GET  /api/risk
-POST /api/signals
-POST /api/system/reconcile
-```
+GitHub Actions runs on `main` and `TradeOps/**` branches. The pipeline:
+
+1. restores dependencies;
+2. builds the complete .NET 8 solution;
+3. starts PostgreSQL 16;
+4. starts the API against that database;
+5. verifies `/health`;
+6. submits a signal and verifies a partial fill;
+7. reconciles and verifies the update;
+8. retries the same signal and verifies idempotency;
+9. validates/builds the Docker Compose images.
+
+## Current boundary
+
+The repository intentionally uses one deterministic `MockExchangeClient` for the portfolio demo. It does not connect to a live exchange and does not place real-money orders.
+
+The next adapter can implement the existing abstractions for a concrete venue such as Bybit, Binance, Sterling, Quantower-compatible infrastructure or another broker/exchange API without moving strategy logic into the execution engine.
