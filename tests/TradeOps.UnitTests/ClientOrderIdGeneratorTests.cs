@@ -1,4 +1,5 @@
 using TradeOps.Application.Services;
+using Xunit;
 
 namespace TradeOps.UnitTests;
 
