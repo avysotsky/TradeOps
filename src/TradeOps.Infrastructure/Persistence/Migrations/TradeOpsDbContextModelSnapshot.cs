@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using TradeOps.Domain.Enums;
 
 #nullable disable
 
@@ -42,8 +43,8 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
                 .HasPrecision(28, 12)
                 .HasColumnType("numeric(28,12)");
 
-            b.Property<string>("OrderType")
-                .IsRequired()
+            b.Property<OrderType>("OrderType")
+                .HasConversion<string>()
                 .HasMaxLength(20)
                 .HasColumnType("character varying(20)");
 
@@ -55,13 +56,13 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
                 .HasPrecision(28, 12)
                 .HasColumnType("numeric(28,12)");
 
-            b.Property<string>("Side")
-                .IsRequired()
+            b.Property<OrderSide>("Side")
+                .HasConversion<string>()
                 .HasMaxLength(20)
                 .HasColumnType("character varying(20)");
 
-            b.Property<string>("Status")
-                .IsRequired()
+            b.Property<OrderStatus>("Status")
+                .HasConversion<string>()
                 .HasMaxLength(30)
                 .HasColumnType("character varying(30)");
 
