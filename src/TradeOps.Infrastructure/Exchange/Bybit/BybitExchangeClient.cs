@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -121,7 +120,34 @@ public sealed class BybitExchangeClient : IExchangeClient, IExchangeConnectionMa
 
         if (request.OrderType == OrderType.Limit && request.Price is null)
         {
-            throw new ArgumentException("Limit orders require Price.", nameof(request));
+            return RejectLocally(request, "Limit orders require Price.");
+        }
+
+        BybitInstrumentDto instrument;
+        try
+        {
+            instrument = await GetInstrumentAsync(request.Symbol, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            _logger.LogWarning(
+                exception,
+                "Order {ClientOrderId} was rejected before placement because instrument filters for {Symbol} could not be loaded.",
+                request.ClientOrderId,
+                request.Symbol);
+
+            return new OrderResult(
+                null,
+                request.ClientOrderId,
+                OrderStatus.Rejected,
+                0m,
+                null);
+        }
+
+        var validationError = BybitOrderValidator.Validate(request, instrument);
+        if (validationError is not null)
+        {
+            return RejectLocally(request, validationError);
         }
 
         var payload = new Dictionary<string, object?>
@@ -285,6 +311,55 @@ public sealed class BybitExchangeClient : IExchangeClient, IExchangeConnectionMa
         return dto is null ? null : MapOrder(dto);
     }
 
+    private async Task<BybitInstrumentDto> GetInstrumentAsync(
+        string symbol,
+        CancellationToken cancellationToken)
+    {
+        var query = BuildQuery(
+            ("category", _options.Category),
+            ("symbol", symbol.ToUpperInvariant()));
+
+        var result = await SendPublicGetAsync<BybitInstrumentResult>(
+            "/v5/market/instruments-info",
+            query,
+            cancellationToken);
+
+        return result.List.FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                $"Bybit did not return instrument information for '{symbol}'.");
+    }
+
+    private async Task<T> SendPublicGetAsync<T>(
+        string path,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            BuildUri(path, query));
+
+        var client = _httpClientFactory.CreateClient(HttpClientName);
+        using var response = await client.SendAsync(request, cancellationToken);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Bybit returned HTTP {(int)response.StatusCode} ({response.StatusCode}) for instrument info.");
+        }
+
+        var envelope = JsonSerializer.Deserialize<BybitEnvelope<T>>(json, JsonOptions)
+            ?? throw new InvalidOperationException("Bybit returned an empty or invalid JSON response.");
+
+        if (envelope.RetCode != 0)
+        {
+            throw new BybitApiException(envelope.RetCode, envelope.RetMsg);
+        }
+
+        return envelope.Result
+            ?? throw new InvalidOperationException("Bybit response did not contain a result object.");
+    }
+
     private async Task<T> SendPrivateGetAsync<T>(
         string path,
         string query,
@@ -392,6 +467,21 @@ public sealed class BybitExchangeClient : IExchangeClient, IExchangeConnectionMa
         request.Headers.TryAddWithoutValidation("X-BAPI-TIMESTAMP", timestamp.ToString(CultureInfo.InvariantCulture));
         request.Headers.TryAddWithoutValidation("X-BAPI-RECV-WINDOW", _options.RecvWindowMilliseconds.ToString(CultureInfo.InvariantCulture));
         request.Headers.TryAddWithoutValidation("X-BAPI-SIGN", signature);
+    }
+
+    private OrderResult RejectLocally(PlaceOrderRequest request, string reason)
+    {
+        _logger.LogWarning(
+            "Order {ClientOrderId} rejected by local Bybit validation: {Reason}",
+            request.ClientOrderId,
+            reason);
+
+        return new OrderResult(
+            null,
+            request.ClientOrderId,
+            OrderStatus.Rejected,
+            0m,
+            null);
     }
 
     private Position MapPosition(BybitPositionDto position)
