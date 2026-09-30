@@ -14,6 +14,57 @@ internal sealed class BybitEnvelope<T>
     public T? Result { get; init; }
 }
 
+internal sealed class BybitInstrumentResult
+{
+    [JsonPropertyName("list")]
+    public List<BybitInstrumentDto> List { get; init; } = [];
+}
+
+internal sealed class BybitInstrumentDto
+{
+    [JsonPropertyName("symbol")]
+    public string Symbol { get; init; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; init; } = string.Empty;
+
+    [JsonPropertyName("priceFilter")]
+    public BybitPriceFilterDto PriceFilter { get; init; } = new();
+
+    [JsonPropertyName("lotSizeFilter")]
+    public BybitLotSizeFilterDto LotSizeFilter { get; init; } = new();
+}
+
+internal sealed class BybitPriceFilterDto
+{
+    [JsonPropertyName("minPrice")]
+    public string MinPrice { get; init; } = "0";
+
+    [JsonPropertyName("maxPrice")]
+    public string MaxPrice { get; init; } = "0";
+
+    [JsonPropertyName("tickSize")]
+    public string TickSize { get; init; } = "0";
+}
+
+internal sealed class BybitLotSizeFilterDto
+{
+    [JsonPropertyName("minNotionalValue")]
+    public string MinNotionalValue { get; init; } = "0";
+
+    [JsonPropertyName("maxOrderQty")]
+    public string MaxOrderQty { get; init; } = "0";
+
+    [JsonPropertyName("maxMktOrderQty")]
+    public string MaxMarketOrderQty { get; init; } = "0";
+
+    [JsonPropertyName("minOrderQty")]
+    public string MinOrderQty { get; init; } = "0";
+
+    [JsonPropertyName("qtyStep")]
+    public string QuantityStep { get; init; } = "0";
+}
+
 internal sealed class BybitWalletResult
 {
     [JsonPropertyName("list")]
