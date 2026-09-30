@@ -38,10 +38,23 @@ C#/.NET trading automation demo based on the TradeOps handoff.
 - dedicated `IClientOrderIdGenerator`
 - optional caller-supplied `SignalId` for safe request retries
 - no blind order retry after timeout
-- lookup/reconciliation by `ClientOrderId` after timeout
+- lookup by `ClientOrderId` after timeout
 - `OrderStatus.Unknown` when exchange state cannot be confirmed
 
-## Current execution flow
+### Day 5
+- explicit `IOrderStateMachine` / `OrderStateMachine`
+- guarded lifecycle transitions (`Submitted`, `Accepted`, `PartiallyFilled`, `Filled`, terminal states)
+- filled-quantity invariants for partial and complete fills
+- `IOrderReconciliationService` / `OrderReconciliationService`
+- reconciliation candidates loaded from PostgreSQL
+- identity checks before applying exchange state
+- unresolved exchange orders moved to `Unknown`
+- invalid exchange/local transitions reported as reconciliation issues instead of silently overwriting local state
+- deterministic mock partial fill: 60% on placement, 100% on subsequent reconciliation
+- `POST /api/system/reconcile`
+- GitHub Actions build for `main` and `TradeOps/**`
+
+## Execution flow
 
 ```text
 POST /api/signals
@@ -64,28 +77,41 @@ POST /api/signals
  persist Created order
         |
         v
- persist Submitted state
+ OrderStateMachine: Created -> Submitted
         |
         v
  IExchangeClient.PlaceOrderAsync
         |
-    success / timeout
+        v
+ Mock: PartiallyFilled (60%)
         |
-        +---- success ----> persist exchange state
-        |
-        +---- timeout ----> lookup by ClientOrderId
-                              |
-                         found / not found
-                              |
-                    persist state / Unknown
+        v
+ persist partial-fill state
 ```
+
+Then:
+
+```text
+POST /api/system/reconcile
+        |
+        v
+ load Submitted / Accepted / PartiallyFilled / Unknown orders
+        |
+        v
+ query exchange by ExchangeOrderId or ClientOrderId
+        |
+        +---- missing ----> mark Unknown + report issue
+        |
+        +---- mismatch ---> report issue, do not overwrite local state
+        |
+        +---- valid ------> OrderStateMachine -> persist exchange state
+```
+
+With the current mock, a `PartiallyFilled` order advances to `Filled` during the next exchange lookup used by reconciliation.
 
 ## Idempotency rule
 
-For a retry of the same logical trading signal, the caller should reuse the same
-`signalId`. TradeOps derives the same `ClientOrderId` from that signal ID.
-PostgreSQL enforces uniqueness on `ClientOrderId`, so concurrent duplicate
-requests cannot create two local execution records.
+For a retry of the same logical trading signal, reuse the same `signalId`. TradeOps derives the same `ClientOrderId` from that signal ID. PostgreSQL enforces uniqueness on `ClientOrderId`, so concurrent duplicate requests cannot create two local execution records.
 
 Example:
 
@@ -93,10 +119,25 @@ Example:
 {
   "symbol": "BTCUSDT",
   "side": "Buy",
-  "quantity": 0.01,
+  "quantity": 0.001,
   "source": "manual-demo",
   "signalId": "d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58"
 }
+```
+
+Expected first execution result with the current mock:
+
+```text
+RequestedQuantity = 0.001
+FilledQuantity    = 0.0006
+Status            = PartiallyFilled
+```
+
+After `POST /api/system/reconcile`:
+
+```text
+FilledQuantity = 0.001
+Status         = Filled
 ```
 
 ## Project references
@@ -114,7 +155,7 @@ Default development connection string:
 Host=localhost;Port=5432;Database=tradeops;Username=postgres
 ```
 
-For a password or different environment, override it without committing secrets:
+Override credentials without committing secrets:
 
 ```bash
 ConnectionStrings__TradeOpsDb="Host=localhost;Port=5432;Database=tradeops;Username=postgres;Password=YOUR_PASSWORD" dotnet run --project src/TradeOps.Api
@@ -122,9 +163,7 @@ ConnectionStrings__TradeOpsDb="Host=localhost;Port=5432;Database=tradeops;Userna
 
 ## EF Core migration
 
-The current execution environment used to prepare this repository does not have
-the .NET SDK installed, so the initial migration is intentionally not generated
-blindly. Generate and apply it in a .NET 8 environment:
+The environment used to prepare this repository does not have the .NET SDK installed, so migrations are not generated blindly. Generate and apply them in a .NET 8 environment:
 
 ```bash
 dotnet tool install --global dotnet-ef --version 8.*
@@ -155,4 +194,5 @@ GET  /api/positions
 GET  /api/orders
 GET  /api/risk
 POST /api/signals
+POST /api/system/reconcile
 ```
