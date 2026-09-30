@@ -4,5 +4,6 @@ namespace TradeOps.Application.Services;
 
 public sealed class ClientOrderIdGenerator : IClientOrderIdGenerator
 {
-    public string Generate(Guid signalId) => $"tradeops-{signalId:N}";
+    // 36 characters exactly: Bybit orderLinkId allows a maximum of 36.
+    public string Generate(Guid signalId) => $"trd-{signalId:N}";
 }
