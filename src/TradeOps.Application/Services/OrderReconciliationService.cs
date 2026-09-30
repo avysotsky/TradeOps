@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -8,7 +9,9 @@ namespace TradeOps.Application.Services;
 public sealed class OrderReconciliationService(
     IExchangeClient exchangeClient,
     IOrderRepository orderRepository,
-    IOrderStateMachine orderStateMachine) : IOrderReconciliationService
+    IOrderStateMachine orderStateMachine,
+    IAlertService alertService,
+    ILogger<OrderReconciliationService> logger) : IOrderReconciliationService
 {
     public async Task<ReconciliationSummary> ReconcileAsync(
         CancellationToken cancellationToken = default)
@@ -76,6 +79,8 @@ public sealed class OrderReconciliationService(
 
             try
             {
+                var previousStatus = localOrder.Status;
+
                 orderStateMachine.Apply(
                     localOrder,
                     exchangeOrder.Status,
@@ -86,6 +91,14 @@ public sealed class OrderReconciliationService(
 
                 await orderRepository.UpdateAsync(localOrder, cancellationToken);
                 updated++;
+
+                logger.LogInformation(
+                    "Reconciled order {ClientOrderId}: {PreviousStatus} -> {CurrentStatus}, filled {FilledQuantity}/{RequestedQuantity}.",
+                    localOrder.ClientOrderId,
+                    previousStatus,
+                    localOrder.Status,
+                    localOrder.FilledQuantity,
+                    localOrder.RequestedQuantity);
             }
             catch (InvalidOperationException exception)
             {
@@ -97,12 +110,32 @@ public sealed class OrderReconciliationService(
             }
         }
 
-        return new ReconciliationSummary(
+        var summary = new ReconciliationSummary(
             localOrders.Count,
             updated,
             unchanged,
             missing,
             issues);
+
+        logger.LogInformation(
+            "Reconciliation completed. Scanned={Scanned}, Updated={Updated}, Unchanged={Unchanged}, MissingOnExchange={MissingOnExchange}, Issues={IssueCount}.",
+            summary.Scanned,
+            summary.Updated,
+            summary.Unchanged,
+            summary.MissingOnExchange,
+            summary.Issues.Count);
+
+        if (summary.Issues.Count > 0)
+        {
+            await alertService.SendAsync(
+                new AlertMessage(
+                    "ReconciliationMismatch",
+                    $"Reconciliation found {summary.Issues.Count} issue(s); scanned={summary.Scanned}, updated={summary.Updated}, missing={summary.MissingOnExchange}.",
+                    AlertSeverity.Warning),
+                cancellationToken);
+        }
+
+        return summary;
     }
 
     private static bool HasSameIdentity(Order localOrder, Order exchangeOrder)

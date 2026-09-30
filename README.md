@@ -24,8 +24,7 @@ C#/.NET trading automation demo based on the TradeOps handoff.
 - `POST /api/signals`
 - `IRiskEngine` / `RiskEngine`
 - `IOrderManager` / `OrderManager`
-- risk checks for trading enabled, emergency stop, allowed symbols,
-  order size, max positions, projected position size, daily loss state
+- risk checks for trading enabled, emergency stop, allowed symbols, order size, max positions, projected position size, daily loss state
 - `GET /api/risk`
 - temporary in-memory daily PnL source (`IRiskState`)
 
@@ -53,6 +52,18 @@ C#/.NET trading automation demo based on the TradeOps handoff.
 - deterministic mock partial fill: 60% on placement, 100% on subsequent reconciliation
 - `POST /api/system/reconcile`
 - GitHub Actions build for `main` and `TradeOps/**`
+
+### Day 6
+- background `TradeOps.Worker` performs restart recovery immediately on startup
+- periodic reconciliation loop
+- `IExchangeConnectionManager` abstraction for future REST/WebSocket adapters
+- reconnect/recovery retry loop with exponential backoff
+- `IAlertService` abstraction
+- Telegram alert adapter with fail-safe delivery
+- structured `ILogger<T>` events for execution and reconciliation
+- alerts for risk rejection, submitted orders, partial fills, fills, rejects, unknown states, reconciliation mismatches, disconnects and reconnects
+- Telegram secrets are supplied only through configuration/environment variables
+- mock exchange IDs are self-describing so a separate Worker process can reconstruct synthetic exchange state after restart
 
 ## Execution flow
 
@@ -87,27 +98,38 @@ POST /api/signals
         |
         v
  persist partial-fill state
+        |
+        +---- structured log
+        +---- optional Telegram alert
 ```
 
-Then:
+## Recovery flow
 
 ```text
-POST /api/system/reconcile
+TradeOps.Worker starts
         |
         v
- load Submitted / Accepted / PartiallyFilled / Unknown orders
+EnsureConnectedAsync
+        |
+   success / failure
+        |
+        +---- failure ---> alert once ---> exponential backoff ---> retry
         |
         v
- query exchange by ExchangeOrderId or ClientOrderId
+load reconciliation candidates from PostgreSQL
         |
-        +---- missing ----> mark Unknown + report issue
+        v
+query exchange state
         |
-        +---- mismatch ---> report issue, do not overwrite local state
+        +---- valid ------> OrderStateMachine -> persist
+        +---- missing ----> Unknown + issue
+        +---- mismatch ---> issue; do not overwrite blindly
         |
-        +---- valid ------> OrderStateMachine -> persist exchange state
+        v
+periodic reconciliation
 ```
 
-With the current mock, a `PartiallyFilled` order advances to `Filled` during the next exchange lookup used by reconciliation.
+With the current mock, a `PartiallyFilled` order advances to `Filled` during the next exchange lookup used by reconciliation. The mock `ExchangeOrderId` contains enough synthetic state for the separate Worker process to reconstruct that mock order after a process restart. This behavior exists only for the demo mock; real exchange adapters will query the external venue.
 
 ## Idempotency rule
 
@@ -133,7 +155,7 @@ FilledQuantity    = 0.0006
 Status            = PartiallyFilled
 ```
 
-After `POST /api/system/reconcile`:
+After reconciliation:
 
 ```text
 FilledQuantity = 0.001
@@ -161,9 +183,41 @@ Override credentials without committing secrets:
 ConnectionStrings__TradeOpsDb="Host=localhost;Port=5432;Database=tradeops;Username=postgres;Password=YOUR_PASSWORD" dotnet run --project src/TradeOps.Api
 ```
 
+Use the same connection string for `TradeOps.Worker`.
+
+## Telegram configuration
+
+Telegram alerts are disabled by default. Do not commit a bot token or chat id.
+
+Example environment variables:
+
+```bash
+Telegram__Enabled=true
+Telegram__BotToken="YOUR_BOT_TOKEN"
+Telegram__ChatId="YOUR_CHAT_ID"
+```
+
+The Telegram adapter is fail-safe: delivery errors are logged and do not fail the trading execution path.
+
+## Worker configuration
+
+Defaults:
+
+```json
+{
+  "Worker": {
+    "ReconciliationIntervalSeconds": 30,
+    "InitialRetryDelaySeconds": 2,
+    "MaxRetryDelaySeconds": 30
+  }
+}
+```
+
+The retry delay grows exponentially until `MaxRetryDelaySeconds`.
+
 ## EF Core migration
 
-The environment used to prepare this repository does not have the .NET SDK installed, so migrations are not generated blindly. Generate and apply them in a .NET 8 environment:
+Generate and apply the migration in a .NET 8 environment:
 
 ```bash
 dotnet tool install --global dotnet-ef --version 8.*
@@ -182,7 +236,18 @@ dotnet ef database update \
 ```bash
 dotnet restore
 dotnet build TradeOps.sln
+```
+
+Run API:
+
+```bash
 dotnet run --project src/TradeOps.Api
+```
+
+Run recovery Worker in another terminal:
+
+```bash
+dotnet run --project src/TradeOps.Worker
 ```
 
 Endpoints:

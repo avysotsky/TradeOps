@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Application.Services;
+using TradeOps.Infrastructure.Alerts;
 using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Persistence;
 using TradeOps.Infrastructure.Persistence.Repositories;
@@ -24,7 +25,17 @@ var connectionString = builder.Configuration.GetConnectionString("TradeOpsDb")
 builder.Services.AddDbContext<TradeOpsDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-builder.Services.AddSingleton<IExchangeClient, MockExchangeClient>();
+builder.Services.Configure<TelegramOptions>(
+    builder.Configuration.GetSection(TelegramOptions.SectionName));
+builder.Services.AddHttpClient("telegram");
+builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
+
+builder.Services.AddSingleton<MockExchangeClient>();
+builder.Services.AddSingleton<IExchangeClient>(provider =>
+    provider.GetRequiredService<MockExchangeClient>());
+builder.Services.AddSingleton<IExchangeConnectionManager>(provider =>
+    provider.GetRequiredService<MockExchangeClient>());
+
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();

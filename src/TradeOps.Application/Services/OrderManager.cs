@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -10,7 +11,9 @@ public sealed class OrderManager(
     IExchangeClient exchangeClient,
     IOrderRepository orderRepository,
     IClientOrderIdGenerator clientOrderIdGenerator,
-    IOrderStateMachine orderStateMachine) : IOrderManager
+    IOrderStateMachine orderStateMachine,
+    IAlertService alertService,
+    ILogger<OrderManager> logger) : IOrderManager
 {
     public async Task<SignalExecutionResult> ExecuteSignalAsync(
         TradingSignal signal,
@@ -24,6 +27,11 @@ public sealed class OrderManager(
 
         if (existingOrder is not null)
         {
+            logger.LogInformation(
+                "Idempotent signal retry returned existing order {ClientOrderId} with status {Status}.",
+                clientOrderId,
+                existingOrder.Status);
+
             return FromExistingOrder(signal.Id, existingOrder);
         }
 
@@ -31,6 +39,19 @@ public sealed class OrderManager(
 
         if (!riskDecision.IsAllowed)
         {
+            logger.LogWarning(
+                "Signal {SignalId} was rejected by risk controls. Reasons: {Reasons}",
+                signal.Id,
+                string.Join("; ", riskDecision.Reasons));
+
+            await alertService.SendAsync(
+                new AlertMessage(
+                    "RiskRejected",
+                    $"Signal {signal.Id} for {signal.Symbol} was rejected: {string.Join("; ", riskDecision.Reasons)}",
+                    AlertSeverity.Warning,
+                    clientOrderId),
+                cancellationToken);
+
             return new SignalExecutionResult(
                 signal.Id,
                 false,
@@ -69,6 +90,11 @@ public sealed class OrderManager(
                     $"Duplicate ClientOrderId '{clientOrderId}' was detected, but the existing order could not be loaded.");
             }
 
+            logger.LogInformation(
+                "Concurrent duplicate signal resolved to existing order {ClientOrderId} with status {Status}.",
+                clientOrderId,
+                existingOrder.Status);
+
             return FromExistingOrder(signal.Id, existingOrder);
         }
 
@@ -79,6 +105,21 @@ public sealed class OrderManager(
             null);
 
         await orderRepository.UpdateAsync(localOrder, cancellationToken);
+
+        logger.LogInformation(
+            "Order {ClientOrderId} submitted for {Side} {Quantity} {Symbol}.",
+            localOrder.ClientOrderId,
+            localOrder.Side,
+            localOrder.RequestedQuantity,
+            localOrder.Symbol);
+
+        await alertService.SendAsync(
+            new AlertMessage(
+                "OrderSubmitted",
+                $"{localOrder.ClientOrderId}: {localOrder.Side} {localOrder.RequestedQuantity} {localOrder.Symbol} submitted.",
+                AlertSeverity.Info,
+                localOrder.ClientOrderId),
+            cancellationToken);
 
         var orderRequest = new PlaceOrderRequest(
             clientOrderId,
@@ -101,11 +142,17 @@ public sealed class OrderManager(
                 exchangeResult.ExchangeOrderId);
 
             await orderRepository.UpdateAsync(localOrder, cancellationToken);
+            await LogAndAlertOrderStateAsync(localOrder, cancellationToken);
 
             return FromExistingOrder(signal.Id, localOrder);
         }
-        catch (TimeoutException)
+        catch (TimeoutException exception)
         {
+            logger.LogWarning(
+                exception,
+                "Timeout while submitting order {ClientOrderId}; reconciling by client order id instead of retrying blindly.",
+                clientOrderId);
+
             var exchangeOrder = await exchangeClient.GetOrderByClientOrderIdAsync(
                 clientOrderId,
                 cancellationToken);
@@ -121,11 +168,10 @@ public sealed class OrderManager(
                     exchangeOrder.Price);
 
                 await orderRepository.UpdateAsync(localOrder, cancellationToken);
+                await LogAndAlertOrderStateAsync(localOrder, cancellationToken);
                 return FromExistingOrder(signal.Id, localOrder);
             }
 
-            // Never retry blindly after a timeout: the exchange may have accepted
-            // the request even though the response was lost.
             orderStateMachine.Apply(
                 localOrder,
                 OrderStatus.Unknown,
@@ -135,8 +181,40 @@ public sealed class OrderManager(
                 localOrder.Price);
 
             await orderRepository.UpdateAsync(localOrder, cancellationToken);
+            await LogAndAlertOrderStateAsync(localOrder, cancellationToken);
             return FromExistingOrder(signal.Id, localOrder);
         }
+    }
+
+    private async Task LogAndAlertOrderStateAsync(
+        Order order,
+        CancellationToken cancellationToken)
+    {
+        logger.LogInformation(
+            "Order {ClientOrderId} state changed to {Status}. Filled {FilledQuantity}/{RequestedQuantity} at {AverageFillPrice}.",
+            order.ClientOrderId,
+            order.Status,
+            order.FilledQuantity,
+            order.RequestedQuantity,
+            order.AverageFillPrice);
+
+        var (eventType, severity) = order.Status switch
+        {
+            OrderStatus.PartiallyFilled => ("OrderPartiallyFilled", AlertSeverity.Info),
+            OrderStatus.Filled => ("OrderFilled", AlertSeverity.Info),
+            OrderStatus.Rejected => ("OrderRejected", AlertSeverity.Warning),
+            OrderStatus.Cancelled => ("OrderCancelled", AlertSeverity.Info),
+            OrderStatus.Unknown => ("OrderStateUnknown", AlertSeverity.Error),
+            _ => ("OrderStateChanged", AlertSeverity.Info)
+        };
+
+        await alertService.SendAsync(
+            new AlertMessage(
+                eventType,
+                $"{order.ClientOrderId}: {order.Status}; filled {order.FilledQuantity}/{order.RequestedQuantity} {order.Symbol}.",
+                severity,
+                order.ClientOrderId),
+            cancellationToken);
     }
 
     private static SignalExecutionResult FromExistingOrder(Guid signalId, Order order)
