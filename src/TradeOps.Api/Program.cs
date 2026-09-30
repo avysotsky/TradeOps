@@ -30,11 +30,7 @@ builder.Services.Configure<TelegramOptions>(
 builder.Services.AddHttpClient("telegram");
 builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
 
-builder.Services.AddSingleton<MockExchangeClient>();
-builder.Services.AddSingleton<IExchangeClient>(provider =>
-    provider.GetRequiredService<MockExchangeClient>());
-builder.Services.AddSingleton<IExchangeConnectionManager>(provider =>
-    provider.GetRequiredService<MockExchangeClient>());
+builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
