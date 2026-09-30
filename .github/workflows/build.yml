@@ -46,10 +46,14 @@ jobs:
       - name: Build
         run: dotnet build TradeOps.sln --configuration Release --no-restore
 
+      - name: Unit tests
+        run: dotnet test TradeOps.sln --configuration Release --no-build --verbosity normal
+
       - name: API + PostgreSQL smoke test
         env:
           ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_ci;Username=postgres;Password=postgres
           ASPNETCORE_URLS: http://127.0.0.1:5080
+          Exchange__Provider: Mock
           Telegram__Enabled: 'false'
         run: |
           set -euo pipefail
