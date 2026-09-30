@@ -275,40 +275,48 @@ public sealed class BybitExchangeClient : IExchangeClient, IExchangeConnectionMa
             exchangeOrderId);
     }
 
-    public async Task<Order?> GetOrderAsync(
+    public Task<Order?> GetOrderAsync(
         string exchangeOrderId,
-        CancellationToken cancellationToken = default)
-    {
-        var query = BuildQuery(
-            ("category", _options.Category),
-            ("settleCoin", _options.SettleCoin),
-            ("orderId", exchangeOrderId));
+        CancellationToken cancellationToken = default) =>
+        GetOrderWithHistoryFallbackAsync("orderId", exchangeOrderId, cancellationToken);
 
-        var result = await SendPrivateGetAsync<BybitOrderListResult>(
-            "/v5/order/realtime",
-            query,
-            cancellationToken);
-
-        var dto = result.List.FirstOrDefault();
-        return dto is null ? null : MapOrder(dto);
-    }
-
-    public async Task<Order?> GetOrderByClientOrderIdAsync(
+    public Task<Order?> GetOrderByClientOrderIdAsync(
         string clientOrderId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        GetOrderWithHistoryFallbackAsync("orderLinkId", clientOrderId, cancellationToken);
+
+    private async Task<Order?> GetOrderWithHistoryFallbackAsync(
+        string lookupKey,
+        string lookupValue,
+        CancellationToken cancellationToken)
     {
         var query = BuildQuery(
             ("category", _options.Category),
             ("settleCoin", _options.SettleCoin),
-            ("orderLinkId", clientOrderId));
+            (lookupKey, lookupValue));
 
-        var result = await SendPrivateGetAsync<BybitOrderListResult>(
+        var realtime = await SendPrivateGetAsync<BybitOrderListResult>(
             "/v5/order/realtime",
             query,
             cancellationToken);
 
-        var dto = result.List.FirstOrDefault();
-        return dto is null ? null : MapOrder(dto);
+        var realtimeOrder = realtime.List.FirstOrDefault();
+        if (realtimeOrder is not null)
+        {
+            return MapOrder(realtimeOrder);
+        }
+
+        _logger.LogDebug(
+            "Bybit order lookup by {LookupKey} missed realtime state; checking order history.",
+            lookupKey);
+
+        var history = await SendPrivateGetAsync<BybitOrderListResult>(
+            "/v5/order/history",
+            query,
+            cancellationToken);
+
+        var historicalOrder = history.List.FirstOrDefault();
+        return historicalOrder is null ? null : MapOrder(historicalOrder);
     }
 
     private async Task<BybitInstrumentDto> GetInstrumentAsync(
