@@ -89,15 +89,25 @@ jobs:
             http://127.0.0.1:5080/api/signals)
 
           echo "$FIRST"
-          echo "$FIRST" | grep -q '"status":"PartiallyFilled"'
-          echo "$FIRST" | grep -q '"filledQuantity":0.00060'
+          FIRST_JSON="$FIRST" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["FIRST_JSON"])
+          order = data["order"]
+          assert order["status"] == "PartiallyFilled", order
+          assert abs(float(order["filledQuantity"]) - 0.0006) < 1e-12, order
+          PY
 
           RECONCILIATION=$(curl --fail --silent --show-error \
             -X POST \
             http://127.0.0.1:5080/api/system/reconcile)
 
           echo "$RECONCILIATION"
-          echo "$RECONCILIATION" | grep -q '"updated":1'
+          RECONCILIATION_JSON="$RECONCILIATION" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["RECONCILIATION_JSON"])
+          assert data["updated"] == 1, data
+          assert len(data["issues"]) == 0, data
+          PY
 
           RETRY=$(curl --fail --silent --show-error \
             -H 'Content-Type: application/json' \
@@ -105,8 +115,13 @@ jobs:
             http://127.0.0.1:5080/api/signals)
 
           echo "$RETRY"
-          echo "$RETRY" | grep -q '"status":"Filled"'
-          echo "$RETRY" | grep -q '"filledQuantity":0.001000000000'
+          RETRY_JSON="$RETRY" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["RETRY_JSON"])
+          order = data["order"]
+          assert order["status"] == "Filled", order
+          assert abs(float(order["filledQuantity"]) - 0.001) < 1e-12, order
+          PY
 
       - name: Validate Docker Compose
         run: docker compose config --quiet
