@@ -12,6 +12,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.Infrastructure", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.Worker", "src\TradeOps.Worker\TradeOps.Worker.csproj", "{A66004F7-15FE-4446-B462-511F9101443F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.UnitTests", "tests\TradeOps.UnitTests\TradeOps.UnitTests.csproj", "{E14D0F8A-BD2C-4B5C-A3A3-1F5C7A0C91C2}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|Any CPU = Debug|Any CPU
@@ -38,5 +40,9 @@ Global
         {A66004F7-15FE-4446-B462-511F9101443F}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {A66004F7-15FE-4446-B462-511F9101443F}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {A66004F7-15FE-4446-B462-511F9101443F}.Release|Any CPU.Build.0 = Release|Any CPU
+        {E14D0F8A-BD2C-4B5C-A3A3-1F5C7A0C91C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {E14D0F8A-BD2C-4B5C-A3A3-1F5C7A0C91C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {E14D0F8A-BD2C-4B5C-A3A3-1F5C7A0C91C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {E14D0F8A-BD2C-4B5C-A3A3-1F5C7A0C91C2}.Release|Any CPU.Build.0 = Release|Any CPU
     EndGlobalSection
 EndGlobal
