@@ -1,4 +1,5 @@
 using TradeOps.Infrastructure.Exchange.Bybit;
+using Xunit;
 
 namespace TradeOps.UnitTests;
 
