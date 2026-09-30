@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Application.Interfaces;
 using TradeOps.Domain.Entities;
+using TradeOps.Domain.Enums;
 
 namespace TradeOps.Api.Controllers;
 
@@ -45,6 +46,7 @@ public sealed class OrdersController(IExchangeClient exchangeClient) : Controlle
     [HttpDelete("{exchangeOrderId}")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Cancel(
         string exchangeOrderId,
         CancellationToken cancellationToken)
@@ -53,6 +55,16 @@ public sealed class OrdersController(IExchangeClient exchangeClient) : Controlle
         if (order is null)
         {
             return NotFound();
+        }
+
+        if (order.Status is OrderStatus.Filled
+            or OrderStatus.Cancelled
+            or OrderStatus.Rejected)
+        {
+            return Conflict(new
+            {
+                message = $"Order '{exchangeOrderId}' is already terminal ({order.Status}) and cannot be cancelled."
+            });
         }
 
         await exchangeClient.CancelOrderAsync(exchangeOrderId, cancellationToken);
