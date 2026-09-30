@@ -9,4 +9,5 @@ public sealed record CreateTradingSignalRequest(
     decimal? RiskPercent = null,
     decimal? StopLoss = null,
     decimal? TakeProfit = null,
-    string? Source = null);
+    string? Source = null,
+    Guid? SignalId = null);

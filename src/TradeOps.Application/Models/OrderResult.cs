@@ -3,7 +3,7 @@ using TradeOps.Domain.Enums;
 namespace TradeOps.Application.Models;
 
 public sealed record OrderResult(
-    string ExchangeOrderId,
+    string? ExchangeOrderId,
     string ClientOrderId,
     OrderStatus Status,
     decimal FilledQuantity,

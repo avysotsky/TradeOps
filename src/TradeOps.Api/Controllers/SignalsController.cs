@@ -19,7 +19,7 @@ public sealed class SignalsController(IOrderManager orderManager) : ControllerBa
     {
         var signal = new TradingSignal
         {
-            Id = Guid.NewGuid(),
+            Id = request.SignalId ?? Guid.NewGuid(),
             Symbol = request.Symbol.Trim().ToUpperInvariant(),
             Side = request.Side,
             SignalType = "External",

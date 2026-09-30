@@ -8,7 +8,7 @@ namespace TradeOps.Infrastructure.Exchange;
 
 public sealed class MockExchangeClient : IExchangeClient
 {
-    private readonly ConcurrentDictionary<string, Order> _orders = new();
+    private readonly ConcurrentDictionary<string, Order> _ordersByClientOrderId = new();
 
     private readonly List<Position> _positions =
     [
@@ -46,7 +46,7 @@ public sealed class MockExchangeClient : IExchangeClient
     public Task<IReadOnlyCollection<Order>> GetOpenOrdersAsync(
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyCollection<Order> result = _orders.Values
+        IReadOnlyCollection<Order> result = _ordersByClientOrderId.Values
             .Where(order => order.Status is OrderStatus.Created
                 or OrderStatus.Submitted
                 or OrderStatus.Accepted
@@ -62,43 +62,21 @@ public sealed class MockExchangeClient : IExchangeClient
         PlaceOrderRequest request,
         CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
-        var exchangeOrderId = $"mock-{Guid.NewGuid():N}";
-
-        var order = new Order
-        {
-            Id = Guid.NewGuid(),
-            ExchangeOrderId = exchangeOrderId,
-            ClientOrderId = request.ClientOrderId,
-            Symbol = request.Symbol,
-            Side = request.Side,
-            OrderType = request.OrderType,
-            RequestedQuantity = request.Quantity,
-            FilledQuantity = 0m,
-            Price = request.Price,
-            Status = OrderStatus.Accepted,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
-
-        if (!_orders.TryAdd(exchangeOrderId, order))
-        {
-            throw new InvalidOperationException("Could not add mock order.");
-        }
-
-        return Task.FromResult(new OrderResult(
-            exchangeOrderId,
+        var order = _ordersByClientOrderId.GetOrAdd(
             request.ClientOrderId,
-            order.Status,
-            order.FilledQuantity,
-            order.AverageFillPrice));
+            _ => CreateOrder(request));
+
+        return Task.FromResult(ToResult(order));
     }
 
     public Task CancelOrderAsync(
         string exchangeOrderId,
         CancellationToken cancellationToken = default)
     {
-        if (!_orders.TryGetValue(exchangeOrderId, out var order))
+        var order = _ordersByClientOrderId.Values.FirstOrDefault(
+            candidate => candidate.ExchangeOrderId == exchangeOrderId);
+
+        if (order is null)
         {
             throw new KeyNotFoundException($"Order '{exchangeOrderId}' was not found.");
         }
@@ -113,7 +91,48 @@ public sealed class MockExchangeClient : IExchangeClient
         string exchangeOrderId,
         CancellationToken cancellationToken = default)
     {
-        _orders.TryGetValue(exchangeOrderId, out var order);
+        var order = _ordersByClientOrderId.Values.FirstOrDefault(
+            candidate => candidate.ExchangeOrderId == exchangeOrderId);
+
         return Task.FromResult(order);
+    }
+
+    public Task<Order?> GetOrderByClientOrderIdAsync(
+        string clientOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        _ordersByClientOrderId.TryGetValue(clientOrderId, out var order);
+        return Task.FromResult(order);
+    }
+
+    private static Order CreateOrder(PlaceOrderRequest request)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        return new Order
+        {
+            Id = Guid.NewGuid(),
+            ExchangeOrderId = $"mock-{Guid.NewGuid():N}",
+            ClientOrderId = request.ClientOrderId,
+            Symbol = request.Symbol,
+            Side = request.Side,
+            OrderType = request.OrderType,
+            RequestedQuantity = request.Quantity,
+            FilledQuantity = 0m,
+            Price = request.Price,
+            Status = OrderStatus.Accepted,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+    }
+
+    private static OrderResult ToResult(Order order)
+    {
+        return new OrderResult(
+            order.ExchangeOrderId,
+            order.ClientOrderId,
+            order.Status,
+            order.FilledQuantity,
+            order.AverageFillPrice);
     }
 }

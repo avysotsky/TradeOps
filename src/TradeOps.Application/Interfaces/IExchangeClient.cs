@@ -24,4 +24,8 @@ public interface IExchangeClient
     Task<Order?> GetOrderAsync(
         string exchangeOrderId,
         CancellationToken cancellationToken = default);
+
+    Task<Order?> GetOrderByClientOrderIdAsync(
+        string clientOrderId,
+        CancellationToken cancellationToken = default);
 }
