@@ -9,7 +9,8 @@ public sealed class OrderManager(
     IRiskEngine riskEngine,
     IExchangeClient exchangeClient,
     IOrderRepository orderRepository,
-    IClientOrderIdGenerator clientOrderIdGenerator) : IOrderManager
+    IClientOrderIdGenerator clientOrderIdGenerator,
+    IOrderStateMachine orderStateMachine) : IOrderManager
 {
     public async Task<SignalExecutionResult> ExecuteSignalAsync(
         TradingSignal signal,
@@ -71,8 +72,12 @@ public sealed class OrderManager(
             return FromExistingOrder(signal.Id, existingOrder);
         }
 
-        localOrder.Status = OrderStatus.Submitted;
-        localOrder.UpdatedAt = DateTimeOffset.UtcNow;
+        orderStateMachine.Apply(
+            localOrder,
+            OrderStatus.Submitted,
+            0m,
+            null);
+
         await orderRepository.UpdateAsync(localOrder, cancellationToken);
 
         var orderRequest = new PlaceOrderRequest(
@@ -88,14 +93,16 @@ public sealed class OrderManager(
                 orderRequest,
                 cancellationToken);
 
-            ApplyExchangeResult(localOrder, exchangeResult);
+            orderStateMachine.Apply(
+                localOrder,
+                exchangeResult.Status,
+                exchangeResult.FilledQuantity,
+                exchangeResult.AverageFillPrice,
+                exchangeResult.ExchangeOrderId);
+
             await orderRepository.UpdateAsync(localOrder, cancellationToken);
 
-            return new SignalExecutionResult(
-                signal.Id,
-                true,
-                Array.Empty<string>(),
-                exchangeResult);
+            return FromExistingOrder(signal.Id, localOrder);
         }
         catch (TimeoutException)
         {
@@ -105,18 +112,29 @@ public sealed class OrderManager(
 
             if (exchangeOrder is not null)
             {
-                ApplyExchangeOrder(localOrder, exchangeOrder);
-                await orderRepository.UpdateAsync(localOrder, cancellationToken);
+                orderStateMachine.Apply(
+                    localOrder,
+                    exchangeOrder.Status,
+                    exchangeOrder.FilledQuantity,
+                    exchangeOrder.AverageFillPrice,
+                    exchangeOrder.ExchangeOrderId,
+                    exchangeOrder.Price);
 
+                await orderRepository.UpdateAsync(localOrder, cancellationToken);
                 return FromExistingOrder(signal.Id, localOrder);
             }
 
             // Never retry blindly after a timeout: the exchange may have accepted
             // the request even though the response was lost.
-            localOrder.Status = OrderStatus.Unknown;
-            localOrder.UpdatedAt = DateTimeOffset.UtcNow;
-            await orderRepository.UpdateAsync(localOrder, cancellationToken);
+            orderStateMachine.Apply(
+                localOrder,
+                OrderStatus.Unknown,
+                localOrder.FilledQuantity,
+                localOrder.AverageFillPrice,
+                localOrder.ExchangeOrderId,
+                localOrder.Price);
 
+            await orderRepository.UpdateAsync(localOrder, cancellationToken);
             return FromExistingOrder(signal.Id, localOrder);
         }
     }
@@ -135,24 +153,5 @@ public sealed class OrderManager(
             true,
             Array.Empty<string>(),
             result);
-    }
-
-    private static void ApplyExchangeResult(Order localOrder, OrderResult result)
-    {
-        localOrder.ExchangeOrderId = result.ExchangeOrderId;
-        localOrder.Status = result.Status;
-        localOrder.FilledQuantity = result.FilledQuantity;
-        localOrder.AverageFillPrice = result.AverageFillPrice;
-        localOrder.UpdatedAt = DateTimeOffset.UtcNow;
-    }
-
-    private static void ApplyExchangeOrder(Order localOrder, Order exchangeOrder)
-    {
-        localOrder.ExchangeOrderId = exchangeOrder.ExchangeOrderId;
-        localOrder.Status = exchangeOrder.Status;
-        localOrder.FilledQuantity = exchangeOrder.FilledQuantity;
-        localOrder.AverageFillPrice = exchangeOrder.AverageFillPrice;
-        localOrder.Price = exchangeOrder.Price;
-        localOrder.UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

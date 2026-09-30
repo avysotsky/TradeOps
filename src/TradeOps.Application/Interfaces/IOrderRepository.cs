@@ -8,6 +8,9 @@ public interface IOrderRepository
         string clientOrderId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<Order>> GetReconciliationCandidatesAsync(
+        CancellationToken cancellationToken = default);
+
     Task<bool> TryAddAsync(
         Order order,
         CancellationToken cancellationToken = default);

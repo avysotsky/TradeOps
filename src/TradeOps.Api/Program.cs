@@ -27,10 +27,12 @@ builder.Services.AddDbContext<TradeOpsDbContext>(options =>
 builder.Services.AddSingleton<IExchangeClient, MockExchangeClient>();
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
+builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton<IRiskState, InMemoryRiskState>();
 builder.Services.AddSingleton(new RiskSettings());
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
+builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 
 var app = builder.Build();
 

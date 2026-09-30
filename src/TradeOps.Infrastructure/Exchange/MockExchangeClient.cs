@@ -64,7 +64,7 @@ public sealed class MockExchangeClient : IExchangeClient
     {
         var order = _ordersByClientOrderId.GetOrAdd(
             request.ClientOrderId,
-            _ => CreateOrder(request));
+            _ => CreatePartiallyFilledOrder(request));
 
         return Task.FromResult(ToResult(order));
     }
@@ -73,16 +73,17 @@ public sealed class MockExchangeClient : IExchangeClient
         string exchangeOrderId,
         CancellationToken cancellationToken = default)
     {
-        var order = _ordersByClientOrderId.Values.FirstOrDefault(
-            candidate => candidate.ExchangeOrderId == exchangeOrderId);
+        var order = FindByExchangeOrderId(exchangeOrderId)
+            ?? throw new KeyNotFoundException($"Order '{exchangeOrderId}' was not found.");
 
-        if (order is null)
+        lock (order)
         {
-            throw new KeyNotFoundException($"Order '{exchangeOrderId}' was not found.");
+            if (order.Status != OrderStatus.Filled)
+            {
+                order.Status = OrderStatus.Cancelled;
+                order.UpdatedAt = DateTimeOffset.UtcNow;
+            }
         }
-
-        order.Status = OrderStatus.Cancelled;
-        order.UpdatedAt = DateTimeOffset.UtcNow;
 
         return Task.CompletedTask;
     }
@@ -91,8 +92,12 @@ public sealed class MockExchangeClient : IExchangeClient
         string exchangeOrderId,
         CancellationToken cancellationToken = default)
     {
-        var order = _ordersByClientOrderId.Values.FirstOrDefault(
-            candidate => candidate.ExchangeOrderId == exchangeOrderId);
+        var order = FindByExchangeOrderId(exchangeOrderId);
+
+        if (order is not null)
+        {
+            AdvancePartialFill(order);
+        }
 
         return Task.FromResult(order);
     }
@@ -102,12 +107,25 @@ public sealed class MockExchangeClient : IExchangeClient
         CancellationToken cancellationToken = default)
     {
         _ordersByClientOrderId.TryGetValue(clientOrderId, out var order);
+
+        if (order is not null)
+        {
+            AdvancePartialFill(order);
+        }
+
         return Task.FromResult(order);
     }
 
-    private static Order CreateOrder(PlaceOrderRequest request)
+    private Order? FindByExchangeOrderId(string exchangeOrderId)
+    {
+        return _ordersByClientOrderId.Values.FirstOrDefault(
+            candidate => candidate.ExchangeOrderId == exchangeOrderId);
+    }
+
+    private static Order CreatePartiallyFilledOrder(PlaceOrderRequest request)
     {
         var now = DateTimeOffset.UtcNow;
+        var averageFillPrice = request.Price ?? 64_000m;
 
         return new Order
         {
@@ -118,12 +136,28 @@ public sealed class MockExchangeClient : IExchangeClient
             Side = request.Side,
             OrderType = request.OrderType,
             RequestedQuantity = request.Quantity,
-            FilledQuantity = 0m,
+            FilledQuantity = request.Quantity * 0.60m,
+            AverageFillPrice = averageFillPrice,
             Price = request.Price,
-            Status = OrderStatus.Accepted,
+            Status = OrderStatus.PartiallyFilled,
             CreatedAt = now,
             UpdatedAt = now
         };
+    }
+
+    private static void AdvancePartialFill(Order order)
+    {
+        lock (order)
+        {
+            if (order.Status != OrderStatus.PartiallyFilled)
+            {
+                return;
+            }
+
+            order.FilledQuantity = order.RequestedQuantity;
+            order.Status = OrderStatus.Filled;
+            order.UpdatedAt = DateTimeOffset.UtcNow;
+        }
     }
 
     private static OrderResult ToResult(Order order)
