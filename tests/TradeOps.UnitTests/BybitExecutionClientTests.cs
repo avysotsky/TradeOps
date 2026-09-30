@@ -223,7 +223,7 @@ public sealed class BybitExecutionClientTests
             }
 
             throw new InvalidOperationException(
-                $"Unexpected Bybit request path '{request.RequestUri.AbsolutePath}'.")
+                $"Unexpected Bybit request path '{request.RequestUri.AbsolutePath}'.");
         });
 
         var client = CreateClient(options, handler);
