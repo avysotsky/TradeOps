@@ -1,0 +1,35 @@
+namespace TradeOps.Application.Models;
+
+public sealed record SignalExecutionMetrics(
+    long Received,
+    long Accepted,
+    long Rejected,
+    long Pending);
+
+public sealed record CurrentOrderStatusMetrics(
+    long Total,
+    long Created,
+    long Submitted,
+    long Accepted,
+    long PartiallyFilled,
+    long Filled,
+    long Cancelled,
+    long Rejected,
+    long Unknown);
+
+public sealed record ExecutionRiskMetrics(
+    bool TradingEnabled,
+    bool EmergencyStop);
+
+public sealed record OperationalExecutionMetrics(
+    bool? LastReconciliationSucceeded,
+    bool? LastRecoverySucceeded,
+    int? LastRecoveryPositionMismatches);
+
+public sealed record ExecutionMetricsSnapshot(
+    DateTimeOffset GeneratedAt,
+    SignalExecutionMetrics Signals,
+    CurrentOrderStatusMetrics Orders,
+    long FillsReceived,
+    ExecutionRiskMetrics Risk,
+    OperationalExecutionMetrics Operations);

@@ -96,7 +96,7 @@ jobs:
               '/api/orders/local/{idOrClientOrderId}/cancel',
               '/api/orders/local/cancel-all',
               '/api/system/reconciliation/status', '/api/system/recovery/status',
-              '/api/fills', '/api/pnl/daily')
+              '/api/metrics/execution', '/api/fills', '/api/pnl/daily')
           for path in required:
               assert path in paths, (path, list(paths))
           PY
@@ -287,6 +287,31 @@ jobs:
           assert data['positionsCompared'] >= 1, data
           assert isinstance(data['positionSnapshots'], int) and data['positionSnapshots'] >= 0, data
           assert isinstance(data['positionMismatches'], int), data
+          PY
+
+          METRICS=$(curl --fail --silent --show-error http://127.0.0.1:5080/api/metrics/execution)
+          METRICS_JSON="$METRICS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['METRICS_JSON'])
+          signals = data['signals']
+          orders = data['orders']
+          risk = data['risk']
+          operations = data['operations']
+          assert data['generatedAt'], data
+          assert signals['received'] == signals['accepted'] + signals['rejected'] + signals['pending'], signals
+          assert signals['accepted'] >= 4 and signals['rejected'] >= 1, signals
+          assert orders['total'] == sum(
+              orders[key] for key in (
+                  'created', 'submitted', 'accepted', 'partiallyFilled',
+                  'filled', 'cancelled', 'rejected', 'unknown')),
+              orders
+          assert orders['filled'] >= 1 and orders['cancelled'] >= 3, orders
+          assert data['fillsReceived'] >= 4, data
+          assert risk['emergencyStop'] is False, risk
+          assert isinstance(risk['tradingEnabled'], bool), risk
+          assert operations['lastReconciliationSucceeded'] is True, operations
+          assert operations['lastRecoverySucceeded'] is True, operations
+          assert isinstance(operations['lastRecoveryPositionMismatches'], int), operations
           PY
 
       - name: Validate Docker Compose

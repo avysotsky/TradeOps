@@ -45,6 +45,7 @@ builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskSta
 builder.Services.AddScoped<IOperationalRunStatusRepository, EfOperationalRunStatusRepository>();
 builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
 builder.Services.AddScoped<IOperatorReadRepository, EfOperatorReadRepository>();
+builder.Services.AddScoped<IExecutionMetricsRepository, EfExecutionMetricsRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());
