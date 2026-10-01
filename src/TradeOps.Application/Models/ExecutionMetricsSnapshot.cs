@@ -60,3 +60,18 @@ public sealed record ExecutionMetricsWindowSnapshot(
     WindowSignalExecutionMetrics Signals,
     WindowOrderLifecycleMetrics OrderLifecycle,
     long FillsReceived);
+
+public sealed record ExecutionMetricsSeriesBucket(
+    DateTimeOffset FromInclusive,
+    DateTimeOffset ToExclusive,
+    WindowSignalExecutionMetrics Signals,
+    WindowOrderLifecycleMetrics OrderLifecycle,
+    long FillsReceived);
+
+public sealed record ExecutionMetricsSeriesSnapshot(
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset FromInclusive,
+    DateTimeOffset ToExclusive,
+    string Bucket,
+    string? Symbol,
+    IReadOnlyList<ExecutionMetricsSeriesBucket> Buckets);

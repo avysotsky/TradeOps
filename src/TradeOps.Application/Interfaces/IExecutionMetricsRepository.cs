@@ -12,4 +12,12 @@ public interface IExecutionMetricsRepository
         DateTimeOffset toExclusive,
         string? symbol = null,
         CancellationToken cancellationToken = default);
+
+    Task<ExecutionMetricsSeriesSnapshot> GetSeriesAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        string bucket,
+        TimeSpan bucketSize,
+        string? symbol = null,
+        CancellationToken cancellationToken = default);
 }
