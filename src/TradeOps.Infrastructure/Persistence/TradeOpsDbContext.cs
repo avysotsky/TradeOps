@@ -24,6 +24,8 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 
     public DbSet<TradingSignal> TradingSignals => Set<TradingSignal>();
 
+    public DbSet<TradingSignalOutcomeEvent> TradingSignalOutcomeEvents => Set<TradingSignalOutcomeEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);

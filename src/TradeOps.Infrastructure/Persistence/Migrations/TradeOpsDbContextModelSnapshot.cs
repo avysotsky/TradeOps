@@ -190,6 +190,21 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("TradingSignals");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignalOutcomeEvent", b =>
+        {
+            b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
+            b.Property<string>("ClientOrderId").HasMaxLength(100).HasColumnType("character varying(100)");
+            b.Property<DateTimeOffset>("OccurredAt").HasColumnType("timestamp with time zone");
+            b.Property<Guid?>("OrderId").HasColumnType("uuid");
+            b.Property<SignalOutcome>("Outcome").HasConversion<string>().HasMaxLength(20).HasColumnType("character varying(20)");
+            b.Property<SignalOutcome?>("PreviousOutcome").HasConversion<string>().HasMaxLength(20).HasColumnType("character varying(20)");
+            b.Property<string[]>("RiskRejectionReasons").IsRequired().HasColumnType("text[]");
+            b.Property<Guid>("TradingSignalId").HasColumnType("uuid");
+            b.HasKey("Id");
+            b.HasIndex("TradingSignalId", "OccurredAt");
+            b.ToTable("TradingSignalOutcomeEvents");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
         {
             b.HasOne("TradeOps.Domain.Entities.Order", null)
@@ -214,6 +229,15 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
                 .WithMany()
                 .HasForeignKey("OrderId")
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignalOutcomeEvent", b =>
+        {
+            b.HasOne("TradeOps.Domain.Entities.TradingSignal", null)
+                .WithMany()
+                .HasForeignKey("TradingSignalId")
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired();
         });
 #pragma warning restore 612, 618
     }

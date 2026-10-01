@@ -10,7 +10,8 @@ namespace TradeOps.Api.Controllers;
 [Route("api/signals")]
 public sealed class SignalsController(
     ISignalExecutionService signalExecutionService,
-    IOperatorReadRepository operatorReadRepository) : ControllerBase
+    IOperatorReadRepository operatorReadRepository,
+    ITradingSignalOutcomeHistoryRepository outcomeHistoryRepository) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
@@ -53,6 +54,23 @@ public sealed class SignalsController(
         return signal is null ? NotFound() : Ok(ToResponse(signal));
     }
 
+    [HttpGet("{id:guid}/history")]
+    [ProducesResponseType<IReadOnlyCollection<TradingSignalOutcomeEventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<TradingSignalOutcomeEventResponse>>> GetHistory(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var signal = await operatorReadRepository.GetSignalByIdAsync(id, cancellationToken);
+        if (signal is null)
+        {
+            return NotFound();
+        }
+
+        var history = await outcomeHistoryRepository.GetBySignalIdAsync(id, cancellationToken);
+        return Ok(history.Select(ToResponse).ToArray());
+    }
+
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<TradingSignalAuditResponse>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyCollection<TradingSignalAuditResponse>>> GetRecent(
@@ -80,5 +98,18 @@ public sealed class SignalsController(
             signal.RiskRejectionReasons,
             signal.OrderId,
             signal.ClientOrderId);
+    }
+
+    private static TradingSignalOutcomeEventResponse ToResponse(TradingSignalOutcomeEvent item)
+    {
+        return new TradingSignalOutcomeEventResponse(
+            item.Id,
+            item.TradingSignalId,
+            item.PreviousOutcome,
+            item.Outcome,
+            item.OccurredAt,
+            item.RiskRejectionReasons,
+            item.OrderId,
+            item.ClientOrderId);
     }
 }

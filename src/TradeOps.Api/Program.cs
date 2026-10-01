@@ -45,6 +45,7 @@ builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskSta
 builder.Services.AddScoped<IOperationalRunStatusRepository, EfOperationalRunStatusRepository>();
 builder.Services.AddScoped<IOperationalRunHistoryRepository, EfOperationalRunHistoryRepository>();
 builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
+builder.Services.AddScoped<ITradingSignalOutcomeHistoryRepository, EfTradingSignalOutcomeHistoryRepository>();
 builder.Services.AddScoped<IOperatorReadRepository, EfOperatorReadRepository>();
 builder.Services.AddScoped<IExecutionMetricsRepository, EfExecutionMetricsRepository>();
 builder.Services.AddScoped<IExecutionMetricsBySymbolRepository, EfExecutionMetricsBySymbolRepository>();
