@@ -60,6 +60,31 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("Fills");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.OperationalRiskState", b =>
+        {
+            b.Property<string>("Id")
+                .ValueGeneratedNever()
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.Property<bool>("EmergencyStop")
+                .HasColumnType("boolean");
+
+            b.Property<string>("EmergencyStopReason")
+                .HasMaxLength(500)
+                .HasColumnType("character varying(500)");
+
+            b.Property<bool>("TradingEnabled")
+                .HasColumnType("boolean");
+
+            b.Property<DateTimeOffset>("UpdatedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.HasKey("Id");
+
+            b.ToTable("OperationalRiskStates");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Order", b =>
         {
             b.Property<Guid>("Id")

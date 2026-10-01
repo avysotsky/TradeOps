@@ -7,7 +7,7 @@ namespace TradeOps.Application.Services;
 
 public sealed class RiskEngine(
     IExchangeClient exchangeClient,
-    IRiskState riskState,
+    IRiskControlService riskControlService,
     RiskSettings settings) : IRiskEngine
 {
     public async Task<RiskDecision> CheckAsync(
@@ -15,15 +15,24 @@ public sealed class RiskEngine(
         CancellationToken cancellationToken = default)
     {
         var reasons = new List<string>();
+        var control = await riskControlService.GetSnapshotAsync(cancellationToken);
 
-        if (!settings.TradingEnabled)
+        if (!control.TradingEnabled)
         {
-            reasons.Add("Trading is disabled.");
+            reasons.Add("Trading is disabled by persistent operational state.");
         }
 
-        if (settings.EmergencyStop)
+        if (control.EmergencyStop)
         {
-            reasons.Add("Emergency stop is active.");
+            reasons.Add(string.IsNullOrWhiteSpace(control.EmergencyStopReason)
+                ? "Emergency stop is active."
+                : $"Emergency stop is active: {control.EmergencyStopReason}");
+        }
+
+        if (control.HasPositionMismatch)
+        {
+            reasons.Add(
+                $"Trading is blocked because {control.ActivePositionMismatchCount} active position reconciliation mismatch(es) exist.");
         }
 
         if (!settings.AllowedSymbols.Contains(signal.Symbol))
@@ -41,10 +50,15 @@ public sealed class RiskEngine(
                 $"Order size {signal.RequestedQuantity} exceeds max order size {settings.MaxOrderSize}.");
         }
 
-        if (riskState.CurrentDailyPnl <= -settings.MaxDailyLoss)
+        if (control.DailyRealizedPnL <= -settings.MaxDailyLoss)
         {
             reasons.Add(
-                $"Daily loss limit reached. Current daily PnL: {riskState.CurrentDailyPnl}.");
+                $"Daily realized loss limit reached. Current daily realized PnL: {control.DailyRealizedPnL}.");
+        }
+
+        if (reasons.Count > 0)
+        {
+            return await RejectAsync(signal, reasons, cancellationToken);
         }
 
         var positions = await exchangeClient.GetPositionsAsync(cancellationToken);
@@ -83,6 +97,16 @@ public sealed class RiskEngine(
 
         return reasons.Count == 0
             ? RiskDecision.Allowed()
-            : new RiskDecision(false, reasons);
+            : await RejectAsync(signal, reasons, cancellationToken);
+    }
+
+    private async Task<RiskDecision> RejectAsync(
+        TradingSignal signal,
+        IReadOnlyCollection<string> reasons,
+        CancellationToken cancellationToken)
+    {
+        var decision = new RiskDecision(false, reasons);
+        await riskControlService.RecordRejectionAsync(signal, decision, cancellationToken);
+        return decision;
     }
 }

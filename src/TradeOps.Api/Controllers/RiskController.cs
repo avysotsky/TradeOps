@@ -9,12 +9,15 @@ namespace TradeOps.Api.Controllers;
 [Route("api/risk")]
 public sealed class RiskController(
     RiskSettings settings,
-    IRiskState riskState,
+    IRiskControlService riskControlService,
     IRiskEventRepository riskEventRepository) : ControllerBase
 {
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get(
+        CancellationToken cancellationToken)
     {
+        var control = await riskControlService.GetSnapshotAsync(cancellationToken);
+
         return Ok(new
         {
             settings.MaxPositionSize,
@@ -22,10 +25,39 @@ public sealed class RiskController(
             settings.MaxDailyLoss,
             settings.MaxOpenPositions,
             AllowedSymbols = settings.AllowedSymbols.OrderBy(x => x),
-            settings.TradingEnabled,
-            settings.EmergencyStop,
-            riskState.CurrentDailyPnl
+            control.TradingEnabled,
+            control.EmergencyStop,
+            control.EmergencyStopReason,
+            control.DailyRealizedPnL,
+            control.ActivePositionMismatchCount,
+            control.HasPositionMismatch,
+            control.UpdatedAt
         });
+    }
+
+    [HttpPost("trading-enabled")]
+    [ProducesResponseType<RiskControlSnapshot>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<RiskControlSnapshot>> SetTradingEnabled(
+        [FromBody] SetTradingEnabledRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await riskControlService.SetTradingEnabledAsync(
+            request.Enabled,
+            cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPost("emergency-stop")]
+    [ProducesResponseType<RiskControlSnapshot>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<RiskControlSnapshot>> SetEmergencyStop(
+        [FromBody] SetEmergencyStopRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await riskControlService.SetEmergencyStopAsync(
+            request.Enabled,
+            request.Reason,
+            cancellationToken);
+        return Ok(result);
     }
 
     [HttpGet("events")]
@@ -38,3 +70,7 @@ public sealed class RiskController(
         return Ok(events);
     }
 }
+
+public sealed record SetTradingEnabledRequest(bool Enabled);
+
+public sealed record SetEmergencyStopRequest(bool Enabled, string? Reason = null);

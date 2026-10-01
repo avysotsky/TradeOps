@@ -127,6 +127,55 @@ jobs:
           assert abs(float(order["filledQuantity"]) - 0.001) < 1e-12, order
           PY
 
+          STOP=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d '{"enabled":true,"reason":"CI persistent emergency-stop verification"}' \
+            http://127.0.0.1:5080/api/risk/emergency-stop)
+
+          STOP_JSON="$STOP" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["STOP_JSON"])
+          assert data["emergencyStop"] is True, data
+          assert data["emergencyStopReason"] == "CI persistent emergency-stop verification", data
+          PY
+
+          BLOCKED_SIGNAL_ID='99999999-9999-4999-8999-999999999999'
+          BLOCKED_STATUS=$(curl --silent --show-error \
+            -o blocked.json \
+            -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"quantity\":0.001,\"source\":\"ci-risk-block\",\"signalId\":\"$BLOCKED_SIGNAL_ID\"}" \
+            http://127.0.0.1:5080/api/signals)
+
+          test "$BLOCKED_STATUS" = '422'
+          python3 - <<'PY'
+          import json
+          with open('blocked.json', encoding='utf-8') as f:
+              data = json.load(f)
+          assert data["accepted"] is False, data
+          assert any("Emergency stop" in reason for reason in data["reasons"]), data
+          PY
+
+          EVENTS=$(curl --fail --silent --show-error \
+            'http://127.0.0.1:5080/api/risk/events?limit=20')
+          EVENTS_JSON="$EVENTS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["EVENTS_JSON"])
+          assert any(event["eventType"] == "RiskRejected" for event in data), data
+          PY
+
+          CLEAR=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d '{"enabled":false}' \
+            http://127.0.0.1:5080/api/risk/emergency-stop)
+
+          CLEAR_JSON="$CLEAR" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["CLEAR_JSON"])
+          assert data["emergencyStop"] is False, data
+          assert data["emergencyStopReason"] is None, data
+          PY
+
       - name: Validate Docker Compose
         run: docker compose config --quiet
 

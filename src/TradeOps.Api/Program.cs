@@ -7,7 +7,6 @@ using TradeOps.Infrastructure.Alerts;
 using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Persistence;
 using TradeOps.Infrastructure.Persistence.Repositories;
-using TradeOps.Infrastructure.Risk;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,10 +35,11 @@ builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
 builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddScoped<IRiskEventRepository, EfRiskEventRepository>();
+builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskStateRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
-builder.Services.AddSingleton<IRiskState, InMemoryRiskState>();
 builder.Services.AddSingleton(new RiskSettings());
+builder.Services.AddScoped<IRiskControlService, RiskControlService>();
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
