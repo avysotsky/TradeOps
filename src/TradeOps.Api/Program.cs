@@ -142,3 +142,5 @@ app.MapGet("/health/ready", async (
 
 app.MapControllers();
 app.Run();
+
+public partial class Program;
