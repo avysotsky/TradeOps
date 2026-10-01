@@ -31,6 +31,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.HasIndex("ExchangeFillId").IsUnique();
             b.HasIndex("FilledAt");
             b.HasIndex("OrderId");
+            b.HasIndex("OrderId", "FilledAt");
             b.ToTable("Fills");
         });
 
@@ -105,6 +106,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("timestamp with time zone");
             b.HasKey("Id");
             b.HasIndex("ClientOrderId").IsUnique();
+            b.HasIndex("Symbol");
             b.ToTable("Orders");
         });
 
@@ -184,6 +186,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.HasIndex("ClientOrderId").IsUnique();
             b.HasIndex("CreatedAt");
             b.HasIndex("OrderId").IsUnique();
+            b.HasIndex("Symbol", "CreatedAt");
             b.ToTable("TradingSignals");
         });
 

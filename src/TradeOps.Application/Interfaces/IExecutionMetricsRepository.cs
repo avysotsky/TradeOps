@@ -10,5 +10,6 @@ public interface IExecutionMetricsRepository
     Task<ExecutionMetricsWindowSnapshot> GetWindowAsync(
         DateTimeOffset fromInclusive,
         DateTimeOffset toExclusive,
+        string? symbol = null,
         CancellationToken cancellationToken = default);
 }

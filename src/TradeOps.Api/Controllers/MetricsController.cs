@@ -23,6 +23,7 @@ public sealed class MetricsController(IExecutionMetricsRepository metricsReposit
     public async Task<ActionResult<ExecutionMetricsWindowSnapshot>> GetExecutionWindowAsync(
         [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? symbol = null,
         CancellationToken cancellationToken = default)
     {
         if (from is null || to is null)
@@ -44,9 +45,22 @@ public sealed class MetricsController(IExecutionMetricsRepository metricsReposit
                 detail: "'from' must be earlier than 'to'. The window uses [from, to) semantics.");
         }
 
+        var normalizedSymbol = string.IsNullOrWhiteSpace(symbol)
+            ? null
+            : symbol.Trim().ToUpperInvariant();
+
+        if (normalizedSymbol is { Length: > 50 })
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid execution metrics symbol",
+                detail: "'symbol' must be 50 characters or fewer after trimming.");
+        }
+
         var metrics = await metricsRepository.GetWindowAsync(
             fromUtc,
             toUtc,
+            normalizedSymbol,
             cancellationToken);
 
         return Ok(metrics);

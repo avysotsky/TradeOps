@@ -97,13 +97,21 @@ public sealed class EfExecutionMetricsRepository(
     public async Task<ExecutionMetricsWindowSnapshot> GetWindowAsync(
         DateTimeOffset fromInclusive,
         DateTimeOffset toExclusive,
+        string? symbol = null,
         CancellationToken cancellationToken = default)
     {
-        var signalCounts = await dbContext.TradingSignals
+        IQueryable<TradingSignal> signalQuery = dbContext.TradingSignals
             .AsNoTracking()
             .Where(signal =>
                 signal.CreatedAt >= fromInclusive &&
-                signal.CreatedAt < toExclusive)
+                signal.CreatedAt < toExclusive);
+
+        if (symbol is not null)
+        {
+            signalQuery = signalQuery.Where(signal => signal.Symbol == symbol);
+        }
+
+        var signalCounts = await signalQuery
             .GroupBy(signal => signal.Outcome)
             .Select(group => new
             {
@@ -120,11 +128,21 @@ public sealed class EfExecutionMetricsRepository(
         var pendingSignals = signalCounts.GetValueOrDefault(SignalOutcome.Received);
         var receivedSignals = acceptedSignals + rejectedSignals + pendingSignals;
 
-        var lifecycleQuery = dbContext.OrderLifecycleEvents
+        IQueryable<OrderLifecycleEvent> lifecycleQuery = dbContext.OrderLifecycleEvents
             .AsNoTracking()
             .Where(item =>
                 item.OccurredAt >= fromInclusive &&
                 item.OccurredAt < toExclusive);
+
+        if (symbol is not null)
+        {
+            lifecycleQuery =
+                from item in lifecycleQuery
+                join order in dbContext.Orders.AsNoTracking()
+                    on item.OrderId equals order.Id
+                where order.Symbol == symbol
+                select item;
+        }
 
         var lifecycleCounts = await lifecycleQuery
             .GroupBy(item => item.Status)
@@ -144,17 +162,29 @@ public sealed class EfExecutionMetricsRepository(
             .Distinct()
             .LongCountAsync(cancellationToken);
 
-        var fillsReceived = await dbContext.Fills
+        IQueryable<Fill> fillQuery = dbContext.Fills
             .AsNoTracking()
             .Where(fill =>
                 fill.FilledAt >= fromInclusive &&
-                fill.FilledAt < toExclusive)
-            .LongCountAsync(cancellationToken);
+                fill.FilledAt < toExclusive);
+
+        if (symbol is not null)
+        {
+            fillQuery =
+                from fill in fillQuery
+                join order in dbContext.Orders.AsNoTracking()
+                    on fill.OrderId equals order.Id
+                where order.Symbol == symbol
+                select fill;
+        }
+
+        var fillsReceived = await fillQuery.LongCountAsync(cancellationToken);
 
         return new ExecutionMetricsWindowSnapshot(
             DateTimeOffset.UtcNow,
             fromInclusive,
             toExclusive,
+            symbol,
             new WindowSignalExecutionMetrics(
                 receivedSignals,
                 acceptedSignals,

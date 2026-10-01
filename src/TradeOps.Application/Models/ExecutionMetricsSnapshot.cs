@@ -56,6 +56,7 @@ public sealed record ExecutionMetricsWindowSnapshot(
     DateTimeOffset GeneratedAt,
     DateTimeOffset FromInclusive,
     DateTimeOffset ToExclusive,
+    string? Symbol,
     WindowSignalExecutionMetrics Signals,
     WindowOrderLifecycleMetrics OrderLifecycle,
     long FillsReceived);

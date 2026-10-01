@@ -56,6 +56,7 @@ public sealed class TradingSignalConfiguration : IEntityTypeConfiguration<Tradin
             .IsUnique();
 
         builder.HasIndex(signal => signal.CreatedAt);
+        builder.HasIndex(signal => new { signal.Symbol, signal.CreatedAt });
 
         builder.HasOne<Order>()
             .WithMany()

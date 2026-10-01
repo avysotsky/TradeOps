@@ -26,6 +26,8 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.HasIndex(order => order.Symbol);
+
         builder.Property(order => order.Side)
             .HasConversion<string>()
             .HasMaxLength(20);
