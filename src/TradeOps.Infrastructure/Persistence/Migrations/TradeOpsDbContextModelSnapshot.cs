@@ -44,12 +44,35 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("OperationalRiskStates");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.OperationalRunRecord", b =>
+        {
+            b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
+            b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
+            b.Property<string>("ErrorMessage").HasMaxLength(1000).HasColumnType("character varying(1000)");
+            b.Property<bool>("IsRunning").HasColumnType("boolean");
+            b.Property<int>("OrderIssues").HasColumnType("integer");
+            b.Property<int>("OrdersMissingOnExchange").HasColumnType("integer");
+            b.Property<int>("OrdersScanned").HasColumnType("integer");
+            b.Property<int>("OrdersUpdated").HasColumnType("integer");
+            b.Property<int>("PositionMismatches").HasColumnType("integer");
+            b.Property<int>("PositionSnapshots").HasColumnType("integer");
+            b.Property<int>("PositionsCompared").HasColumnType("integer");
+            b.Property<string>("RunType").IsRequired().HasMaxLength(50).HasColumnType("character varying(50)");
+            b.Property<DateTimeOffset>("StartedAt").HasColumnType("timestamp with time zone");
+            b.Property<bool?>("Succeeded").HasColumnType("boolean");
+            b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("timestamp with time zone");
+            b.HasKey("Id");
+            b.HasIndex("RunType", "StartedAt");
+            b.ToTable("OperationalRuns");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.OperationalRunStatus", b =>
         {
             b.Property<string>("RunType").ValueGeneratedNever().HasMaxLength(50).HasColumnType("character varying(50)");
             b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
             b.Property<string>("ErrorMessage").HasMaxLength(1000).HasColumnType("character varying(1000)");
             b.Property<bool>("IsRunning").HasColumnType("boolean");
+            b.Property<Guid?>("LatestRunId").HasColumnType("uuid");
             b.Property<int>("OrderIssues").HasColumnType("integer");
             b.Property<int>("OrdersMissingOnExchange").HasColumnType("integer");
             b.Property<int>("OrdersScanned").HasColumnType("integer");

@@ -1,10 +1,10 @@
 namespace TradeOps.Domain.Entities;
 
-public sealed class OperationalRunStatus
+public sealed class OperationalRunRecord
 {
-    public required string RunType { get; set; }
+    public Guid Id { get; set; }
 
-    public Guid? LatestRunId { get; set; }
+    public required string RunType { get; set; }
 
     public DateTimeOffset StartedAt { get; set; }
 

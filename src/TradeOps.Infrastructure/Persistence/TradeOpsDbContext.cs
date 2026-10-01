@@ -12,6 +12,8 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 
     public DbSet<OperationalRunStatus> OperationalRunStatuses => Set<OperationalRunStatus>();
 
+    public DbSet<OperationalRunRecord> OperationalRuns => Set<OperationalRunRecord>();
+
     public DbSet<Fill> Fills => Set<Fill>();
 
     public DbSet<PositionSnapshot> PositionSnapshots => Set<PositionSnapshot>();

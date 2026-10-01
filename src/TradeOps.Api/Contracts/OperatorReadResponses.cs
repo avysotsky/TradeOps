@@ -62,6 +62,23 @@ public sealed record OperationalRunStatusResponse(
     string? ErrorMessage,
     DateTimeOffset UpdatedAt);
 
+public sealed record OperationalRunResponse(
+    Guid Id,
+    string RunType,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt,
+    bool IsRunning,
+    bool? Succeeded,
+    int OrdersScanned,
+    int OrdersUpdated,
+    int OrderIssues,
+    int OrdersMissingOnExchange,
+    int PositionsCompared,
+    int PositionMismatches,
+    int PositionSnapshots,
+    string? ErrorMessage,
+    DateTimeOffset UpdatedAt);
+
 public sealed record OrderCancellationResponse(
     OrderCancellationOutcome Outcome,
     LocalOrderResponse? Order,

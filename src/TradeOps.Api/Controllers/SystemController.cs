@@ -11,7 +11,8 @@ namespace TradeOps.Api.Controllers;
 public sealed class SystemController(
     IOrderReconciliationService reconciliationService,
     IPositionReconciliationService positionReconciliationService,
-    IOperationalRunStatusRepository runStatusRepository) : ControllerBase
+    IOperationalRunStatusRepository runStatusRepository,
+    IOperationalRunHistoryRepository runHistoryRepository) : ControllerBase
 {
     [HttpPost("reconcile")]
     [ProducesResponseType<ReconciliationSummary>(StatusCodes.Status200OK)]
@@ -57,6 +58,21 @@ public sealed class SystemController(
         return status is null ? NotFound() : Ok(ToResponse(status));
     }
 
+    [HttpGet("runs")]
+    [ProducesResponseType<IReadOnlyCollection<OperationalRunResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<OperationalRunResponse>>> GetRuns(
+        [FromQuery] string? runType = null,
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var runs = await runHistoryRepository.GetRecentAsync(
+            runType,
+            limit,
+            cancellationToken);
+
+        return Ok(runs.Select(ToResponse).ToArray());
+    }
+
     private static OperationalRunStatusResponse ToResponse(OperationalRunStatus status) => new(
         status.RunType,
         status.StartedAt,
@@ -72,4 +88,21 @@ public sealed class SystemController(
         status.PositionSnapshots,
         status.ErrorMessage,
         status.UpdatedAt);
+
+    private static OperationalRunResponse ToResponse(OperationalRunRecord run) => new(
+        run.Id,
+        run.RunType,
+        run.StartedAt,
+        run.CompletedAt,
+        run.IsRunning,
+        run.Succeeded,
+        run.OrdersScanned,
+        run.OrdersUpdated,
+        run.OrderIssues,
+        run.OrdersMissingOnExchange,
+        run.PositionsCompared,
+        run.PositionMismatches,
+        run.PositionSnapshots,
+        run.ErrorMessage,
+        run.UpdatedAt);
 }
