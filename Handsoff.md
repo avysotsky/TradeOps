@@ -1,50 +1,46 @@
 # TradeOps — Handoff for v1.1.1.3
 
-## 1. Purpose
+## 1. Current status
 
-This file is the development handoff from the completed branch:
-
-```text
-TradeOps/v_1.1.1.2
-```
-
-into the next working branch:
+Active development branch:
 
 ```text
 TradeOps/v_1.1.1.3
 ```
 
-`v_1.1.1.2` is considered complete and should remain unchanged as the stable Bybit-testnet execution milestone.
-
-Final baseline commit:
+Stable completed predecessor:
 
 ```text
-43774a3ad6a4705c818c09f0732eb2d452be99e0
+TradeOps/v_1.1.1.2
+final HEAD: 43774a3ad6a4705c818c09f0732eb2d452be99e0
+GitHub Actions #75: green
 ```
 
-Final validation:
+Current v1.1.1.3 accounting-core commit:
 
 ```text
-GitHub Actions #75
-Restore                     ✓
-Build                       ✓
-49 Unit tests               ✓
-PostgreSQL migrations       ✓
-API runtime smoke           ✓
-Persistent emergency stop   ✓
-RiskRejected audit          ✓
-Docker Compose validation   ✓
-Docker API/Worker images    ✓
+9a51782b46cfe3c53dba356cb8fedd4efcdc00bb
+feat: add fee-aware net pnl accounting core
+GitHub Actions #79: green
 ```
 
-TradeOps remains an execution/automation engineering project. It does not provide alpha, profitable strategies, signals, or return guarantees.
+This file is the authoritative development handoff for the next chat/session.
+
+TradeOps is an execution and automation engineering project. It does not provide alpha, profitable strategies, trading signals, or profitability guarantees.
+
+Commercial positioning remains:
+
+```text
+You provide the trading rules.
+TradeOps provides the execution and automation engineering.
+```
 
 ---
 
-## 2. Current architecture inherited from v1.1.1.2
+## 2. Architecture already implemented
 
 ```text
-External trading rules / signal
+External trading rules / caller signal
         ↓
 POST /api/signals
         ↓
@@ -89,55 +85,73 @@ tools/
  └── TradeOps.BybitSmoke
 ```
 
+The project targets .NET 8 and PostgreSQL 16.
+
 ---
 
-## 3. Completed capabilities in v1.1.1.2
+## 3. Completed execution capabilities inherited from v1.1.1.2
 
 ### Exchange boundary
 
 - configuration-driven `Exchange:Provider`;
-- `Mock` remains default for demo and CI;
-- `BybitTestnet` adapter behind existing exchange-neutral contracts;
+- `Mock` is the default for local demo and normal CI;
+- `BybitTestnet` adapter behind exchange-neutral application contracts;
 - Bybit V5 REST signing/authentication;
 - testnet-only host restriction;
-- account read;
-- positions read;
-- open orders read;
-- order lookup by exchange ID;
+- account, positions and open-orders reads;
+- order lookup by exchange order ID;
 - order lookup by deterministic client order ID;
-- order placement;
-- cancellation;
-- instrument/order validation;
+- `/v5/order/realtime` -> `/v5/order/history` fallback;
+- order placement and cancellation;
+- instrument filters / quantity / tick-size validation;
 - no mainnet support;
-- no secrets committed or logged.
+- no committed/logged exchange secrets.
 
-### Safe execution
+### Safe execution / idempotency
 
-- deterministic client order IDs;
-- PostgreSQL unique protection against duplicate local orders;
+- deterministic `ClientOrderId` compatible with Bybit's 36-character limit;
+- PostgreSQL uniqueness protection;
 - no blind retry after ambiguous placement;
-- timeout -> lookup by client ID -> reconcile or `Unknown`;
-- explicit state machine;
+- timeout/network ambiguity -> lookup by client ID -> reconcile or `Unknown`;
+- duplicate Bybit request recovery;
+- explicit order state machine;
 - partial fills;
 - terminal-state protection;
-- reconciliation after restart.
+- restart reconciliation.
 
 ### Bybit private WebSocket
 
-- private testnet WebSocket connection;
+- testnet private WebSocket;
 - HMAC authentication;
 - `order.linear` subscription;
 - `execution.linear` subscription;
 - heartbeat;
-- reconnect with exponential backoff;
-- normalized `ExchangeOrderUpdate` and `ExchangeExecutionUpdate`;
-- idempotent duplicate event handling;
-- order events update local order lifecycle;
+- reconnect/backoff;
+- normalized order/execution events;
+- duplicate order-event idempotency;
 - execution events persist fills.
 
-### Persistent fills
+### Manual Bybit smoke
 
-`Fill` is persisted with:
+A credential-driven manual testnet smoke tool exists under:
+
+```text
+tools/TradeOps.BybitSmoke
+```
+
+It is intentionally outside normal credential-free CI and can perform read-only validation or an explicitly confirmed testnet order lifecycle.
+
+---
+
+## 4. Persistence and recovery already implemented
+
+### Orders
+
+Orders persist deterministic client IDs, exchange IDs, side/type, requested and filled quantity, prices, status and timestamps.
+
+### Fills
+
+Persistent `Fill` contains:
 
 ```text
 OrderId
@@ -149,41 +163,25 @@ FeeCurrency
 FilledAt
 ```
 
-Database guarantees:
+Database guarantees include unique `ExchangeFillId` and FK to `Orders`, so duplicate execution events become no-op.
 
-- unique `ExchangeFillId`;
-- FK to `Orders`;
-- duplicate execution events become no-op.
+### Positions / PnL
 
-### Position / PnL
+Local positions are reconstructed from persistent fills, supporting:
 
-Local positions are reconstructed from persistent fills.
-
-Implemented:
-
-- long/short exposure;
-- weighted average entry price;
-- partial close;
-- full close;
-- long/short reversal;
+- long and short exposure;
+- weighted average entry;
+- partial/full close;
+- reversal;
 - gross realized PnL;
-- unrealized PnL when mark price is available;
+- unrealized PnL when mark price exists;
 - total PnL;
-- persistent `PositionSnapshot`;
-- `/api/positions/local`.
-
-Important limitation:
-
-```text
-RealizedPnL is currently GROSS.
-Fees are persisted but are not yet normalized into NetPnL.
-```
+- persistent position snapshots;
+- `GET /api/positions/local`.
 
 ### Position reconciliation
 
-TradeOps compares fill-derived local exposure with exchange exposure.
-
-Compared fields:
+TradeOps compares local fill-derived exposure against exchange exposure by:
 
 ```text
 Symbol
@@ -191,34 +189,32 @@ Side
 Quantity
 ```
 
-Average entry price and mark price are diagnostic only and do not create mismatch alarms by themselves.
-
-Persistent `RiskEvent` lifecycle:
+Mismatch lifecycle:
 
 ```text
-first mismatch -> create active PositionMismatch + alert
-repeated mismatch -> update same event, no alert spam
+first mismatch -> persistent PositionMismatch + alert
+repeat -> update existing event, no alert spam
 recovery -> resolve event + recovery alert
 ```
 
-The stale-event edge case where both local and exchange later become flat is handled.
+Stale mismatches are resolved even when both sides later become flat.
 
-### Persistent operational risk controls
+---
 
-Operational state is stored in PostgreSQL and survives restart.
+## 5. Persistent operational risk controls already implemented
+
+Operational risk state survives process restart.
 
 Implemented:
 
 - persistent `TradingEnabled`;
-- persistent `EmergencyStop`;
-- persistent emergency-stop reason;
+- persistent `EmergencyStop` and reason;
 - active `PositionMismatch` blocks new orders;
-- daily realized PnL is derived from fills rather than process memory;
-- positions opened before the UTC day and closed today contribute correctly to today's realized PnL;
-- risk rejection is stored as persistent `RiskRejected` audit event;
-- operational risk checks occur before exchange placement.
+- risk rejections persist as `RiskRejected` events;
+- operational checks run before exchange placement;
+- UTC daily realized accounting is derived from fills rather than process memory.
 
-API:
+Current API:
 
 ```text
 GET  /api/risk
@@ -227,346 +223,233 @@ POST /api/risk/trading-enabled
 POST /api/risk/emergency-stop
 ```
 
-### Operational infrastructure
-
-- Worker restart recovery;
-- order reconciliation;
-- position reconciliation;
-- position snapshot capture;
-- structured logging;
-- optional Telegram alerts;
-- Docker Compose;
-- PostgreSQL 16;
-- automatic EF Core migrations in API startup;
-- mock runtime smoke test;
-- optional manual Bybit testnet smoke runner.
+The runtime CI smoke verifies activation of persistent emergency stop, HTTP 422 signal rejection, persisted `RiskRejected`, and emergency-stop clear.
 
 ---
 
-## 4. Goal of v1.1.1.3
+## 6. COMPLETED in v1.1.1.3 — Block 1: fee-aware accounting core
 
-### Primary goal
+Block 1 is finished. Do not reimplement it.
 
-Move TradeOps from a reliable execution/testnet backend to a more complete **auditable trading operations service**.
-
-The main missing area is accounting correctness and operator visibility.
-
-The branch should focus on:
+Commit:
 
 ```text
-fees -> normalized accounting -> NetPnL -> risk metrics -> audit trail -> operator API/docs
+9a51782b46cfe3c53dba356cb8fedd4efcdc00bb
+feat: add fee-aware net pnl accounting core
 ```
 
-Do not add another exchange in this branch.
+Validation:
 
-Do not add mainnet/real-money trading.
+```text
+GitHub Actions #79
+Restore                     ✓
+Build                       ✓
+Unit tests                  ✓
+API + PostgreSQL smoke      ✓
+Docker Compose validation   ✓
+Docker API/Worker images    ✓
+```
 
----
+### Accounting behavior
 
-## 5. Scope for v1.1.1.3
-
-### 5.1 Fee accounting and NetPnL
-
-Current fills already persist:
+`PositionFill` now carries optional:
 
 ```text
 Fee
 FeeCurrency
 ```
 
-Implement explicit accounting semantics.
-
-Requirements:
-
-1. distinguish gross realized PnL from fees and net realized PnL;
-2. do not silently subtract a fee whose currency is incompatible with the PnL currency;
-3. for the current Bybit linear USDT scope, support quote/settle-currency fees first;
-4. unsupported fee currencies must be represented explicitly as unresolved/unconverted rather than treated as zero;
-5. expose both gross and net values in application models/API;
-6. daily-loss risk should use a clearly defined metric, preferably net realized PnL when fee accounting is complete.
-
-Suggested model concept:
+A separate accounting layer calculates daily:
 
 ```text
 GrossRealizedPnL
-FeeAmountInSettlementCurrency
+SettlementCurrency
+SettlementFees
 NetRealizedPnL
 UnconvertedFees
+IsComplete
 ```
 
-Do not build a general FX pricing engine unless required. A narrow, explicit settlement-currency rule is preferred for this branch.
-
----
-
-### 5.2 Persistent signal/audit trail
-
-`TradingSignal` currently exists as a domain object but is not persisted as an execution audit record.
-
-Add persistence for incoming logical signals/requests so that an operator can answer:
+Current settlement currency default:
 
 ```text
-What signal was received?
-When?
-From which source?
-Was it accepted or risk-rejected?
-Which ClientOrderId/Order resulted?
-Was this a duplicate/idempotent retry?
+Accounting:SettlementCurrency = USDT
 ```
 
-Requirements:
+Rules:
 
-- preserve caller-provided `SignalId`;
-- unique constraint on logical signal identity;
-- do not create duplicate signals on HTTP retry;
-- persist risk rejection outcome;
-- link accepted signal to resulting local order where practical;
-- avoid leaking transport DTOs into Domain/Infrastructure boundaries.
+1. position math remains gross and unchanged;
+2. fees in the configured settlement currency are explicitly included;
+3. negative fees/rebates are supported;
+4. unsupported fee currencies are not silently treated as zero;
+5. if unsupported/unconverted fees exist, net PnL is considered incomplete;
+6. risk checks use net realized PnL when accounting is complete;
+7. incomplete accounting is fail-closed and blocks new orders;
+8. a position opened before the UTC day and closed today contributes correctly to today's realized PnL;
+9. only relevant daily fees are included in daily accounting.
+
+`GET /api/risk` now exposes accounting fields including:
+
+```text
+SettlementCurrency
+DailyGrossRealizedPnL
+DailySettlementFees
+DailyNetRealizedPnL
+UnconvertedFees
+IsDailyAccountingComplete
+```
+
+Execution semantics were intentionally not changed by Block 1.
 
 ---
 
-### 5.3 Execution/accounting audit API
+## 7. CURRENT NEXT TASK — Block 2: persistent signal audit
 
-Add read APIs useful for operations and portfolio demonstration.
+This is the next implementation block.
 
-Minimum useful endpoints/concepts:
+### Problem
+
+`TradingSignal` exists as a domain/application concept but there is not yet a complete persistent execution audit record for every logical caller signal.
+
+An operator must be able to answer:
+
+```text
+What logical signal/request was received?
+When was it received?
+What source supplied it?
+Was it accepted or rejected?
+Why was it risk-rejected?
+Which local Order / ClientOrderId resulted?
+Was the HTTP call an idempotent retry of an existing SignalId?
+```
+
+### Required behavior
+
+Implement persistent logical signal audit with:
+
+- caller-provided `SignalId` preserved as the logical identity;
+- PostgreSQL unique constraint on signal identity;
+- no duplicate signal record on HTTP retry;
+- persist symbol, side, requested quantity, source and received time;
+- persist accepted/rejected outcome;
+- persist risk-rejection reasons;
+- link accepted signal to local `Order` / `ClientOrderId` where practical;
+- idempotent retry should return/reuse the existing logical execution rather than create a second audit row;
+- keep transport DTOs out of Domain/Infrastructure boundaries;
+- keep `OrderManager` no-blind-retry semantics intact.
+
+Suggested outcome model may use an enum such as:
+
+```text
+Received
+Accepted
+Rejected
+```
+
+or another simple explicit representation if it fits the existing architecture better.
+
+### Tests required for Block 2
+
+At minimum:
+
+- first signal is persisted;
+- accepted signal links to resulting order/client ID;
+- rejected signal persists rejection reason;
+- same `SignalId` HTTP retry does not create a second signal;
+- concurrent/duplicate persistence race is safe under DB uniqueness;
+- existing order idempotency behavior does not regress.
+
+### CI discipline
+
+Build the whole Block 2 first, then make one feature commit and one Actions run. Use corrective commits only for real failures exposed by the final pipeline.
+
+---
+
+## 8. Remaining v1.1.1.3 blocks after signal audit
+
+### Block 3 — operator read APIs
+
+Expose useful persisted/audit views, likely including:
 
 ```text
 GET /api/signals/{id}
 GET /api/signals?limit=...
-GET /api/orders/local/{id-or-client-id}   (or equivalent local persisted view)
+GET /api/orders/local/{id-or-client-id}
 GET /api/fills?symbol=...&limit=...
 GET /api/pnl/daily
 ```
 
-Exact route design may be adjusted to fit the existing API cleanly.
+Exact route design may be adjusted to fit the project cleanly. Prefer response DTOs over blindly exposing EF entities.
 
-Avoid exposing EF entities blindly if a response DTO is more appropriate.
+### Block 4 — Swagger/OpenAPI + health/readiness + docs
 
----
-
-### 5.4 Risk metrics
-
-Expose a deterministic risk snapshot containing at least:
-
-```text
-TradingEnabled
-EmergencyStop
-EmergencyStopReason
-CurrentDailyGrossRealizedPnL
-CurrentDailyFees
-CurrentDailyNetRealizedPnL
-MaxDailyLoss
-ActivePositionMismatchCount
-OpenLocalPositions
-CalculatedAt
-```
-
-The same application service should be used by API and `RiskEngine` so there is no duplicated risk math.
-
----
-
-### 5.5 Operational API documentation
-
-Add OpenAPI/Swagger for the current API.
-
-Requirements:
-
-- Swagger/OpenAPI available in development/demo mode;
-- enum values readable as strings;
-- document risk-control endpoints and their effects;
-- document which endpoints query exchange state versus local PostgreSQL state;
-- clearly mark Bybit integration as testnet-only;
-- do not expose credentials in examples/configuration output.
-
----
-
-### 5.6 Health/readiness
-
-Current `/health` is basic.
-
-Add useful readiness information without overengineering.
-
-Suggested separation:
+Add:
 
 ```text
 /health/live
 /health/ready
+Swagger / OpenAPI
 ```
 
-Readiness may verify:
+Readiness should check PostgreSQL and safe dependency resolution without performing unsafe exchange actions.
 
-- PostgreSQL connectivity;
-- schema/migrations available;
-- selected exchange adapter can be resolved;
-- for `Mock`, no external dependency;
-- for `BybitTestnet`, do not make every health request place orders or perform unsafe actions.
-
-A lightweight authenticated/read-only exchange readiness check can be optional/configurable if needed.
-
----
-
-## 6. Testing strategy
-
-Keep ordinary CI credential-free and `Mock`-based.
-
-Increase unit/integration coverage for:
-
-- fee normalization;
-- gross vs net realized PnL;
-- unsupported fee currency behavior;
-- daily net PnL across UTC boundary;
-- persisted signal idempotency;
-- accepted signal -> order linkage;
-- rejected signal audit;
-- operational risk snapshot;
-- local fills/audit API behavior.
-
-Do not run GitHub Actions after every small file change.
-
-Preferred workflow:
-
-1. build one meaningful feature block locally/in-memory through Git tree operations;
-2. push one feature commit;
-3. run one CI pipeline;
-4. only use a corrective commit if the pipeline exposes a real issue.
-
-The existing runtime smoke is valuable and should remain.
-
----
-
-## 7. CI baseline that must not regress
-
-The default pipeline must continue proving:
-
-```text
-Restore
-Build
-Unit tests
-PostgreSQL migrations
-API startup
-Mock signal -> PartiallyFilled
-Order reconciliation -> Filled
-Idempotent retry
-Persistent EmergencyStop
-Risk rejection -> HTTP 422
-RiskRejected audit persistence
-EmergencyStop clear
-Docker Compose validation
-Docker API/Worker image build
-```
-
-Bybit credentials must remain optional and absent from normal CI.
-
----
-
-## 8. Explicitly out of scope for v1.1.1.3
-
-Do not add unless required for the above goals:
-
-- second exchange adapter;
-- Binance integration;
-- mainnet trading;
-- real-money deployment;
-- trading strategies;
-- alpha/signals generation;
-- machine learning prediction;
-- portfolio optimization;
-- HFT/low-latency architecture;
-- React dashboard;
-- mobile app;
-- SaaS multitenancy;
-- billing;
-- Kubernetes;
-- generalized multi-currency FX conversion engine.
+Document clearly which APIs reflect exchange state versus local PostgreSQL state and mark Bybit as testnet-only.
 
 ---
 
 ## 9. Definition of Done for v1.1.1.3
 
-The branch is complete when:
+Completed already:
 
-- [ ] gross realized PnL remains available;
-- [ ] supported settlement-currency fees are accounted explicitly;
-- [ ] net realized PnL is exposed;
-- [ ] unsupported/unconverted fee currencies are visible and not silently discarded;
-- [ ] daily risk math has one shared source of truth;
-- [ ] logical trading signals are persisted idempotently;
-- [ ] signal outcome/audit can be queried;
-- [ ] fills can be queried through an operator API;
-- [ ] daily PnL/risk snapshot can be queried;
-- [ ] risk rejection audit remains persistent;
-- [ ] Swagger/OpenAPI documents the operational API;
+- [x] gross realized PnL remains available;
+- [x] settlement-currency fees are accounted explicitly;
+- [x] net realized PnL is exposed;
+- [x] unsupported/unconverted fee currencies are visible;
+- [x] daily risk math uses the shared accounting source;
+- [x] normal Mock/Bybit execution behavior is unchanged after accounting work.
+
+Still required:
+
+- [ ] logical trading signals persisted idempotently;
+- [ ] accepted/rejected signal outcome queryable;
+- [ ] accepted signal linked to resulting order/client ID;
+- [ ] fills queryable through operator API;
+- [ ] local order/audit view available;
+- [ ] daily accounting/risk snapshot query available through dedicated operator API if useful;
+- [ ] Swagger/OpenAPI documents operational APIs;
 - [ ] liveness/readiness endpoints exist;
-- [ ] mock execution/reconciliation behavior remains unchanged;
-- [ ] Bybit testnet adapter remains functional;
-- [ ] no mainnet support is introduced;
-- [ ] no secrets are committed/logged;
+- [ ] README/docs updated;
 - [ ] Docker demo remains reproducible;
-- [ ] build has zero errors;
-- [ ] unit/integration tests are green;
-- [ ] final GitHub Actions run is green.
+- [ ] Bybit testnet adapter remains functional;
+- [ ] no mainnet support introduced;
+- [ ] no secrets committed/logged;
+- [ ] final build/tests/Actions green.
 
 ---
 
-## 10. Recommended development order
+## 10. Out of scope for v1.1.1.3
 
-### Block 1 — accounting core
+Do not add unless strictly required by the above milestone:
 
-Implement fee accounting models and NetPnL calculation first.
-
-Include:
-
-```text
-fee classification
-settlement-currency fee handling
-gross/net realized PnL
-daily accounting snapshot
-unit tests
-```
-
-Do not change exchange execution behavior in this block.
-
-### Block 2 — persistent signal audit
-
-Persist logical signals and execution outcomes with idempotency.
-
-### Block 3 — operator read APIs
-
-Expose fills, signals, daily PnL/risk snapshot and local audit views.
-
-### Block 4 — Swagger + health/readiness + documentation
-
-Finish operational visibility and update README/CI/runtime smoke where useful.
-
-Use larger feature blocks and fewer commits/Actions runs.
+- second exchange adapter;
+- Binance integration;
+- mainnet / real-money trading;
+- trading strategy or alpha generation;
+- ML prediction;
+- portfolio optimization;
+- HFT/low-latency architecture;
+- React dashboard;
+- mobile app;
+- SaaS multitenancy/billing;
+- Kubernetes;
+- generalized multi-currency FX conversion engine.
 
 ---
 
-## 11. First implementation task
+## 11. Instruction for the next chat
 
-Start here:
+Start with:
 
-> Continue TradeOps from `TradeOps/v_1.1.1.3`. Read `Handsoff.md`. Implement the accounting core without modifying order-placement semantics: introduce explicit gross/fee/net PnL models, support settlement-currency fees for the existing Bybit linear USDT scope, represent unsupported fee currencies explicitly, update daily risk accounting to use the shared accounting service, and add focused unit tests. Keep Mock and Bybit testnet execution flows unchanged. Do not add mainnet or a second exchange.
+> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is already complete at commit `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb` with GitHub Actions #79 green. Implement Block 2 — persistent signal audit: idempotent signal persistence, accepted/rejected outcome, risk-rejection reasons, linkage to the resulting local order/client order ID, DB uniqueness/race safety, and focused tests. Preserve existing order placement/idempotency semantics. Use one feature commit and one final CI run for the block.
 
----
-
-## 12. Commercial purpose
-
-The commercial positioning remains:
-
-```text
-You provide the trading rules.
-TradeOps provides the execution and automation engineering.
-```
-
-`v_1.1.1.3` should make the project more credible for paid engineering work by demonstrating not only order execution, but also:
-
-- operational auditability;
-- accounting correctness;
-- persistent risk controls;
-- incident/reconciliation visibility;
-- API documentation;
-- restart-safe state;
-- production-style observability boundaries.
-
-The project must continue to avoid any claim that it generates profitable trading decisions.
+No additional context from the previous chat should be required beyond this file and the repository code.
