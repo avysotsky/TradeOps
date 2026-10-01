@@ -350,6 +350,7 @@ jobs:
           signals = data['signals']
           lifecycle = data['orderLifecycle']
           assert data['generatedAt'] and data['fromInclusive'] and data['toExclusive'], data
+          assert data['symbol'] is None, data
           assert signals['received'] == (
               signals['acceptedCurrentOutcome'] +
               signals['rejectedCurrentOutcome'] +
@@ -363,6 +364,54 @@ jobs:
           assert lifecycle['ordersTouched'] >= 4, lifecycle
           assert lifecycle['filled'] >= 1 and lifecycle['cancelled'] >= 3, lifecycle
           assert isinstance(data['fillsReceived'], int) and data['fillsReceived'] >= 0, data
+          PY
+
+          BTC_METRICS=$(curl --fail --silent --show-error -G \
+            --data-urlencode "from=$WINDOW_FROM" \
+            --data-urlencode "to=$WINDOW_TO" \
+            --data-urlencode 'symbol= btcusdt ' \
+            http://127.0.0.1:5080/api/metrics/execution/window)
+          ETH_METRICS=$(curl --fail --silent --show-error -G \
+            --data-urlencode "from=$WINDOW_FROM" \
+            --data-urlencode "to=$WINDOW_TO" \
+            --data-urlencode 'symbol=ETHUSDT' \
+            http://127.0.0.1:5080/api/metrics/execution/window)
+          WINDOW_METRICS_JSON="$WINDOW_METRICS" BTC_METRICS_JSON="$BTC_METRICS" ETH_METRICS_JSON="$ETH_METRICS" python3 - <<'PY'
+          import json, os
+          all_data = json.loads(os.environ['WINDOW_METRICS_JSON'])
+          btc = json.loads(os.environ['BTC_METRICS_JSON'])
+          eth = json.loads(os.environ['ETH_METRICS_JSON'])
+          assert btc['symbol'] == 'BTCUSDT', btc
+          assert eth['symbol'] == 'ETHUSDT', eth
+          assert btc['signals']['received'] >= 4, btc
+          assert btc['signals']['acceptedCurrentOutcome'] >= 3, btc
+          assert btc['signals']['rejectedCurrentOutcome'] >= 1, btc
+          assert eth['signals']['received'] >= 1, eth
+          assert eth['signals']['acceptedCurrentOutcome'] >= 1, eth
+          assert eth['signals']['rejectedCurrentOutcome'] == 0, eth
+          assert btc['orderLifecycle']['ordersTouched'] >= 3, btc
+          assert btc['orderLifecycle']['filled'] >= 1, btc
+          assert btc['orderLifecycle']['cancelled'] >= 2, btc
+          assert eth['orderLifecycle']['ordersTouched'] >= 1, eth
+          assert eth['orderLifecycle']['cancelled'] >= 1, eth
+          assert all_data['signals']['received'] == btc['signals']['received'] + eth['signals']['received'], (all_data, btc, eth)
+          assert all_data['orderLifecycle']['events'] == btc['orderLifecycle']['events'] + eth['orderLifecycle']['events'], (all_data, btc, eth)
+          assert isinstance(btc['fillsReceived'], int) and isinstance(eth['fillsReceived'], int), (btc, eth)
+          PY
+
+          EMPTY_METRICS=$(curl --fail --silent --show-error -G \
+            --data-urlencode "from=$WINDOW_FROM" \
+            --data-urlencode "to=$WINDOW_TO" \
+            --data-urlencode 'symbol=SOLUSDT' \
+            http://127.0.0.1:5080/api/metrics/execution/window)
+          EMPTY_METRICS_JSON="$EMPTY_METRICS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['EMPTY_METRICS_JSON'])
+          assert data['symbol'] == 'SOLUSDT', data
+          assert data['signals']['received'] == 0, data
+          assert data['orderLifecycle']['events'] == 0, data
+          assert data['orderLifecycle']['ordersTouched'] == 0, data
+          assert data['fillsReceived'] == 0, data
           PY
 
           CODE=$(curl --silent --show-error -o invalid-window.json -w '%{http_code}' -G \
