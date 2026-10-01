@@ -33,6 +33,8 @@ builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
 builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.AddScoped<IFillRepository, EfFillRepository>();
+builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton<IRiskState, InMemoryRiskState>();
@@ -40,6 +42,7 @@ builder.Services.AddSingleton(new RiskSettings());
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
+builder.Services.AddScoped<IPositionService, PositionService>();
 
 var app = builder.Build();
 

@@ -24,9 +24,11 @@ builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
 builder.Services.AddScoped<IFillRepository, EfFillRepository>();
+builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 builder.Services.AddScoped<IExchangeEventProcessor, ExchangeEventProcessor>();
+builder.Services.AddScoped<IPositionService, PositionService>();
 
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddHostedService<ExchangeEventWorker>();

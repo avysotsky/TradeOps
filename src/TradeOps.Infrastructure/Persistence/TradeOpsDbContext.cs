@@ -10,6 +10,8 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 
     public DbSet<Fill> Fills => Set<Fill>();
 
+    public DbSet<PositionSnapshot> PositionSnapshots => Set<PositionSnapshot>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);

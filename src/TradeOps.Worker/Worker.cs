@@ -61,15 +61,19 @@ public sealed class Worker(
                 using var scope = scopeFactory.CreateScope();
                 var reconciliationService = scope.ServiceProvider
                     .GetRequiredService<IOrderReconciliationService>();
+                var positionService = scope.ServiceProvider
+                    .GetRequiredService<IPositionService>();
 
                 var summary = await reconciliationService.ReconcileAsync(stoppingToken);
+                var positions = await positionService.CaptureSnapshotsAsync(stoppingToken);
 
                 logger.LogInformation(
-                    "Recovery cycle completed. Connected={Connected}, Scanned={Scanned}, Updated={Updated}, Issues={IssueCount}.",
+                    "Recovery cycle completed. Connected={Connected}, Scanned={Scanned}, Updated={Updated}, Issues={IssueCount}, PositionSnapshots={PositionSnapshotCount}.",
                     connectionManager.IsConnected,
                     summary.Scanned,
                     summary.Updated,
-                    summary.Issues.Count);
+                    summary.Issues.Count,
+                    positions.Count);
 
                 return;
             }

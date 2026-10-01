@@ -125,6 +125,52 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("Orders");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.PositionSnapshot", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedNever()
+                .HasColumnType("uuid");
+
+            b.Property<decimal>("AverageEntryPrice")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<DateTimeOffset>("CapturedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<decimal?>("MarkPrice")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<decimal>("Quantity")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<decimal>("RealizedPnL")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<OrderSide?>("Side")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<string>("Symbol")
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.Property<decimal?>("UnrealizedPnL")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.HasKey("Id");
+
+            b.HasIndex("Symbol", "CapturedAt");
+
+            b.ToTable("PositionSnapshots");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
         {
             b.HasOne("TradeOps.Domain.Entities.Order", null)
