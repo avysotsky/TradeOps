@@ -1,3 +1,4 @@
+using TradeOps.Application.Models;
 using TradeOps.Domain.Enums;
 
 namespace TradeOps.Api.Contracts;
@@ -32,6 +33,11 @@ public sealed record LocalOrderResponse(
     OrderStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
+
+public sealed record OrderCancellationResponse(
+    OrderCancellationOutcome Outcome,
+    LocalOrderResponse? Order,
+    string? Message);
 
 public sealed record FillAuditResponse(
     Guid FillId,

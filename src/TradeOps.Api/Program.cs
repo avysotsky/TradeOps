@@ -61,6 +61,7 @@ builder.Services.AddSingleton(new AccountingSettings
 builder.Services.AddScoped<IRiskControlService, RiskControlService>();
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
+builder.Services.AddScoped<IOrderCancellationService, OrderCancellationService>();
 builder.Services.AddScoped<ISignalExecutionService, SignalExecutionService>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 builder.Services.AddScoped<IPositionService, PositionService>();

@@ -9,7 +9,11 @@ public sealed class OrderStateMachine : IOrderStateMachine
     private static readonly IReadOnlyDictionary<OrderStatus, HashSet<OrderStatus>> AllowedTransitions =
         new Dictionary<OrderStatus, HashSet<OrderStatus>>
         {
-            [OrderStatus.Created] = [OrderStatus.Submitted],
+            [OrderStatus.Created] =
+            [
+                OrderStatus.Submitted,
+                OrderStatus.Cancelled
+            ],
             [OrderStatus.Submitted] =
             [
                 OrderStatus.Accepted,

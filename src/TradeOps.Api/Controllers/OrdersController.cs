@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Api.Contracts;
 using TradeOps.Application.Interfaces;
+using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
 using TradeOps.Domain.Enums;
 
@@ -10,7 +11,8 @@ namespace TradeOps.Api.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController(
     IExchangeClient exchangeClient,
-    IOperatorReadRepository operatorReadRepository) : ControllerBase
+    IOperatorReadRepository operatorReadRepository,
+    IOrderCancellationService orderCancellationService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<Order>>(StatusCodes.Status200OK)]
@@ -33,6 +35,40 @@ public sealed class OrdersController(
             cancellationToken);
 
         return order is null ? NotFound() : Ok(ToLocalResponse(order));
+    }
+
+    [HttpPost("local/{idOrClientOrderId}/cancel")]
+    [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<ActionResult<OrderCancellationResponse>> CancelLocalOrder(
+        string idOrClientOrderId,
+        CancellationToken cancellationToken)
+    {
+        var result = await orderCancellationService.CancelAsync(
+            idOrClientOrderId,
+            cancellationToken);
+
+        var response = new OrderCancellationResponse(
+            result.Outcome,
+            result.Order is null ? null : ToLocalResponse(result.Order),
+            result.Message);
+
+        switch (result.Outcome)
+        {
+            case OrderCancellationOutcome.NotFound:
+                return NotFound(response);
+            case OrderCancellationOutcome.NotCancellable:
+                return Conflict(response);
+            case OrderCancellationOutcome.Unresolved:
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, response);
+            case OrderCancellationOutcome.CancellationRequested:
+                return Accepted(response);
+            default:
+                return Ok(response);
+        }
     }
 
     [HttpGet("{exchangeOrderId}")]
