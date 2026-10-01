@@ -50,9 +50,11 @@ Signal reads expose persisted `Received` / `Accepted` / `Rejected` outcome, risk
 
 `GET /api/pnl/daily` uses the same daily accounting source as risk controls: gross realized PnL, settlement-currency fees, net realized PnL when accounting is complete, and any unconverted-fee gaps.
 
-### Local-order execution control
+## Local-order execution control
 
-Preferred persisted cancellation workflow:
+### Single persisted order cancellation
+
+Preferred single-order cancellation workflow:
 
 ```text
 POST /api/orders/local/{idOrClientOrderId}/cancel
@@ -64,24 +66,83 @@ Behavior:
 
 - the persisted local order is loaded first;
 - an already `Cancelled` order returns success without issuing another exchange cancel request;
-- `Filled` and `Rejected` orders are treated as terminal and return conflict rather than sending a cancel;
+- `Filled` and `Rejected` orders are terminal and return conflict rather than sending a cancel;
 - a locally persisted `Created` order can be cancelled before exchange submission;
 - active orders are cancelled through the configured `IExchangeClient` and then reconciled back into local PostgreSQL state;
 - if the exchange cancel call fails with an ambiguous outcome, TradeOps performs an exchange lookup and reconciles instead of blindly retrying the cancel call;
 - if the exchange acknowledges cancellation but final state is not observable yet, the API returns `202 Accepted` with outcome `CancellationRequested`;
 - if exchange identity/state cannot be resolved safely, the API returns `503 Service Unavailable` with outcome `Unresolved`.
 
-Typical successful response outcomes are:
+### Bulk persisted open-order cancellation
 
 ```text
-Cancelled
-AlreadyCancelled
-CancellationRequested
+POST /api/orders/local/cancel-all
+POST /api/orders/local/cancel-all?symbol=BTCUSDT
 ```
 
-The endpoint preserves the same Mock-default / Bybit-testnet-only exchange boundary as the rest of TradeOps.
+Bulk cancellation begins from PostgreSQL and selects only locally cancellable states:
 
-### Risk and reconciliation
+```text
+Created
+Submitted
+Accepted
+PartiallyFilled
+Unknown
+```
+
+Each candidate is passed through the same `IOrderCancellationService` used by the single-order endpoint. Bulk cancellation therefore does not introduce a second exchange-cancellation implementation.
+
+The response contains aggregate counts plus the per-order cancellation result:
+
+```text
+candidateCount
+cancelledCount
+alreadyCancelledCount
+cancellationRequestedCount
+notCancellableCount
+notFoundCount
+unresolvedCount
+isComplete
+results[]
+```
+
+`isComplete=false` when one or more candidates remain pending (`CancellationRequested`), become unresolvable, or disappear during processing. A terminal `Filled`/`Rejected` race is reported as `NotCancellable` but does not by itself make the bulk operation incomplete because the order is no longer open.
+
+The optional `symbol` scope is normalized to uppercase. Repeating a completed bulk request is idempotent at the persisted-order level: orders already persisted as `Cancelled`, `Filled`, or `Rejected` are no longer selected as candidates.
+
+Bulk processing is sequential and returns partial-failure information instead of pretending the whole set succeeded when an individual order cannot be resolved.
+
+## Emergency stop and open orders
+
+```text
+POST /api/risk/emergency-stop
+```
+
+When `enabled=true`, TradeOps now performs the following sequence:
+
+```text
+persist EmergencyStop = true
+        ↓
+new signals are risk-blocked
+        ↓
+load all locally cancellable open orders
+        ↓
+cancel each through IOrderCancellationService
+        ↓
+return risk state + bulk cancellation summary
+```
+
+The persistent emergency-stop state is written **before** cancellation begins. This prevents a cancellation failure from leaving new signal execution enabled.
+
+The response keeps the existing top-level risk fields and additionally returns `orderCancellation` when enabling emergency stop. When clearing emergency stop (`enabled=false`), `orderCancellation` is `null` and no order cancellation is performed.
+
+If emergency-stop cancellation is incomplete, TradeOps returns the per-order failure/pending details and emits an `EmergencyStopCancellationIncomplete` critical alert through the configured alert service.
+
+Emergency stop in this milestone does **not** flatten, reduce, reverse, or otherwise alter positions. It only blocks new orders through the existing risk control and attempts to cancel currently open orders.
+
+Repeated `enabled=true` calls scan the current persisted candidate set again. Orders already in terminal local states are not selected again; any still-active or unresolved orders remain visible for subsequent reconciliation/operations.
+
+## Risk and reconciliation
 
 ```text
 GET  /api/risk
@@ -130,4 +191,6 @@ Readiness does **not** call an exchange endpoint, authenticate to Bybit, place/c
 - Secrets remain external configuration and must not be committed.
 - Health/readiness probes never place or cancel orders.
 - Ambiguous placement recovery continues to use deterministic `ClientOrderId` reconciliation rather than blind resubmission.
-- Ambiguous cancellation recovery reconciles exchange state rather than blindly reissuing the cancel call inside the same request.
+- Single and bulk cancellation reuse the same cancellation orchestration; there is no separate blind bulk-cancel retry path.
+- Emergency stop persists the blocking state before attempting open-order cancellation.
+- Emergency stop does not flatten positions.
