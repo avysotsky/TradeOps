@@ -107,6 +107,7 @@ jobs:
               "/api/signals",
               "/api/signals/{id}",
               "/api/orders/local/{idOrClientOrderId}",
+              "/api/orders/local/{idOrClientOrderId}/cancel",
               "/api/fills",
               "/api/pnl/daily",
           ):
@@ -208,6 +209,53 @@ jobs:
           order = data["order"]
           assert order["status"] == "Filled", order
           assert abs(float(order["filledQuantity"]) - 0.001) < 1e-12, order
+          PY
+
+          CANCEL_SIGNAL_ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+          CANCEL_CREATED=$(curl --fail --silent --show-error \
+            -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Sell\",\"quantity\":0.002,\"source\":\"ci-cancel\",\"signalId\":\"$CANCEL_SIGNAL_ID\"}" \
+            http://127.0.0.1:5080/api/signals)
+          CANCEL_CREATED_JSON="$CANCEL_CREATED" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["CANCEL_CREATED_JSON"])
+          assert data["order"]["status"] == "PartiallyFilled", data
+          PY
+
+          CANCEL_AUDIT=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/signals/$CANCEL_SIGNAL_ID")
+          CANCEL_CLIENT_ORDER_ID=$(CANCEL_AUDIT_JSON="$CANCEL_AUDIT" python3 - <<'PY'
+          import json, os
+          print(json.loads(os.environ["CANCEL_AUDIT_JSON"])["clientOrderId"])
+          PY
+          )
+
+          CANCEL_FIRST=$(curl --fail --silent --show-error \
+            -X POST \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
+          CANCEL_FIRST_JSON="$CANCEL_FIRST" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["CANCEL_FIRST_JSON"])
+          assert data["outcome"] == "Cancelled", data
+          assert data["order"]["status"] == "Cancelled", data
+          PY
+
+          CANCEL_RETRY=$(curl --fail --silent --show-error \
+            -X POST \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
+          CANCEL_RETRY_JSON="$CANCEL_RETRY" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["CANCEL_RETRY_JSON"])
+          assert data["outcome"] == "AlreadyCancelled", data
+          assert data["order"]["status"] == "Cancelled", data
+          PY
+
+          CANCEL_LOCAL=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID")
+          CANCEL_LOCAL_JSON="$CANCEL_LOCAL" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["CANCEL_LOCAL_JSON"])
+          assert data["status"] == "Cancelled", data
           PY
 
           STOP=$(curl --fail --silent --show-error \

@@ -13,7 +13,7 @@ Swagger UI:   /swagger
 OpenAPI JSON: /swagger/v1/swagger.json
 ```
 
-Swagger describes both exchange-facing operational routes and local PostgreSQL audit routes. The state source matters when interpreting responses.
+Swagger describes exchange-facing operational routes, local PostgreSQL audit routes, and local-order execution controls. The state source matters when interpreting responses.
 
 ## State-source boundary
 
@@ -32,6 +32,8 @@ DELETE /api/orders/{exchangeOrderId}
 
 In Mock mode they query `MockExchangeClient`. In `BybitTestnet` mode they query Bybit testnet. They are not PostgreSQL audit views.
 
+The legacy `DELETE /api/orders/{exchangeOrderId}` route remains exchange-facing and accepts an exchange order ID directly. It is retained for compatibility; it is not the preferred persisted local-order cancellation workflow.
+
 ### Local PostgreSQL audit/read views
 
 These routes read persisted local state:
@@ -47,6 +49,37 @@ GET /api/pnl/daily
 Signal reads expose persisted `Received` / `Accepted` / `Rejected` outcome, risk-rejection reasons, and accepted-order linkage. The local order route returns the current PostgreSQL order record, not a fresh exchange lookup.
 
 `GET /api/pnl/daily` uses the same daily accounting source as risk controls: gross realized PnL, settlement-currency fees, net realized PnL when accounting is complete, and any unconverted-fee gaps.
+
+### Local-order execution control
+
+Preferred persisted cancellation workflow:
+
+```text
+POST /api/orders/local/{idOrClientOrderId}/cancel
+```
+
+The identifier may be the local PostgreSQL order `Guid` or deterministic `ClientOrderId`.
+
+Behavior:
+
+- the persisted local order is loaded first;
+- an already `Cancelled` order returns success without issuing another exchange cancel request;
+- `Filled` and `Rejected` orders are treated as terminal and return conflict rather than sending a cancel;
+- a locally persisted `Created` order can be cancelled before exchange submission;
+- active orders are cancelled through the configured `IExchangeClient` and then reconciled back into local PostgreSQL state;
+- if the exchange cancel call fails with an ambiguous outcome, TradeOps performs an exchange lookup and reconciles instead of blindly retrying the cancel call;
+- if the exchange acknowledges cancellation but final state is not observable yet, the API returns `202 Accepted` with outcome `CancellationRequested`;
+- if exchange identity/state cannot be resolved safely, the API returns `503 Service Unavailable` with outcome `Unresolved`.
+
+Typical successful response outcomes are:
+
+```text
+Cancelled
+AlreadyCancelled
+CancellationRequested
+```
+
+The endpoint preserves the same Mock-default / Bybit-testnet-only exchange boundary as the rest of TradeOps.
 
 ### Risk and reconciliation
 
@@ -97,3 +130,4 @@ Readiness does **not** call an exchange endpoint, authenticate to Bybit, place/c
 - Secrets remain external configuration and must not be committed.
 - Health/readiness probes never place or cancel orders.
 - Ambiguous placement recovery continues to use deterministic `ClientOrderId` reconciliation rather than blind resubmission.
+- Ambiguous cancellation recovery reconciles exchange state rather than blindly reissuing the cancel call inside the same request.
