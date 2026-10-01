@@ -29,6 +29,10 @@ feat: add persistent trading signal audit
 53e6d91b99449253666374b23409897601a9a444
 fix: register trading signal audit migration
 GitHub Actions #82: green
+
+5498ef5943198e689c5f83b249f393bdad28d767
+feat: add operator read APIs
+GitHub Actions #83: green
 ```
 
 The Block 2 corrective commit only registered the hand-written EF Core migration with the same
@@ -401,13 +405,30 @@ The corrective commit added those attributes only. Actions #82 then passed the c
 
 ---
 
-## 8. CURRENT NEXT TASK — Block 3: operator read APIs
+## 8. COMPLETED in v1.1.1.3 — Block 3: operator read APIs
 
-This is the next implementation block.
+Block 3 is finished. Do not reimplement it.
 
-### Block 3 — operator read APIs
+Commit:
 
-Expose useful persisted/audit views, likely including:
+```text
+5498ef5943198e689c5f83b249f393bdad28d767
+feat: add operator read APIs
+```
+
+Validation:
+
+```text
+GitHub Actions #83
+Restore                     ✓
+Build                       ✓
+Unit tests                  ✓
+API + PostgreSQL smoke      ✓
+Docker Compose validation   ✓
+Docker API/Worker images    ✓
+```
+
+Implemented read-only operator views:
 
 ```text
 GET /api/signals/{id}
@@ -417,9 +438,18 @@ GET /api/fills?symbol=...&limit=...
 GET /api/pnl/daily
 ```
 
-Exact route design may be adjusted to fit the project cleanly. Prefer response DTOs over blindly exposing EF entities.
+A dedicated `IOperatorReadRepository` / `EfOperatorReadRepository` isolates PostgreSQL read queries from execution repositories.
+New operator endpoints use response DTOs rather than exposing EF entities. Existing `/api/orders` endpoints remain exchange-state reads; `/api/orders/local/...` is explicitly local PostgreSQL state.
 
-### Block 4 — Swagger/OpenAPI + health/readiness + docs
+Signal reads expose accepted/rejected outcome, risk-rejection reasons and order/client-order linkage. Fill reads support symbol filtering and bounded recent-result limits. Daily PnL exposes the shared accounting/risk snapshot fields without changing risk calculation semantics.
+
+The CI runtime smoke validates accepted signal lookup/listing, local-order lookup, fills endpoint reachability, daily PnL response, and rejected signal audit. No execution semantics or database schema changed in Block 3.
+
+---
+
+## 9. CURRENT NEXT TASK — Block 4: Swagger/OpenAPI + health/readiness + docs
+
+This is the next implementation block.
 
 Add:
 
@@ -435,7 +465,7 @@ Document clearly which APIs reflect exchange state versus local PostgreSQL state
 
 ---
 
-## 9. Definition of Done for v1.1.1.3
+## 10. Definition of Done for v1.1.1.3
 
 Completed already:
 
@@ -452,12 +482,14 @@ Completed in Block 2:
 - [x] accepted/rejected signal outcome persisted;
 - [x] accepted signal linked to resulting order/client ID.
 
-Still required:
+Completed in Block 3:
 
-- [ ] accepted/rejected signal outcome exposed through operator read API;
-- [ ] fills queryable through operator API;
-- [ ] local order/audit view available;
-- [ ] daily accounting/risk snapshot query available through dedicated operator API if useful;
+- [x] accepted/rejected signal outcome exposed through operator read API;
+- [x] fills queryable through operator API;
+- [x] local order/audit view available;
+- [x] daily accounting/risk snapshot query available through dedicated operator API.
+
+Still required:
 - [ ] Swagger/OpenAPI documents operational APIs;
 - [ ] liveness/readiness endpoints exist;
 - [ ] README/docs updated;
@@ -469,7 +501,7 @@ Still required:
 
 ---
 
-## 10. Out of scope for v1.1.1.3
+## 11. Out of scope for v1.1.1.3
 
 Do not add unless strictly required by the above milestone:
 
@@ -488,10 +520,10 @@ Do not add unless strictly required by the above milestone:
 
 ---
 
-## 11. Instruction for the next chat
+## 12. Instruction for the next chat
 
 Start with:
 
-> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is complete at `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb`. Block 2 (persistent signal audit) is complete at feature commit `119c3a84928d46bbb0aff3b200b8b829cf35bcd9` plus migration-registration fix `53e6d91b99449253666374b23409897601a9a444`; GitHub Actions #82 is fully green. Implement Block 3 — operator read APIs: persisted signal lookup/listing, local order lookup, fill querying, and a clean daily PnL/accounting read view where useful. Prefer response DTOs and local PostgreSQL audit views; do not expose EF entities blindly or alter exchange execution semantics.
+> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is complete at `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb`. Block 2 (persistent signal audit) is complete at `119c3a84928d46bbb0aff3b200b8b829cf35bcd9` plus fix `53e6d91b99449253666374b23409897601a9a444`; Actions #82 is green. Block 3 (operator read APIs) is complete at `5498ef5943198e689c5f83b249f393bdad28d767`; Actions #83 is green. Implement Block 4 — Swagger/OpenAPI, `/health/live`, `/health/ready`, and documentation. Readiness must verify PostgreSQL and safe dependency resolution without unsafe exchange actions. Preserve testnet-only exchange safety and existing execution semantics.
 
 No additional context from the previous chat should be required beyond this file and the repository code.
