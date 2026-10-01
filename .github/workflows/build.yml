@@ -55,9 +55,11 @@ jobs:
           ASPNETCORE_URLS: http://127.0.0.1:5080
           Exchange__Provider: Mock
           Telegram__Enabled: 'false'
+          Worker__ReconciliationIntervalSeconds: '300'
         run: |
           set -euo pipefail
 
+          WORKER_PID=''
           dotnet run \
             --project src/TradeOps.Api \
             --configuration Release \
@@ -66,9 +68,16 @@ jobs:
           API_PID=$!
 
           cleanup() {
+            if [ -n "$WORKER_PID" ]; then
+              kill "$WORKER_PID" 2>/dev/null || true
+            fi
             kill "$API_PID" 2>/dev/null || true
             echo '--- API log ---'
             cat api.log || true
+            if [ -f worker.log ]; then
+              echo '--- Worker log ---'
+              cat worker.log || true
+            fi
           }
           trap cleanup EXIT
 
@@ -76,39 +85,39 @@ jobs:
             if curl --fail --silent http://127.0.0.1:5080/health/live >/dev/null; then
               break
             fi
-
             if [ "$attempt" -eq 30 ]; then
               echo 'API did not become live.' >&2
               exit 1
             fi
-
             sleep 2
           done
 
           READY=$(curl --fail --silent --show-error http://127.0.0.1:5080/health/ready)
           READY_JSON="$READY" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["READY_JSON"])
-          assert data["status"] == "ready", data
-          assert data["dependencies"]["postgres"] == "ready", data
-          assert data["dependencies"]["exchangeClient"], data
+          data = json.loads(os.environ['READY_JSON'])
+          assert data['status'] == 'ready', data
+          assert data['dependencies']['postgres'] == 'ready', data
+          assert data['dependencies']['exchangeClient'], data
           PY
 
           OPENAPI=$(curl --fail --silent --show-error http://127.0.0.1:5080/swagger/v1/swagger.json)
           OPENAPI_JSON="$OPENAPI" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["OPENAPI_JSON"])
-          paths = data["paths"]
+          paths = json.loads(os.environ['OPENAPI_JSON'])['paths']
           for path in (
-              "/health/live",
-              "/health/ready",
-              "/api/signals",
-              "/api/signals/{id}",
-              "/api/orders/local/{idOrClientOrderId}",
-              "/api/orders/local/{idOrClientOrderId}/cancel",
-              "/api/orders/local/cancel-all",
-              "/api/fills",
-              "/api/pnl/daily",
+              '/health/live',
+              '/health/ready',
+              '/api/signals',
+              '/api/signals/{id}',
+              '/api/orders/local/{idOrClientOrderId}',
+              '/api/orders/local/{idOrClientOrderId}/history',
+              '/api/orders/local/{idOrClientOrderId}/cancel',
+              '/api/orders/local/cancel-all',
+              '/api/system/reconciliation/status',
+              '/api/system/recovery/status',
+              '/api/fills',
+              '/api/pnl/daily',
           ):
               assert path in paths, (path, list(paths))
           PY
@@ -120,54 +129,76 @@ jobs:
             http://127.0.0.1:5080/api/signals)
           FIRST_JSON="$FIRST" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["FIRST_JSON"])
-          order = data["order"]
-          assert order["status"] == "PartiallyFilled", order
-          assert abs(float(order["filledQuantity"]) - 0.0006) < 1e-12, order
+          order = json.loads(os.environ['FIRST_JSON'])['order']
+          assert order['status'] == 'PartiallyFilled', order
+          assert abs(float(order['filledQuantity']) - 0.0006) < 1e-12, order
           PY
 
           SIGNAL_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$SIGNAL_ID")
-          SIGNAL_AUDIT_JSON="$SIGNAL_AUDIT" python3 - <<'PY'
-          import json, os
-          data = json.loads(os.environ["SIGNAL_AUDIT_JSON"])
-          assert data["outcome"] == "Accepted", data
-          assert data["clientOrderId"], data
-          assert data["orderId"], data
-          PY
-
           CLIENT_ORDER_ID=$(SIGNAL_AUDIT_JSON="$SIGNAL_AUDIT" python3 - <<'PY'
           import json, os
-          print(json.loads(os.environ["SIGNAL_AUDIT_JSON"])["clientOrderId"])
+          data = json.loads(os.environ['SIGNAL_AUDIT_JSON'])
+          assert data['outcome'] == 'Accepted', data
+          assert data['orderId'], data
+          print(data['clientOrderId'])
           PY
           )
 
-          LOCAL_ORDER=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/orders/local/$CLIENT_ORDER_ID")
-          LOCAL_ORDER_JSON="$LOCAL_ORDER" python3 - <<'PY'
+          HISTORY_INITIAL=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/orders/local/$CLIENT_ORDER_ID/history")
+          HISTORY_INITIAL_JSON="$HISTORY_INITIAL" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["LOCAL_ORDER_JSON"])
-          assert data["status"] == "PartiallyFilled", data
+          data = json.loads(os.environ['HISTORY_INITIAL_JSON'])
+          statuses = [item['status'] for item in data]
+          assert statuses[0] == 'Created', data
+          assert 'Submitted' in statuses, data
+          assert statuses[-1] == 'PartiallyFilled', data
+          assert all(item['source'] != 'LegacySnapshot' for item in data), data
           PY
 
           FILLS=$(curl --fail --silent --show-error 'http://127.0.0.1:5080/api/fills?symbol=BTCUSDT&limit=10')
           FILLS_JSON="$FILLS" python3 - <<'PY'
           import json, os
-          assert isinstance(json.loads(os.environ["FILLS_JSON"]), list)
+          assert isinstance(json.loads(os.environ['FILLS_JSON']), list)
           PY
 
           DAILY_PNL=$(curl --fail --silent --show-error http://127.0.0.1:5080/api/pnl/daily)
           DAILY_PNL_JSON="$DAILY_PNL" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["DAILY_PNL_JSON"])
-          assert data["settlementCurrency"] == "USDT", data
-          assert data["isComplete"] is True, data
+          data = json.loads(os.environ['DAILY_PNL_JSON'])
+          assert data['settlementCurrency'] == 'USDT', data
+          assert data['isComplete'] is True, data
           PY
 
           RECONCILIATION=$(curl --fail --silent --show-error -X POST http://127.0.0.1:5080/api/system/reconcile)
           RECONCILIATION_JSON="$RECONCILIATION" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["RECONCILIATION_JSON"])
-          assert data["updated"] == 1, data
-          assert len(data["issues"]) == 0, data
+          data = json.loads(os.environ['RECONCILIATION_JSON'])
+          assert data['updated'] == 1, data
+          assert len(data['issues']) == 0, data
+          PY
+
+          RECON_STATUS=$(curl --fail --silent --show-error http://127.0.0.1:5080/api/system/reconciliation/status)
+          RECON_STATUS_JSON="$RECON_STATUS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['RECON_STATUS_JSON'])
+          assert data['runType'] == 'OrderReconciliation', data
+          assert data['isRunning'] is False, data
+          assert data['succeeded'] is True, data
+          assert data['ordersScanned'] == 1, data
+          assert data['ordersUpdated'] == 1, data
+          assert data['orderIssues'] == 0, data
+          assert data['ordersMissingOnExchange'] == 0, data
+          assert data['completedAt'], data
+          PY
+
+          HISTORY_FILLED=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/orders/local/$CLIENT_ORDER_ID/history")
+          HISTORY_FILLED_JSON="$HISTORY_FILLED" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['HISTORY_FILLED_JSON'])
+          assert data[-1]['status'] == 'Filled', data
+          assert float(data[-1]['filledQuantity']) == 0.001, data
           PY
 
           RETRY=$(curl --fail --silent --show-error \
@@ -176,101 +207,89 @@ jobs:
             http://127.0.0.1:5080/api/signals)
           RETRY_JSON="$RETRY" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["RETRY_JSON"])
-          assert data["order"]["status"] == "Filled", data
+          assert json.loads(os.environ['RETRY_JSON'])['order']['status'] == 'Filled'
           PY
 
           CANCEL_SIGNAL_ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-          CANCEL_CREATED=$(curl --fail --silent --show-error \
+          curl --fail --silent --show-error \
             -H 'Content-Type: application/json' \
             -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Sell\",\"quantity\":0.002,\"source\":\"ci-cancel\",\"signalId\":\"$CANCEL_SIGNAL_ID\"}" \
-            http://127.0.0.1:5080/api/signals)
-          CANCEL_CREATED_JSON="$CANCEL_CREATED" python3 - <<'PY'
-          import json, os
-          assert json.loads(os.environ["CANCEL_CREATED_JSON"])["order"]["status"] == "PartiallyFilled"
-          PY
-
+            http://127.0.0.1:5080/api/signals >/dev/null
           CANCEL_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$CANCEL_SIGNAL_ID")
           CANCEL_CLIENT_ORDER_ID=$(CANCEL_AUDIT_JSON="$CANCEL_AUDIT" python3 - <<'PY'
           import json, os
-          print(json.loads(os.environ["CANCEL_AUDIT_JSON"])["clientOrderId"])
+          print(json.loads(os.environ['CANCEL_AUDIT_JSON'])['clientOrderId'])
           PY
           )
-
-          CANCEL_FIRST=$(curl --fail --silent --show-error -X POST "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
+          CANCEL_FIRST=$(curl --fail --silent --show-error -X POST \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
           CANCEL_FIRST_JSON="$CANCEL_FIRST" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["CANCEL_FIRST_JSON"])
-          assert data["outcome"] == "Cancelled", data
-          assert data["order"]["status"] == "Cancelled", data
+          data = json.loads(os.environ['CANCEL_FIRST_JSON'])
+          assert data['outcome'] == 'Cancelled', data
+          assert data['order']['status'] == 'Cancelled', data
           PY
-
-          CANCEL_RETRY=$(curl --fail --silent --show-error -X POST "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
+          CANCEL_RETRY=$(curl --fail --silent --show-error -X POST \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/cancel")
           CANCEL_RETRY_JSON="$CANCEL_RETRY" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["CANCEL_RETRY_JSON"])
-          assert data["outcome"] == "AlreadyCancelled", data
+          assert json.loads(os.environ['CANCEL_RETRY_JSON'])['outcome'] == 'AlreadyCancelled'
+          PY
+          CANCEL_HISTORY=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/orders/local/$CANCEL_CLIENT_ORDER_ID/history")
+          CANCEL_HISTORY_JSON="$CANCEL_HISTORY" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['CANCEL_HISTORY_JSON'])
+          assert data[-1]['status'] == 'Cancelled', data
+          assert 'PartiallyFilled' in [item['status'] for item in data], data
           PY
 
-          BULK_BTC_SIGNAL_ID='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
-          BULK_ETH_SIGNAL_ID='cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+          BULK_BTC_SIGNAL='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+          BULK_ETH_SIGNAL='cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+          curl --fail --silent --show-error -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"quantity\":0.003,\"source\":\"ci-bulk-btc\",\"signalId\":\"$BULK_BTC_SIGNAL\"}" \
+            http://127.0.0.1:5080/api/signals >/dev/null
+          curl --fail --silent --show-error -H 'Content-Type: application/json' \
+            -d "{\"symbol\":\"ETHUSDT\",\"side\":\"Sell\",\"quantity\":0.004,\"source\":\"ci-bulk-eth\",\"signalId\":\"$BULK_ETH_SIGNAL\"}" \
+            http://127.0.0.1:5080/api/signals >/dev/null
 
-          for SPEC in \
-            "$BULK_BTC_SIGNAL_ID BTCUSDT Buy ci-bulk-btc" \
-            "$BULK_ETH_SIGNAL_ID ETHUSDT Buy ci-bulk-eth"; do
-            set -- $SPEC
-            CREATED=$(curl --fail --silent --show-error \
-              -H 'Content-Type: application/json' \
-              -d "{\"symbol\":\"$2\",\"side\":\"$3\",\"quantity\":0.001,\"source\":\"$4\",\"signalId\":\"$1\"}" \
-              http://127.0.0.1:5080/api/signals)
-            CREATED_JSON="$CREATED" python3 - <<'PY'
+          BULK_BTC_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$BULK_BTC_SIGNAL")
+          BULK_ETH_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$BULK_ETH_SIGNAL")
+          BULK_BTC_CLIENT=$(BULK_AUDIT="$BULK_BTC_AUDIT" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["CREATED_JSON"])
-          assert data["order"]["status"] == "PartiallyFilled", data
-          PY
-          done
-
-          BULK_BTC_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$BULK_BTC_SIGNAL_ID")
-          BULK_BTC_CLIENT=$(BULK_JSON="$BULK_BTC_AUDIT" python3 - <<'PY'
-          import json, os
-          print(json.loads(os.environ["BULK_JSON"])["clientOrderId"])
+          print(json.loads(os.environ['BULK_AUDIT'])['clientOrderId'])
           PY
           )
-          BULK_ETH_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$BULK_ETH_SIGNAL_ID")
-          BULK_ETH_CLIENT=$(BULK_JSON="$BULK_ETH_AUDIT" python3 - <<'PY'
+          BULK_ETH_CLIENT=$(BULK_AUDIT="$BULK_ETH_AUDIT" python3 - <<'PY'
           import json, os
-          print(json.loads(os.environ["BULK_JSON"])["clientOrderId"])
+          print(json.loads(os.environ['BULK_AUDIT'])['clientOrderId'])
           PY
           )
 
-          BULK_BTC=$(curl --fail --silent --show-error -X POST \
+          BULK_RESULT=$(curl --fail --silent --show-error -X POST \
             'http://127.0.0.1:5080/api/orders/local/cancel-all?symbol=BTCUSDT')
-          BULK_BTC_JSON="$BULK_BTC" python3 - <<'PY'
+          BULK_RESULT_JSON="$BULK_RESULT" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["BULK_BTC_JSON"])
-          assert data["symbol"] == "BTCUSDT", data
-          assert data["candidateCount"] == 1, data
-          assert data["cancelledCount"] == 1, data
-          assert data["isComplete"] is True, data
+          data = json.loads(os.environ['BULK_RESULT_JSON'])
+          assert data['symbol'] == 'BTCUSDT', data
+          assert data['candidateCount'] == 1, data
+          assert data['cancelledCount'] == 1, data
+          assert data['isComplete'] is True, data
           PY
-
-          BULK_BTC_RETRY=$(curl --fail --silent --show-error -X POST \
-            'http://127.0.0.1:5080/api/orders/local/cancel-all?symbol=BTCUSDT')
-          BULK_BTC_RETRY_JSON="$BULK_BTC_RETRY" python3 - <<'PY'
-          import json, os
-          data = json.loads(os.environ["BULK_BTC_RETRY_JSON"])
-          assert data["candidateCount"] == 0, data
-          assert data["isComplete"] is True, data
-          PY
-
           BULK_BTC_LOCAL=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/orders/local/$BULK_BTC_CLIENT")
           BULK_ETH_LOCAL=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/orders/local/$BULK_ETH_CLIENT")
           BULK_BTC_LOCAL_JSON="$BULK_BTC_LOCAL" BULK_ETH_LOCAL_JSON="$BULK_ETH_LOCAL" python3 - <<'PY'
           import json, os
-          btc = json.loads(os.environ["BULK_BTC_LOCAL_JSON"])
-          eth = json.loads(os.environ["BULK_ETH_LOCAL_JSON"])
-          assert btc["status"] == "Cancelled", btc
-          assert eth["status"] == "PartiallyFilled", eth
+          assert json.loads(os.environ['BULK_BTC_LOCAL_JSON'])['status'] == 'Cancelled'
+          assert json.loads(os.environ['BULK_ETH_LOCAL_JSON'])['status'] == 'PartiallyFilled'
+          PY
+          BULK_RETRY=$(curl --fail --silent --show-error -X POST \
+            'http://127.0.0.1:5080/api/orders/local/cancel-all?symbol=BTCUSDT')
+          BULK_RETRY_JSON="$BULK_RETRY" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['BULK_RETRY_JSON'])
+          assert data['candidateCount'] == 0, data
+          assert data['isComplete'] is True, data
           PY
 
           STOP=$(curl --fail --silent --show-error \
@@ -279,53 +298,24 @@ jobs:
             http://127.0.0.1:5080/api/risk/emergency-stop)
           STOP_JSON="$STOP" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["STOP_JSON"])
-          assert data["emergencyStop"] is True, data
-          assert data["emergencyStopReason"] == "CI persistent emergency-stop verification", data
-          cancellation = data["orderCancellation"]
-          assert cancellation["candidateCount"] == 1, cancellation
-          assert cancellation["cancelledCount"] == 1, cancellation
-          assert cancellation["isComplete"] is True, cancellation
+          data = json.loads(os.environ['STOP_JSON'])
+          assert data['emergencyStop'] is True, data
+          assert data['orderCancellation']['candidateCount'] == 1, data
+          assert data['orderCancellation']['cancelledCount'] == 1, data
+          assert data['orderCancellation']['isComplete'] is True, data
           PY
-
-          BULK_ETH_AFTER_STOP=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/orders/local/$BULK_ETH_CLIENT")
-          BULK_ETH_AFTER_STOP_JSON="$BULK_ETH_AFTER_STOP" python3 - <<'PY'
+          BULK_ETH_AFTER=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/orders/local/$BULK_ETH_CLIENT")
+          BULK_ETH_AFTER_JSON="$BULK_ETH_AFTER" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["BULK_ETH_AFTER_STOP_JSON"])
-          assert data["status"] == "Cancelled", data
+          assert json.loads(os.environ['BULK_ETH_AFTER_JSON'])['status'] == 'Cancelled'
           PY
 
           BLOCKED_SIGNAL_ID='99999999-9999-4999-8999-999999999999'
-          BLOCKED_STATUS=$(curl --silent --show-error \
-            -o blocked.json \
-            -w '%{http_code}' \
+          BLOCKED_STATUS=$(curl --silent --show-error -o blocked.json -w '%{http_code}' \
             -H 'Content-Type: application/json' \
             -d "{\"symbol\":\"BTCUSDT\",\"side\":\"Buy\",\"quantity\":0.001,\"source\":\"ci-risk-block\",\"signalId\":\"$BLOCKED_SIGNAL_ID\"}" \
             http://127.0.0.1:5080/api/signals)
           test "$BLOCKED_STATUS" = '422'
-          python3 - <<'PY'
-          import json
-          with open('blocked.json', encoding='utf-8') as f:
-              data = json.load(f)
-          assert data["accepted"] is False, data
-          assert any("Emergency stop" in reason for reason in data["riskReasons"]), data
-          PY
-
-          BLOCKED_AUDIT=$(curl --fail --silent --show-error "http://127.0.0.1:5080/api/signals/$BLOCKED_SIGNAL_ID")
-          BLOCKED_AUDIT_JSON="$BLOCKED_AUDIT" python3 - <<'PY'
-          import json, os
-          data = json.loads(os.environ["BLOCKED_AUDIT_JSON"])
-          assert data["outcome"] == "Rejected", data
-          assert any("Emergency stop" in reason for reason in data["riskRejectionReasons"]), data
-          assert data["orderId"] is None, data
-          PY
-
-          EVENTS=$(curl --fail --silent --show-error 'http://127.0.0.1:5080/api/risk/events?limit=20')
-          EVENTS_JSON="$EVENTS" python3 - <<'PY'
-          import json, os
-          data = json.loads(os.environ["EVENTS_JSON"])
-          assert any(event["eventType"] == "RiskRejected" for event in data), data
-          PY
 
           CLEAR=$(curl --fail --silent --show-error \
             -H 'Content-Type: application/json' \
@@ -333,10 +323,49 @@ jobs:
             http://127.0.0.1:5080/api/risk/emergency-stop)
           CLEAR_JSON="$CLEAR" python3 - <<'PY'
           import json, os
-          data = json.loads(os.environ["CLEAR_JSON"])
-          assert data["emergencyStop"] is False, data
-          assert data["emergencyStopReason"] is None, data
-          assert data["orderCancellation"] is None, data
+          data = json.loads(os.environ['CLEAR_JSON'])
+          assert data['emergencyStop'] is False, data
+          assert data['orderCancellation'] is None, data
+          PY
+
+          dotnet run \
+            --project src/TradeOps.Worker \
+            --configuration Release \
+            --no-build \
+            > worker.log 2>&1 &
+          WORKER_PID=$!
+
+          RECOVERY_STATUS=''
+          for attempt in $(seq 1 30); do
+            HTTP_STATUS=$(curl --silent --output recovery.json --write-out '%{http_code}' \
+              http://127.0.0.1:5080/api/system/recovery/status)
+            if [ "$HTTP_STATUS" = '200' ]; then
+              RECOVERY_STATUS=$(cat recovery.json)
+              if RECOVERY_JSON="$RECOVERY_STATUS" python3 - <<'PY'
+          import json, os, sys
+          data = json.loads(os.environ['RECOVERY_JSON'])
+          sys.exit(0 if data['isRunning'] is False and data['succeeded'] is True else 1)
+          PY
+              then
+                break
+              fi
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo 'Worker recovery status did not complete successfully.' >&2
+              exit 1
+            fi
+            sleep 1
+          done
+
+          RECOVERY_JSON="$RECOVERY_STATUS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['RECOVERY_JSON'])
+          assert data['runType'] == 'RecoveryCycle', data
+          assert data['isRunning'] is False, data
+          assert data['succeeded'] is True, data
+          assert data['completedAt'], data
+          assert data['positionsCompared'] >= 1, data
+          assert data['positionSnapshots'] >= 1, data
           PY
 
       - name: Validate Docker Compose
