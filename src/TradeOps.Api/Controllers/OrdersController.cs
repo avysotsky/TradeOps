@@ -12,9 +12,13 @@ namespace TradeOps.Api.Controllers;
 public sealed class OrdersController(
     IExchangeClient exchangeClient,
     IOperatorReadRepository operatorReadRepository,
+    ILocalOrderAuditRepository localOrderAuditRepository,
     IOrderCancellationService orderCancellationService,
     IOrderBulkCancellationService orderBulkCancellationService) : ControllerBase
 {
+    private const int MaxAuditLimit = 200;
+    private const int MaxSymbolLength = 50;
+
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<Order>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyCollection<Order>>> GetOpenOrders(
@@ -22,6 +26,58 @@ public sealed class OrdersController(
     {
         var orders = await exchangeClient.GetOpenOrdersAsync(cancellationToken);
         return Ok(orders);
+    }
+
+    [HttpGet("local")]
+    [ProducesResponseType<IReadOnlyCollection<LocalOrderResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyCollection<LocalOrderResponse>>> GetLocalOrders(
+        [FromQuery] string? symbol = null,
+        [FromQuery] OrderStatus? status = null,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] int limit = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit is < 1 or > MaxAuditLimit)
+        {
+            return Problem(
+                title: $"Local order audit limit must be between 1 and {MaxAuditLimit}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        string? normalizedSymbol = null;
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            if (normalizedSymbol.Length > MaxSymbolLength)
+            {
+                return Problem(
+                    title: $"Order symbol must not exceed {MaxSymbolLength} characters.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
+        var fromInclusive = from?.ToUniversalTime();
+        var toExclusive = to?.ToUniversalTime();
+        if (fromInclusive.HasValue &&
+            toExclusive.HasValue &&
+            fromInclusive.Value >= toExclusive.Value)
+        {
+            return Problem(
+                title: "Local order audit 'from' must be earlier than 'to'.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var orders = await localOrderAuditRepository.GetAsync(
+            normalizedSymbol,
+            status,
+            fromInclusive,
+            toExclusive,
+            limit,
+            cancellationToken);
+
+        return Ok(orders.Select(OperatorResponseMapper.ToLocalOrder).ToArray());
     }
 
     [HttpGet("local/{idOrClientOrderId}")]
