@@ -96,7 +96,7 @@ public sealed class SignalAuditApiIntegrationTests
                 using var document = JsonDocument.Parse(await filteredResponse.Content.ReadAsStringAsync());
                 var items = document.RootElement;
                 Assert.Equal(1, items.GetArrayLength());
-                Assert.Equal(btcAcceptedId, items[0].GetProperty("id").GetGuid());
+                Assert.Equal(btcAcceptedId, items[0].GetProperty("signalId").GetGuid());
                 Assert.Equal("BTCUSDT", items[0].GetProperty("symbol").GetString());
                 Assert.Equal("Accepted", items[0].GetProperty("outcome").GetString());
             }
@@ -108,8 +108,8 @@ public sealed class SignalAuditApiIntegrationTests
                 using var document = JsonDocument.Parse(await windowResponse.Content.ReadAsStringAsync());
                 var items = document.RootElement;
                 Assert.Equal(2, items.GetArrayLength());
-                Assert.Equal(ethAcceptedId, items[0].GetProperty("id").GetGuid());
-                Assert.Equal(btcRejectedId, items[1].GetProperty("id").GetGuid());
+                Assert.Equal(ethAcceptedId, items[0].GetProperty("signalId").GetGuid());
+                Assert.Equal(btcRejectedId, items[1].GetProperty("signalId").GetGuid());
             }
 
             await AssertBadRequestAsync(client, "/api/signals?limit=0");
