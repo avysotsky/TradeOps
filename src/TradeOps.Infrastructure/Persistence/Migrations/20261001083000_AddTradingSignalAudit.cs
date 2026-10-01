@@ -1,9 +1,12 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TradeOps.Infrastructure.Persistence.Migrations;
 
+[DbContext(typeof(TradeOpsDbContext))]
+[Migration("20261001083000_AddTradingSignalAudit")]
 public partial class AddTradingSignalAudit : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
