@@ -1,11 +1,13 @@
 using Microsoft.Extensions.Logging;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
+using TradeOps.Domain.Entities;
 
 namespace TradeOps.Application.Services;
 
 public sealed class ExchangeEventProcessor(
     IOrderRepository orderRepository,
+    IFillRepository fillRepository,
     IOrderStateMachine orderStateMachine,
     ILogger<ExchangeEventProcessor> logger) : IExchangeEventProcessor
 {
@@ -70,12 +72,78 @@ public sealed class ExchangeEventProcessor(
         }
     }
 
-    public Task ProcessExecutionUpdateAsync(
+    public async Task ProcessExecutionUpdateAsync(
         ExchangeExecutionUpdate update,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(update.ExecutionId)
+            || string.IsNullOrWhiteSpace(update.ClientOrderId))
+        {
+            logger.LogWarning(
+                "Ignoring execution update without ExecutionId/ClientOrderId. ExchangeOrderId={ExchangeOrderId}.",
+                update.ExchangeOrderId);
+            return;
+        }
+
+        if (update.Quantity <= 0m || update.Price <= 0m)
+        {
+            logger.LogWarning(
+                "Ignoring invalid execution {ExecutionId}: Quantity={Quantity}, Price={Price}.",
+                update.ExecutionId,
+                update.Quantity,
+                update.Price);
+            return;
+        }
+
+        var localOrder = await orderRepository.GetByClientOrderIdAsync(update.ClientOrderId, cancellationToken);
+        if (localOrder is null)
+        {
+            logger.LogWarning(
+                "Received execution {ExecutionId} for unknown ClientOrderId {ClientOrderId}.",
+                update.ExecutionId,
+                update.ClientOrderId);
+            return;
+        }
+
+        var exchangeOrderIdMismatch = !string.IsNullOrWhiteSpace(localOrder.ExchangeOrderId)
+            && !string.IsNullOrWhiteSpace(update.ExchangeOrderId)
+            && !string.Equals(localOrder.ExchangeOrderId, update.ExchangeOrderId, StringComparison.Ordinal);
+
+        if (!string.Equals(localOrder.Symbol, update.Symbol, StringComparison.OrdinalIgnoreCase)
+            || localOrder.Side != update.Side
+            || exchangeOrderIdMismatch)
+        {
+            logger.LogWarning(
+                "Ignoring identity-mismatched execution {ExecutionId} for {ClientOrderId}.",
+                update.ExecutionId,
+                update.ClientOrderId);
+            return;
+        }
+
+        var fill = new Fill
+        {
+            Id = Guid.NewGuid(),
+            OrderId = localOrder.Id,
+            ExchangeFillId = update.ExecutionId,
+            Quantity = update.Quantity,
+            Price = update.Price,
+            Fee = update.Fee,
+            FeeCurrency = update.FeeCurrency,
+            FilledAt = update.ExecutedAt
+        };
+
+        var inserted = await fillRepository.TryAddAsync(fill, cancellationToken);
+        if (!inserted)
+        {
+            logger.LogDebug(
+                "Ignoring duplicate execution event {ExecutionId} for {ClientOrderId}.",
+                update.ExecutionId,
+                update.ClientOrderId);
+            return;
+        }
+
         logger.LogInformation(
-            "Execution {ExecutionId}: {Side} {Quantity} {Symbol} at {Price}; ClientOrderId={ClientOrderId}; Fee={Fee} {FeeCurrency}.",
+            "Persisted execution {ExecutionId}: {Side} {Quantity} {Symbol} at {Price}; ClientOrderId={ClientOrderId}; Fee={Fee} {FeeCurrency}.",
             update.ExecutionId,
             update.Side,
             update.Quantity,
@@ -84,7 +152,5 @@ public sealed class ExchangeEventProcessor(
             update.ClientOrderId,
             update.Fee,
             update.FeeCurrency);
-
-        return Task.CompletedTask;
     }
 }

@@ -17,6 +17,49 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             .HasAnnotation("ProductVersion", "8.0.11")
             .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedNever()
+                .HasColumnType("uuid");
+
+            b.Property<string>("ExchangeFillId")
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnType("character varying(100)");
+
+            b.Property<decimal?>("Fee")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<string>("FeeCurrency")
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<DateTimeOffset>("FilledAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<Guid>("OrderId")
+                .HasColumnType("uuid");
+
+            b.Property<decimal>("Price")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<decimal>("Quantity")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.HasKey("Id");
+
+            b.HasIndex("ExchangeFillId")
+                .IsUnique();
+
+            b.HasIndex("OrderId");
+
+            b.ToTable("Fills");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Order", b =>
         {
             b.Property<Guid>("Id")
@@ -80,6 +123,15 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
                 .IsUnique();
 
             b.ToTable("Orders");
+        });
+
+        modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
+        {
+            b.HasOne("TradeOps.Domain.Entities.Order", null)
+                .WithMany()
+                .HasForeignKey("OrderId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
         });
 #pragma warning restore 612, 618
     }

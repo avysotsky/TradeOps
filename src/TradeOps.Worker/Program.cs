@@ -23,6 +23,7 @@ builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
 builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 builder.Services.AddScoped<IExchangeEventProcessor, ExchangeEventProcessor>();

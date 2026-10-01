@@ -8,6 +8,8 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 {
     public DbSet<Order> Orders => Set<Order>();
 
+    public DbSet<Fill> Fills => Set<Fill>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);
