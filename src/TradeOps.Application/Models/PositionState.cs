@@ -8,7 +8,9 @@ public sealed record PositionFill(
     decimal Quantity,
     decimal Price,
     DateTimeOffset FilledAt,
-    string ExchangeFillId);
+    string ExchangeFillId,
+    decimal? Fee = null,
+    string? FeeCurrency = null);
 
 public sealed record PositionState(
     string Symbol,

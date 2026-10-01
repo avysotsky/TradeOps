@@ -52,7 +52,9 @@ public sealed class EfFillRepository(TradeOpsDbContext dbContext) : IFillReposit
                 item.Fill.Quantity,
                 item.Fill.Price,
                 item.Fill.FilledAt,
-                item.Fill.ExchangeFillId))
+                item.Fill.ExchangeFillId,
+                item.Fill.Fee,
+                item.Fill.FeeCurrency))
             .ToArrayAsync(cancellationToken);
     }
 }

@@ -50,10 +50,20 @@ public sealed class RiskEngine(
                 $"Order size {signal.RequestedQuantity} exceeds max order size {settings.MaxOrderSize}.");
         }
 
-        if (control.DailyRealizedPnL <= -settings.MaxDailyLoss)
+        if (!control.IsDailyAccountingComplete)
+        {
+            var currencies = control.UnconvertedFees
+                .Select(fee => fee.Currency ?? "UNKNOWN")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(currency => currency, StringComparer.OrdinalIgnoreCase);
+
+            reasons.Add(
+                $"Trading is blocked because daily net PnL is incomplete. Unconverted fee currencies: {string.Join(", ", currencies)}.");
+        }
+        else if (control.DailyNetRealizedPnL <= -settings.MaxDailyLoss)
         {
             reasons.Add(
-                $"Daily realized loss limit reached. Current daily realized PnL: {control.DailyRealizedPnL}.");
+                $"Daily net realized loss limit reached. Current daily net realized PnL: {control.DailyNetRealizedPnL}.");
         }
 
         if (reasons.Count > 0)

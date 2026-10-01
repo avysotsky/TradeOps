@@ -10,7 +10,8 @@ public sealed class RiskControlService(
     IFillRepository fillRepository,
     IRiskEventRepository riskEventRepository,
     IAlertService alertService,
-    RiskSettings settings) : IRiskControlService
+    RiskSettings settings,
+    AccountingSettings accountingSettings) : IRiskControlService
 {
     private const string PositionMismatchEventType = "PositionMismatch";
     private const string RiskRejectedEventType = "RiskRejected";
@@ -28,12 +29,20 @@ public sealed class RiskControlService(
         var activeMismatches = await riskEventRepository.GetActiveByTypeAsync(
             PositionMismatchEventType,
             cancellationToken);
+        var accounting = PnLAccountingCalculator.CalculateDaily(
+            fills,
+            accountingSettings.SettlementCurrency,
+            DateTimeOffset.UtcNow);
 
         return new RiskControlSnapshot(
             state.TradingEnabled,
             state.EmergencyStop,
             state.EmergencyStopReason,
-            CalculateDailyRealizedPnL(fills, DateTimeOffset.UtcNow),
+            accounting.SettlementCurrency,
+            accounting.GrossRealizedPnL,
+            accounting.SettlementFees,
+            accounting.NetRealizedPnL,
+            accounting.UnconvertedFees,
             activeMismatches.Count,
             state.UpdatedAt);
     }
@@ -127,41 +136,6 @@ public sealed class RiskControlService(
         };
 
         await riskEventRepository.TryAddAsync(riskEvent, cancellationToken);
-    }
-
-    internal static decimal CalculateDailyRealizedPnL(
-        IReadOnlyCollection<PositionFill> fills,
-        DateTimeOffset now)
-    {
-        if (fills.Count == 0)
-        {
-            return 0m;
-        }
-
-        var utcNow = now.ToUniversalTime();
-        var dayStart = new DateTimeOffset(utcNow.UtcDateTime.Date, TimeSpan.Zero);
-
-        var currentRealized = CalculateTotalRealized(
-            fills.Where(fill => fill.FilledAt <= utcNow),
-            utcNow);
-        var realizedBeforeDay = CalculateTotalRealized(
-            fills.Where(fill => fill.FilledAt < dayStart),
-            dayStart);
-
-        return currentRealized - realizedBeforeDay;
-    }
-
-    private static decimal CalculateTotalRealized(
-        IEnumerable<PositionFill> fills,
-        DateTimeOffset calculatedAt)
-    {
-        return fills
-            .GroupBy(fill => fill.Symbol, StringComparer.OrdinalIgnoreCase)
-            .Sum(group => PositionPnLCalculator.Calculate(
-                group.Key,
-                group,
-                null,
-                calculatedAt).RealizedPnL);
     }
 
     private static string NormalizeReason(string? reason)

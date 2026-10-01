@@ -28,7 +28,12 @@ public sealed class RiskController(
             control.TradingEnabled,
             control.EmergencyStop,
             control.EmergencyStopReason,
-            control.DailyRealizedPnL,
+            control.SettlementCurrency,
+            control.DailyGrossRealizedPnL,
+            control.DailySettlementFees,
+            control.DailyNetRealizedPnL,
+            control.UnconvertedFees,
+            control.IsDailyAccountingComplete,
             control.ActivePositionMismatchCount,
             control.HasPositionMismatch,
             control.UpdatedAt

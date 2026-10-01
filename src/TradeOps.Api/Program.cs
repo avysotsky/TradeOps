@@ -39,6 +39,11 @@ builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskSta
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());
+builder.Services.AddSingleton(new AccountingSettings
+{
+    SettlementCurrency = builder.Configuration["Accounting:SettlementCurrency"]?.Trim().ToUpperInvariant()
+        ?? "USDT"
+});
 builder.Services.AddScoped<IRiskControlService, RiskControlService>();
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();

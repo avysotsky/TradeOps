@@ -10,14 +10,14 @@ namespace TradeOps.UnitTests;
 public sealed class RiskControlServiceTests
 {
     [Fact]
-    public async Task GetSnapshotAsync_PositionOpenedBeforeUtcDayAndClosedToday_CountsTodayRealizedPnl()
+    public async Task GetSnapshotAsync_PositionOpenedBeforeUtcDayAndClosedToday_CountsTodayGrossFeesAndNetPnl()
     {
         var now = DateTimeOffset.UtcNow;
         var dayStart = new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero);
         var fills = new[]
         {
-            new PositionFill("BTCUSDT", OrderSide.Buy, 1m, 100m, dayStart.AddHours(-1), "open-yesterday"),
-            new PositionFill("BTCUSDT", OrderSide.Sell, 1m, 120m, dayStart, "close-today")
+            new PositionFill("BTCUSDT", OrderSide.Buy, 1m, 100m, dayStart.AddHours(-1), "open-yesterday", 0.40m, "USDT"),
+            new PositionFill("BTCUSDT", OrderSide.Sell, 1m, 120m, dayStart, "close-today", 0.60m, "USDT")
         };
         var riskEvents = new FakeRiskEventRepository
         {
@@ -40,9 +40,32 @@ public sealed class RiskControlServiceTests
 
         var snapshot = await service.GetSnapshotAsync();
 
-        Assert.Equal(20m, snapshot.DailyRealizedPnL);
+        Assert.Equal(20m, snapshot.DailyGrossRealizedPnL);
+        Assert.Equal(0.60m, snapshot.DailySettlementFees);
+        Assert.Equal(19.40m, snapshot.DailyNetRealizedPnL);
+        Assert.True(snapshot.IsDailyAccountingComplete);
         Assert.Equal(1, snapshot.ActivePositionMismatchCount);
         Assert.True(snapshot.HasPositionMismatch);
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_UnsupportedFeeCurrency_ExposesAccountingGap()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var fills = new[]
+        {
+            new PositionFill("BTCUSDT", OrderSide.Buy, 1m, 100m, now.AddHours(-2), "open", 0.00001m, "BTC"),
+            new PositionFill("BTCUSDT", OrderSide.Sell, 1m, 120m, now.AddHours(-1), "close", 0.50m, "USDT")
+        };
+        var service = CreateService(fills, new FakeRiskEventRepository(), out _, out _);
+
+        var snapshot = await service.GetSnapshotAsync();
+
+        Assert.Equal(20m, snapshot.DailyGrossRealizedPnL);
+        Assert.Equal(0.50m, snapshot.DailySettlementFees);
+        Assert.Null(snapshot.DailyNetRealizedPnL);
+        Assert.False(snapshot.IsDailyAccountingComplete);
+        Assert.Single(snapshot.UnconvertedFees);
     }
 
     [Fact]
@@ -76,7 +99,8 @@ public sealed class RiskControlServiceTests
             new FakeFillRepository(fills),
             riskEvents,
             alerts,
-            new RiskSettings());
+            new RiskSettings(),
+            new AccountingSettings { SettlementCurrency = "USDT" });
     }
 
     private sealed class FakeOperationalRiskStateRepository : IOperationalRiskStateRepository

@@ -29,13 +29,17 @@ public sealed class RiskEnginePersistentStateTests
     }
 
     [Fact]
-    public async Task CheckAsync_DailyRealizedLossAtLimit_BlocksTradingAndRecordsRejection()
+    public async Task CheckAsync_DailyNetRealizedLossAtLimit_BlocksTradingAndRecordsRejection()
     {
         var controls = new FakeRiskControlService(new RiskControlSnapshot(
             true,
             false,
             null,
+            "USDT",
+            -490m,
+            10m,
             -500m,
+            Array.Empty<UnconvertedFee>(),
             0,
             DateTimeOffset.UtcNow));
         var engine = new RiskEngine(new EmptyExchangeClient(), controls, new RiskSettings
@@ -46,7 +50,33 @@ public sealed class RiskEnginePersistentStateTests
         var decision = await engine.CheckAsync(CreateSignal());
 
         Assert.False(decision.IsAllowed);
-        Assert.Contains(decision.Reasons, reason => reason.Contains("Daily realized loss limit", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(decision.Reasons, reason => reason.Contains("Daily net realized loss limit", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(1, controls.RecordRejectionCallCount);
+    }
+
+    [Fact]
+    public async Task CheckAsync_UnconvertedFee_BlocksTradingBeforeExchangeLookup()
+    {
+        var controls = new FakeRiskControlService(new RiskControlSnapshot(
+            true,
+            false,
+            null,
+            "USDT",
+            -100m,
+            2m,
+            null,
+            [new UnconvertedFee("exec-1", 0.0001m, "BTC", DateTimeOffset.UtcNow)],
+            0,
+            DateTimeOffset.UtcNow));
+        var exchange = new CountingExchangeClient();
+        var engine = new RiskEngine(exchange, controls, new RiskSettings());
+
+        var decision = await engine.CheckAsync(CreateSignal());
+
+        Assert.False(decision.IsAllowed);
+        Assert.Contains(decision.Reasons, reason => reason.Contains("daily net PnL is incomplete", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(decision.Reasons, reason => reason.Contains("BTC", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(0, exchange.GetPositionsCallCount);
         Assert.Equal(1, controls.RecordRejectionCallCount);
     }
 
@@ -108,37 +138,49 @@ public sealed class RiskEnginePersistentStateTests
         }
     }
 
-    private sealed class EmptyExchangeClient : IExchangeClient
+    private class EmptyExchangeClient : IExchangeClient
     {
-        public Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken = default) =>
+        public virtual Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<IReadOnlyCollection<Position>> GetPositionsAsync(
+        public virtual Task<IReadOnlyCollection<Position>> GetPositionsAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<Position>>(Array.Empty<Position>());
 
-        public Task<IReadOnlyCollection<Order>> GetOpenOrdersAsync(
+        public virtual Task<IReadOnlyCollection<Order>> GetOpenOrdersAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyCollection<Order>>(Array.Empty<Order>());
 
-        public Task<OrderResult> PlaceOrderAsync(
+        public virtual Task<OrderResult> PlaceOrderAsync(
             PlaceOrderRequest request,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task CancelOrderAsync(
+        public virtual Task CancelOrderAsync(
             string exchangeOrderId,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task<Order?> GetOrderAsync(
+        public virtual Task<Order?> GetOrderAsync(
             string exchangeOrderId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<Order?>(null);
 
-        public Task<Order?> GetOrderByClientOrderIdAsync(
+        public virtual Task<Order?> GetOrderByClientOrderIdAsync(
             string clientOrderId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<Order?>(null);
+    }
+
+    private sealed class CountingExchangeClient : EmptyExchangeClient
+    {
+        public int GetPositionsCallCount { get; private set; }
+
+        public override Task<IReadOnlyCollection<Position>> GetPositionsAsync(
+            CancellationToken cancellationToken = default)
+        {
+            GetPositionsCallCount++;
+            return base.GetPositionsAsync(cancellationToken);
+        }
     }
 }
