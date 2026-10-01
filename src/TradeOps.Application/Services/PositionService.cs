@@ -11,6 +11,18 @@ public sealed class PositionService(
     IExchangeClient exchangeClient,
     ILogger<PositionService> logger) : IPositionService
 {
+    public async Task<IReadOnlyCollection<PositionState>> GetLocalAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var fills = await fillRepository.GetPositionFillsAsync(
+            cancellationToken: cancellationToken);
+
+        return CalculateStates(
+            fills,
+            new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase),
+            DateTimeOffset.UtcNow);
+    }
+
     public async Task<IReadOnlyCollection<PositionState>> GetCurrentAsync(
         CancellationToken cancellationToken = default)
     {
@@ -22,40 +34,27 @@ public sealed class PositionService(
             return Array.Empty<PositionState>();
         }
 
-        IReadOnlyCollection<Position> exchangePositions;
+        IReadOnlyDictionary<string, decimal> markPrices;
         try
         {
-            exchangePositions = await exchangeClient.GetPositionsAsync(cancellationToken);
+            var exchangePositions = await exchangeClient.GetPositionsAsync(cancellationToken);
+            markPrices = exchangePositions
+                .Where(position => position.MarkPrice > 0m)
+                .GroupBy(position => position.Symbol, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.First().MarkPrice,
+                    StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception exception)
         {
             logger.LogWarning(
                 exception,
                 "Could not obtain exchange mark prices. Local positions will be calculated without unrealized PnL.");
-            exchangePositions = Array.Empty<Position>();
+            markPrices = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         }
 
-        var markPrices = exchangePositions
-            .Where(position => position.MarkPrice > 0m)
-            .GroupBy(position => position.Symbol, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.First().MarkPrice,
-                StringComparer.OrdinalIgnoreCase);
-
-        var calculatedAt = DateTimeOffset.UtcNow;
-
-        return fills
-            .GroupBy(fill => fill.Symbol, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => PositionPnLCalculator.Calculate(
-                group.Key,
-                group,
-                markPrices.TryGetValue(group.Key, out var markPrice)
-                    ? markPrice
-                    : null,
-                calculatedAt))
-            .ToArray();
+        return CalculateStates(fills, markPrices, DateTimeOffset.UtcNow);
     }
 
     public async Task<IReadOnlyCollection<PositionState>> CaptureSnapshotsAsync(
@@ -84,5 +83,28 @@ public sealed class PositionService(
 
         await snapshotRepository.AddRangeAsync(snapshots, cancellationToken);
         return states;
+    }
+
+    private static IReadOnlyCollection<PositionState> CalculateStates(
+        IReadOnlyCollection<PositionFill> fills,
+        IReadOnlyDictionary<string, decimal> markPrices,
+        DateTimeOffset calculatedAt)
+    {
+        if (fills.Count == 0)
+        {
+            return Array.Empty<PositionState>();
+        }
+
+        return fills
+            .GroupBy(fill => fill.Symbol, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => PositionPnLCalculator.Calculate(
+                group.Key,
+                group,
+                markPrices.TryGetValue(group.Key, out var markPrice)
+                    ? markPrice
+                    : null,
+                calculatedAt))
+            .ToArray();
     }
 }

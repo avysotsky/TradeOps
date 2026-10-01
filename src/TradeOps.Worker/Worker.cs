@@ -63,16 +63,21 @@ public sealed class Worker(
                     .GetRequiredService<IOrderReconciliationService>();
                 var positionService = scope.ServiceProvider
                     .GetRequiredService<IPositionService>();
+                var positionReconciliationService = scope.ServiceProvider
+                    .GetRequiredService<IPositionReconciliationService>();
 
-                var summary = await reconciliationService.ReconcileAsync(stoppingToken);
+                var orderSummary = await reconciliationService.ReconcileAsync(stoppingToken);
+                var positionSummary = await positionReconciliationService.ReconcileAsync(stoppingToken);
                 var positions = await positionService.CaptureSnapshotsAsync(stoppingToken);
 
                 logger.LogInformation(
-                    "Recovery cycle completed. Connected={Connected}, Scanned={Scanned}, Updated={Updated}, Issues={IssueCount}, PositionSnapshots={PositionSnapshotCount}.",
+                    "Recovery cycle completed. Connected={Connected}, OrdersScanned={OrdersScanned}, OrdersUpdated={OrdersUpdated}, OrderIssues={OrderIssueCount}, PositionsCompared={PositionsCompared}, PositionMismatches={PositionMismatchCount}, PositionSnapshots={PositionSnapshotCount}.",
                     connectionManager.IsConnected,
-                    summary.Scanned,
-                    summary.Updated,
-                    summary.Issues.Count,
+                    orderSummary.Scanned,
+                    orderSummary.Updated,
+                    orderSummary.Issues.Count,
+                    positionSummary.SymbolsCompared,
+                    positionSummary.Mismatched,
                     positions.Count);
 
                 return;

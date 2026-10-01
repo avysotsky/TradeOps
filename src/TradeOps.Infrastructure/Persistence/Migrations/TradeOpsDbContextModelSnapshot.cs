@@ -171,6 +171,74 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("PositionSnapshots");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.RiskEvent", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedNever()
+                .HasColumnType("uuid");
+
+            b.Property<DateTimeOffset>("CreatedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<string>("EventKey")
+                .IsRequired()
+                .HasMaxLength(120)
+                .HasColumnType("character varying(120)");
+
+            b.Property<string>("EventType")
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.Property<decimal?>("ExchangeQuantity")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<OrderSide?>("ExchangeSide")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<DateTimeOffset>("LastObservedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<decimal?>("LocalQuantity")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<OrderSide?>("LocalSide")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<string>("Message")
+                .IsRequired()
+                .HasMaxLength(1000)
+                .HasColumnType("character varying(1000)");
+
+            b.Property<DateTimeOffset?>("ResolvedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<RiskEventSeverity>("Severity")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<string>("Symbol")
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.HasKey("Id");
+
+            b.HasIndex("LastObservedAt");
+
+            b.HasIndex("EventType", "EventKey")
+                .IsUnique()
+                .HasFilter("\"ResolvedAt\" IS NULL");
+
+            b.ToTable("RiskEvents");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
         {
             b.HasOne("TradeOps.Domain.Entities.Order", null)

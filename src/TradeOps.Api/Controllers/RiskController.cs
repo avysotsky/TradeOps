@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
+using TradeOps.Domain.Entities;
 
 namespace TradeOps.Api.Controllers;
 
@@ -8,7 +9,8 @@ namespace TradeOps.Api.Controllers;
 [Route("api/risk")]
 public sealed class RiskController(
     RiskSettings settings,
-    IRiskState riskState) : ControllerBase
+    IRiskState riskState,
+    IRiskEventRepository riskEventRepository) : ControllerBase
 {
     [HttpGet]
     public IActionResult Get()
@@ -24,5 +26,15 @@ public sealed class RiskController(
             settings.EmergencyStop,
             riskState.CurrentDailyPnl
         });
+    }
+
+    [HttpGet("events")]
+    [ProducesResponseType<IReadOnlyCollection<RiskEvent>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<RiskEvent>>> GetEvents(
+        [FromQuery] int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var events = await riskEventRepository.GetRecentAsync(limit, cancellationToken);
+        return Ok(events);
     }
 }

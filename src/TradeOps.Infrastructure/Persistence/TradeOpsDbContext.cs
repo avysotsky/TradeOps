@@ -12,6 +12,8 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 
     public DbSet<PositionSnapshot> PositionSnapshots => Set<PositionSnapshot>();
 
+    public DbSet<RiskEvent> RiskEvents => Set<RiskEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);
