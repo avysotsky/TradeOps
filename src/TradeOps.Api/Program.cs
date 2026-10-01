@@ -42,6 +42,7 @@ builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddScoped<IRiskEventRepository, EfRiskEventRepository>();
 builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskStateRepository>();
+builder.Services.AddScoped<IOperationalRunStatusRepository, EfOperationalRunStatusRepository>();
 builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
 builder.Services.AddScoped<IOperatorReadRepository, EfOperatorReadRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();

@@ -40,6 +40,35 @@ public sealed class OrdersController(
             : Ok(OperatorResponseMapper.ToLocalOrder(order));
     }
 
+    [HttpGet("local/{idOrClientOrderId}/history")]
+    [ProducesResponseType<IReadOnlyCollection<OrderLifecycleEventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<OrderLifecycleEventResponse>>> GetLocalOrderHistory(
+        string idOrClientOrderId,
+        CancellationToken cancellationToken)
+    {
+        var history = await operatorReadRepository.GetOrderHistoryAsync(
+            idOrClientOrderId,
+            cancellationToken);
+
+        if (history.Count == 0)
+        {
+            return NotFound();
+        }
+
+        return Ok(history.Select(item => new OrderLifecycleEventResponse(
+            item.Id,
+            item.OrderId,
+            item.ClientOrderId,
+            item.PreviousStatus,
+            item.Status,
+            item.FilledQuantity,
+            item.AverageFillPrice,
+            item.ExchangeOrderId,
+            item.Source,
+            item.OccurredAt)).ToArray());
+    }
+
     [HttpPost("local/{idOrClientOrderId}/cancel")]
     [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<OrderCancellationResponse>(StatusCodes.Status202Accepted)]

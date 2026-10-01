@@ -40,8 +40,16 @@ public sealed class Worker(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            using var scope = scopeFactory.CreateScope();
+            var runStatusRepository = scope.ServiceProvider
+                .GetRequiredService<IOperationalRunStatusRepository>();
+
             try
             {
+                await runStatusRepository.MarkStartedAsync(
+                    OperationalRunTypes.RecoveryCycle,
+                    stoppingToken);
+
                 await connectionManager.EnsureConnectedAsync(stoppingToken);
 
                 if (_wasDisconnected)
@@ -58,7 +66,6 @@ public sealed class Worker(
                     _wasDisconnected = false;
                 }
 
-                using var scope = scopeFactory.CreateScope();
                 var reconciliationService = scope.ServiceProvider
                     .GetRequiredService<IOrderReconciliationService>();
                 var positionService = scope.ServiceProvider
@@ -69,6 +76,18 @@ public sealed class Worker(
                 var orderSummary = await reconciliationService.ReconcileAsync(stoppingToken);
                 var positionSummary = await positionReconciliationService.ReconcileAsync(stoppingToken);
                 var positions = await positionService.CaptureSnapshotsAsync(stoppingToken);
+
+                await runStatusRepository.MarkCompletedAsync(
+                    OperationalRunTypes.RecoveryCycle,
+                    new OperationalRunMetrics(
+                        OrdersScanned: orderSummary.Scanned,
+                        OrdersUpdated: orderSummary.Updated,
+                        OrderIssues: orderSummary.Issues.Count,
+                        OrdersMissingOnExchange: orderSummary.MissingOnExchange,
+                        PositionsCompared: positionSummary.SymbolsCompared,
+                        PositionMismatches: positionSummary.Mismatched,
+                        PositionSnapshots: positions.Count),
+                    stoppingToken);
 
                 logger.LogInformation(
                     "Recovery cycle completed. Connected={Connected}, OrdersScanned={OrdersScanned}, OrdersUpdated={OrdersUpdated}, OrderIssues={OrderIssueCount}, PositionsCompared={PositionsCompared}, PositionMismatches={PositionMismatchCount}, PositionSnapshots={PositionSnapshotCount}.",
@@ -88,6 +107,18 @@ public sealed class Worker(
             }
             catch (Exception exception)
             {
+                try
+                {
+                    await runStatusRepository.MarkFailedAsync(
+                        OperationalRunTypes.RecoveryCycle,
+                        exception.Message,
+                        CancellationToken.None);
+                }
+                catch (Exception statusException)
+                {
+                    logger.LogWarning(statusException, "Failed to persist recovery-cycle failure status.");
+                }
+
                 logger.LogError(
                     exception,
                     "Recovery cycle failed. Retrying in {RetryDelaySeconds}s.",

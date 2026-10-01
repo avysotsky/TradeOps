@@ -8,6 +8,10 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 {
     public DbSet<Order> Orders => Set<Order>();
 
+    public DbSet<OrderLifecycleEvent> OrderLifecycleEvents => Set<OrderLifecycleEvent>();
+
+    public DbSet<OperationalRunStatus> OperationalRunStatuses => Set<OperationalRunStatus>();
+
     public DbSet<Fill> Fills => Set<Fill>();
 
     public DbSet<PositionSnapshot> PositionSnapshots => Set<PositionSnapshot>();

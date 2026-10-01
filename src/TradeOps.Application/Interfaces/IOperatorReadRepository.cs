@@ -17,6 +17,10 @@ public interface IOperatorReadRepository
         string idOrClientOrderId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<OrderLifecycleEvent>> GetOrderHistoryAsync(
+        string idOrClientOrderId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<FillAuditRecord>> GetFillsAsync(
         string? symbol,
         int limit,

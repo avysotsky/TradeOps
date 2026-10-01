@@ -34,6 +34,34 @@ public sealed record LocalOrderResponse(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
+public sealed record OrderLifecycleEventResponse(
+    Guid Id,
+    Guid OrderId,
+    string ClientOrderId,
+    OrderStatus? PreviousStatus,
+    OrderStatus Status,
+    decimal FilledQuantity,
+    decimal? AverageFillPrice,
+    string? ExchangeOrderId,
+    string Source,
+    DateTimeOffset OccurredAt);
+
+public sealed record OperationalRunStatusResponse(
+    string RunType,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt,
+    bool IsRunning,
+    bool? Succeeded,
+    int OrdersScanned,
+    int OrdersUpdated,
+    int OrderIssues,
+    int OrdersMissingOnExchange,
+    int PositionsCompared,
+    int PositionMismatches,
+    int PositionSnapshots,
+    string? ErrorMessage,
+    DateTimeOffset UpdatedAt);
+
 public sealed record OrderCancellationResponse(
     OrderCancellationOutcome Outcome,
     LocalOrderResponse? Order,

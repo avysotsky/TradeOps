@@ -45,6 +45,46 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
             : query.FirstOrDefaultAsync(order => order.ClientOrderId == key, cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<OrderLifecycleEvent>> GetOrderHistoryAsync(
+        string idOrClientOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await GetLocalOrderAsync(idOrClientOrderId, cancellationToken);
+        if (order is null)
+        {
+            return Array.Empty<OrderLifecycleEvent>();
+        }
+
+        var events = await dbContext.OrderLifecycleEvents
+            .AsNoTracking()
+            .Where(item => item.OrderId == order.Id)
+            .OrderBy(item => item.OccurredAt)
+            .ThenBy(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+
+        if (events.Length > 0)
+        {
+            return events;
+        }
+
+        return
+        [
+            new OrderLifecycleEvent
+            {
+                Id = Guid.Empty,
+                OrderId = order.Id,
+                ClientOrderId = order.ClientOrderId,
+                PreviousStatus = null,
+                Status = order.Status,
+                FilledQuantity = order.FilledQuantity,
+                AverageFillPrice = order.AverageFillPrice,
+                ExchangeOrderId = order.ExchangeOrderId,
+                Source = "LegacySnapshot",
+                OccurredAt = order.UpdatedAt
+            }
+        ];
+    }
+
     public async Task<IReadOnlyCollection<FillAuditRecord>> GetFillsAsync(
         string? symbol,
         int limit,
