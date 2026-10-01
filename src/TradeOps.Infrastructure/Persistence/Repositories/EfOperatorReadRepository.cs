@@ -20,6 +20,17 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
                 cancellationToken);
     }
 
+    public Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        GetSignalsAsync(
+            symbol: null,
+            outcome: null,
+            fromInclusive: null,
+            toExclusive: null,
+            limit,
+            cancellationToken);
+
     public async Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
         string? symbol,
         SignalOutcome? outcome,

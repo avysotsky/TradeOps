@@ -11,12 +11,17 @@ public interface IOperatorReadRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
         string? symbol,
         SignalOutcome? outcome,
         DateTimeOffset? fromInclusive,
         DateTimeOffset? toExclusive,
         int limit,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default) =>
+        GetSignalsAsync(limit, cancellationToken);
 
     Task<Order?> GetLocalOrderAsync(
         string idOrClientOrderId,
