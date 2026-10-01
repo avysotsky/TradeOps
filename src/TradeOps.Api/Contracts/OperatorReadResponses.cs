@@ -39,6 +39,33 @@ public sealed record OrderCancellationResponse(
     LocalOrderResponse? Order,
     string? Message);
 
+public sealed record BulkOrderCancellationResponse(
+    string? Symbol,
+    int CandidateCount,
+    int CancelledCount,
+    int AlreadyCancelledCount,
+    int CancellationRequestedCount,
+    int NotCancellableCount,
+    int NotFoundCount,
+    int UnresolvedCount,
+    bool IsComplete,
+    IReadOnlyCollection<OrderCancellationResponse> Results);
+
+public sealed record EmergencyStopResponse(
+    bool TradingEnabled,
+    bool EmergencyStop,
+    string? EmergencyStopReason,
+    string SettlementCurrency,
+    decimal DailyGrossRealizedPnL,
+    decimal DailySettlementFees,
+    decimal? DailyNetRealizedPnL,
+    IReadOnlyCollection<UnconvertedFee> UnconvertedFees,
+    bool IsDailyAccountingComplete,
+    int ActivePositionMismatchCount,
+    bool HasPositionMismatch,
+    DateTimeOffset UpdatedAt,
+    BulkOrderCancellationResponse? OrderCancellation);
+
 public sealed record FillAuditResponse(
     Guid FillId,
     Guid OrderId,

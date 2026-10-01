@@ -12,12 +12,10 @@ using TradeOps.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -30,20 +28,16 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var connectionString = builder.Configuration.GetConnectionString("TradeOpsDb")
-    ?? throw new InvalidOperationException(
-        "Connection string 'TradeOpsDb' is not configured.");
+    ?? throw new InvalidOperationException("Connection string 'TradeOpsDb' is not configured.");
 
-builder.Services.AddDbContext<TradeOpsDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-builder.Services.Configure<TelegramOptions>(
-    builder.Configuration.GetSection(TelegramOptions.SectionName));
+builder.Services.AddDbContext<TradeOpsDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.Configure<TelegramOptions>(builder.Configuration.GetSection(TelegramOptions.SectionName));
 builder.Services.AddHttpClient("telegram");
 builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
-
 builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.AddScoped<IOrderCancellationCandidateRepository, EfOrderCancellationCandidateRepository>();
 builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddScoped<IRiskEventRepository, EfRiskEventRepository>();
@@ -55,13 +49,14 @@ builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());
 builder.Services.AddSingleton(new AccountingSettings
 {
-    SettlementCurrency = builder.Configuration["Accounting:SettlementCurrency"]?.Trim().ToUpperInvariant()
-        ?? "USDT"
+    SettlementCurrency = builder.Configuration["Accounting:SettlementCurrency"]?.Trim().ToUpperInvariant() ?? "USDT"
 });
 builder.Services.AddScoped<IRiskControlService, RiskControlService>();
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
 builder.Services.AddScoped<IOrderCancellationService, OrderCancellationService>();
+builder.Services.AddScoped<IOrderBulkCancellationService, OrderBulkCancellationService>();
+builder.Services.AddScoped<IEmergencyStopService, EmergencyStopService>();
 builder.Services.AddScoped<ISignalExecutionService, SignalExecutionService>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
@@ -76,14 +71,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "TradeOps API v1");
-});
+app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "TradeOps API v1"));
 
-app.MapGet("/health", () => Results.Ok(new HealthResponse("live")))
-    .ExcludeFromDescription();
-
+app.MapGet("/health", () => Results.Ok(new HealthResponse("live"))).ExcludeFromDescription();
 app.MapGet("/health/live", () => Results.Ok(new HealthResponse("live")))
     .WithName("GetLiveness")
     .WithTags("Health")
@@ -145,5 +135,4 @@ app.MapGet("/health/ready", async (
     .Produces<HealthResponse>(StatusCodes.Status503ServiceUnavailable);
 
 app.MapControllers();
-
 app.Run();

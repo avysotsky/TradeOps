@@ -12,7 +12,8 @@ namespace TradeOps.Api.Controllers;
 public sealed class OrdersController(
     IExchangeClient exchangeClient,
     IOperatorReadRepository operatorReadRepository,
-    IOrderCancellationService orderCancellationService) : ControllerBase
+    IOrderCancellationService orderCancellationService,
+    IOrderBulkCancellationService orderBulkCancellationService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<Order>>(StatusCodes.Status200OK)]
@@ -34,7 +35,9 @@ public sealed class OrdersController(
             idOrClientOrderId,
             cancellationToken);
 
-        return order is null ? NotFound() : Ok(ToLocalResponse(order));
+        return order is null
+            ? NotFound()
+            : Ok(OperatorResponseMapper.ToLocalOrder(order));
     }
 
     [HttpPost("local/{idOrClientOrderId}/cancel")]
@@ -50,25 +53,30 @@ public sealed class OrdersController(
         var result = await orderCancellationService.CancelAsync(
             idOrClientOrderId,
             cancellationToken);
+        var response = OperatorResponseMapper.ToOrderCancellation(result);
 
-        var response = new OrderCancellationResponse(
-            result.Outcome,
-            result.Order is null ? null : ToLocalResponse(result.Order),
-            result.Message);
-
-        switch (result.Outcome)
+        return result.Outcome switch
         {
-            case OrderCancellationOutcome.NotFound:
-                return NotFound(response);
-            case OrderCancellationOutcome.NotCancellable:
-                return Conflict(response);
-            case OrderCancellationOutcome.Unresolved:
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, response);
-            case OrderCancellationOutcome.CancellationRequested:
-                return Accepted(response);
-            default:
-                return Ok(response);
-        }
+            OrderCancellationOutcome.NotFound => NotFound(response),
+            OrderCancellationOutcome.NotCancellable => Conflict(response),
+            OrderCancellationOutcome.Unresolved =>
+                StatusCode(StatusCodes.Status503ServiceUnavailable, response),
+            OrderCancellationOutcome.CancellationRequested => Accepted(response),
+            _ => Ok(response)
+        };
+    }
+
+    [HttpPost("local/cancel-all")]
+    [ProducesResponseType<BulkOrderCancellationResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<BulkOrderCancellationResponse>> CancelAllLocalOrders(
+        [FromQuery] string? symbol,
+        CancellationToken cancellationToken)
+    {
+        var result = await orderBulkCancellationService.CancelOpenOrdersAsync(
+            symbol,
+            cancellationToken);
+
+        return Ok(OperatorResponseMapper.ToBulkOrderCancellation(result));
     }
 
     [HttpGet("{exchangeOrderId}")]
@@ -122,23 +130,5 @@ public sealed class OrdersController(
 
         await exchangeClient.CancelOrderAsync(exchangeOrderId, cancellationToken);
         return Accepted();
-    }
-
-    private static LocalOrderResponse ToLocalResponse(Order order)
-    {
-        return new LocalOrderResponse(
-            order.Id,
-            order.ExchangeOrderId,
-            order.ClientOrderId,
-            order.Symbol,
-            order.Side,
-            order.OrderType,
-            order.RequestedQuantity,
-            order.FilledQuantity,
-            order.AverageFillPrice,
-            order.Price,
-            order.Status,
-            order.CreatedAt,
-            order.UpdatedAt);
     }
 }

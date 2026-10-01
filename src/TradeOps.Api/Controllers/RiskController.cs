@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using TradeOps.Api.Contracts;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -10,6 +11,7 @@ namespace TradeOps.Api.Controllers;
 public sealed class RiskController(
     RiskSettings settings,
     IRiskControlService riskControlService,
+    IEmergencyStopService emergencyStopService,
     IRiskEventRepository riskEventRepository) : ControllerBase
 {
     [HttpGet]
@@ -53,16 +55,33 @@ public sealed class RiskController(
     }
 
     [HttpPost("emergency-stop")]
-    [ProducesResponseType<RiskControlSnapshot>(StatusCodes.Status200OK)]
-    public async Task<ActionResult<RiskControlSnapshot>> SetEmergencyStop(
+    [ProducesResponseType<EmergencyStopResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<EmergencyStopResponse>> SetEmergencyStop(
         [FromBody] SetEmergencyStopRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await riskControlService.SetEmergencyStopAsync(
+        var result = await emergencyStopService.SetAsync(
             request.Enabled,
             request.Reason,
             cancellationToken);
-        return Ok(result);
+        var risk = result.Risk;
+
+        return Ok(new EmergencyStopResponse(
+            risk.TradingEnabled,
+            risk.EmergencyStop,
+            risk.EmergencyStopReason,
+            risk.SettlementCurrency,
+            risk.DailyGrossRealizedPnL,
+            risk.DailySettlementFees,
+            risk.DailyNetRealizedPnL,
+            risk.UnconvertedFees,
+            risk.IsDailyAccountingComplete,
+            risk.ActivePositionMismatchCount,
+            risk.HasPositionMismatch,
+            risk.UpdatedAt,
+            result.OrderCancellation is null
+                ? null
+                : OperatorResponseMapper.ToBulkOrderCancellation(result.OrderCancellation)));
     }
 
     [HttpGet("events")]
