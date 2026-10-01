@@ -300,11 +300,10 @@ jobs:
           assert data['generatedAt'], data
           assert signals['received'] == signals['accepted'] + signals['rejected'] + signals['pending'], signals
           assert signals['accepted'] >= 4 and signals['rejected'] >= 1, signals
-          assert orders['total'] == sum(
-              orders[key] for key in (
-                  'created', 'submitted', 'accepted', 'partiallyFilled',
-                  'filled', 'cancelled', 'rejected', 'unknown')),
-              orders
+          counted_orders = sum(orders[key] for key in (
+              'created', 'submitted', 'accepted', 'partiallyFilled',
+              'filled', 'cancelled', 'rejected', 'unknown'))
+          assert orders['total'] == counted_orders, orders
           assert orders['filled'] >= 1 and orders['cancelled'] >= 3, orders
           assert data['fillsReceived'] >= 4, data
           assert risk['emergencyStop'] is False, risk
