@@ -16,13 +16,23 @@ final HEAD: 43774a3ad6a4705c818c09f0732eb2d452be99e0
 GitHub Actions #75: green
 ```
 
-Current v1.1.1.3 accounting-core commit:
+Current v1.1.1.3 completed implementation commits:
 
 ```text
 9a51782b46cfe3c53dba356cb8fedd4efcdc00bb
 feat: add fee-aware net pnl accounting core
 GitHub Actions #79: green
+
+119c3a84928d46bbb0aff3b200b8b829cf35bcd9
+feat: add persistent trading signal audit
+
+53e6d91b99449253666374b23409897601a9a444
+fix: register trading signal audit migration
+GitHub Actions #82: green
 ```
+
+The Block 2 corrective commit only registered the hand-written EF Core migration with the same
+`DbContext` / `Migration` attributes used by the existing migrations. No execution semantics changed.
 
 This file is the authoritative development handoff for the next chat/session.
 
@@ -303,69 +313,97 @@ Execution semantics were intentionally not changed by Block 1.
 
 ---
 
-## 7. CURRENT NEXT TASK — Block 2: persistent signal audit
+## 7. COMPLETED in v1.1.1.3 — Block 2: persistent signal audit
 
-This is the next implementation block.
+Block 2 is finished. Do not reimplement it.
 
-### Problem
-
-`TradingSignal` exists as a domain/application concept but there is not yet a complete persistent execution audit record for every logical caller signal.
-
-An operator must be able to answer:
+Commits:
 
 ```text
-What logical signal/request was received?
-When was it received?
-What source supplied it?
-Was it accepted or rejected?
-Why was it risk-rejected?
-Which local Order / ClientOrderId resulted?
-Was the HTTP call an idempotent retry of an existing SignalId?
+119c3a84928d46bbb0aff3b200b8b829cf35bcd9
+feat: add persistent trading signal audit
+
+53e6d91b99449253666374b23409897601a9a444
+fix: register trading signal audit migration
 ```
 
-### Required behavior
-
-Implement persistent logical signal audit with:
-
-- caller-provided `SignalId` preserved as the logical identity;
-- PostgreSQL unique constraint on signal identity;
-- no duplicate signal record on HTTP retry;
-- persist symbol, side, requested quantity, source and received time;
-- persist accepted/rejected outcome;
-- persist risk-rejection reasons;
-- link accepted signal to local `Order` / `ClientOrderId` where practical;
-- idempotent retry should return/reuse the existing logical execution rather than create a second audit row;
-- keep transport DTOs out of Domain/Infrastructure boundaries;
-- keep `OrderManager` no-blind-retry semantics intact.
-
-Suggested outcome model may use an enum such as:
+Validation:
 
 ```text
-Received
-Accepted
-Rejected
+GitHub Actions #82
+Restore                     ✓
+Build                       ✓
+Unit tests (60)             ✓
+API + PostgreSQL smoke      ✓
+Docker Compose validation   ✓
+Docker API/Worker images    ✓
 ```
 
-or another simple explicit representation if it fits the existing architecture better.
+### Persistent signal model
 
-### Tests required for Block 2
+`TradingSignal` is now a persistent logical execution audit record.
 
-At minimum:
+Persisted fields include the existing request data plus:
 
-- first signal is persisted;
-- accepted signal links to resulting order/client ID;
-- rejected signal persists rejection reason;
-- same `SignalId` HTTP retry does not create a second signal;
-- concurrent/duplicate persistence race is safe under DB uniqueness;
-- existing order idempotency behavior does not regress.
+```text
+Outcome = Received | Accepted | Rejected
+RiskRejectionReasons[]
+OrderId?
+ClientOrderId?
+```
 
-### CI discipline
+`SignalId` remains the caller-visible logical identity and is the PostgreSQL primary key.
 
-Build the whole Block 2 first, then make one feature commit and one Actions run. Use corrective commits only for real failures exposed by the final pipeline.
+Additional database guarantees:
+
+- unique `ClientOrderId` when present;
+- unique linked `OrderId` when present;
+- FK from accepted signal audit to local `Orders`;
+- duplicate `SignalId` insertion resolves through PostgreSQL uniqueness rather than creating another row.
+
+### Execution / retry behavior
+
+A new application-level `SignalExecutionService` owns signal-audit orchestration and delegates actual
+order execution to the existing `OrderManager`.
+
+Behavior:
+
+1. first logical signal is persisted with `Received`;
+2. normal execution continues through the unchanged `OrderManager`;
+3. accepted execution is updated to `Accepted` and linked to the resulting local `OrderId` and `ClientOrderId`;
+4. risk rejection is updated to `Rejected` with all rejection reasons;
+5. retry of an already accepted `SignalId` returns the current linked local order instead of executing again;
+6. retry of an already rejected `SignalId` returns the persisted rejection instead of rerunning risk/execution;
+7. a persisted `Received` signal can resume through the existing idempotent `OrderManager` path;
+8. a concurrent duplicate signal insert reloads and reuses the winning persisted logical signal;
+9. incoming retry payload does not overwrite the original completed audit record.
+
+`OrderManager` itself was not modified, so its deterministic client-order ID, duplicate-order protection,
+ambiguous-placement reconciliation and no-blind-retry behavior remain intact.
+
+### Focused tests
+
+Added `SignalExecutionServiceTests` covering:
+
+- first signal persistence and accepted-order linkage;
+- rejected signal and persisted risk reasons;
+- accepted `SignalId` retry reuse;
+- duplicate persistence race resolution;
+- rejected `SignalId` retry reuse.
+
+The existing order recovery/idempotency tests continue to pass.
+
+### CI correction encountered
+
+The first feature pipeline (#81) compiled and passed all 60 unit tests but failed the PostgreSQL smoke
+because the new hand-written migration lacked `[DbContext]` / `[Migration]` registration attributes.
+The corrective commit added those attributes only. Actions #82 then passed the complete pipeline.
 
 ---
 
-## 8. Remaining v1.1.1.3 blocks after signal audit
+## 8. CURRENT NEXT TASK — Block 3: operator read APIs
+
+This is the next implementation block.
 
 ### Block 3 — operator read APIs
 
@@ -408,11 +446,15 @@ Completed already:
 - [x] daily risk math uses the shared accounting source;
 - [x] normal Mock/Bybit execution behavior is unchanged after accounting work.
 
+Completed in Block 2:
+
+- [x] logical trading signals persisted idempotently;
+- [x] accepted/rejected signal outcome persisted;
+- [x] accepted signal linked to resulting order/client ID.
+
 Still required:
 
-- [ ] logical trading signals persisted idempotently;
-- [ ] accepted/rejected signal outcome queryable;
-- [ ] accepted signal linked to resulting order/client ID;
+- [ ] accepted/rejected signal outcome exposed through operator read API;
 - [ ] fills queryable through operator API;
 - [ ] local order/audit view available;
 - [ ] daily accounting/risk snapshot query available through dedicated operator API if useful;
@@ -450,6 +492,6 @@ Do not add unless strictly required by the above milestone:
 
 Start with:
 
-> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is already complete at commit `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb` with GitHub Actions #79 green. Implement Block 2 — persistent signal audit: idempotent signal persistence, accepted/rejected outcome, risk-rejection reasons, linkage to the resulting local order/client order ID, DB uniqueness/race safety, and focused tests. Preserve existing order placement/idempotency semantics. Use one feature commit and one final CI run for the block.
+> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is complete at `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb`. Block 2 (persistent signal audit) is complete at feature commit `119c3a84928d46bbb0aff3b200b8b829cf35bcd9` plus migration-registration fix `53e6d91b99449253666374b23409897601a9a444`; GitHub Actions #82 is fully green. Implement Block 3 — operator read APIs: persisted signal lookup/listing, local order lookup, fill querying, and a clean daily PnL/accounting read view where useful. Prefer response DTOs and local PostgreSQL audit views; do not expose EF entities blindly or alter exchange execution semantics.
 
 No additional context from the previous chat should be required beyond this file and the repository code.
