@@ -36,22 +36,23 @@ public sealed class EfFillRepository(TradeOpsDbContext dbContext) : IFillReposit
             from fill in dbContext.Fills.AsNoTracking()
             join order in dbContext.Orders.AsNoTracking()
                 on fill.OrderId equals order.Id
-            select new PositionFill(
-                order.Symbol,
-                order.Side,
-                fill.Quantity,
-                fill.Price,
-                fill.FilledAt,
-                fill.ExchangeFillId);
+            select new { Fill = fill, Order = order };
 
         if (!string.IsNullOrWhiteSpace(symbol))
         {
-            query = query.Where(fill => fill.Symbol == symbol);
+            query = query.Where(item => item.Order.Symbol == symbol);
         }
 
         return await query
-            .OrderBy(fill => fill.FilledAt)
-            .ThenBy(fill => fill.ExchangeFillId)
+            .OrderBy(item => item.Fill.FilledAt)
+            .ThenBy(item => item.Fill.ExchangeFillId)
+            .Select(item => new PositionFill(
+                item.Order.Symbol,
+                item.Order.Side,
+                item.Fill.Quantity,
+                item.Fill.Price,
+                item.Fill.FilledAt,
+                item.Fill.ExchangeFillId))
             .ToArrayAsync(cancellationToken);
     }
 }
