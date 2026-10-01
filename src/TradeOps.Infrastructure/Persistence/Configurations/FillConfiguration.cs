@@ -23,6 +23,7 @@ public sealed class FillConfiguration : IEntityTypeConfiguration<Fill>
             .IsUnique();
 
         builder.HasIndex(fill => fill.OrderId);
+        builder.HasIndex(fill => fill.FilledAt);
 
         builder.Property(fill => fill.Quantity)
             .HasPrecision(28, 12);

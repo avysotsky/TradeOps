@@ -55,6 +55,8 @@ public sealed class TradingSignalConfiguration : IEntityTypeConfiguration<Tradin
         builder.HasIndex(signal => signal.OrderId)
             .IsUnique();
 
+        builder.HasIndex(signal => signal.CreatedAt);
+
         builder.HasOne<Order>()
             .WithMany()
             .HasForeignKey(signal => signal.OrderId)

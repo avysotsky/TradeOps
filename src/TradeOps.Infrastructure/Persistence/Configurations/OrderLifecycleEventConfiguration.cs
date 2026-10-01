@@ -38,6 +38,7 @@ public sealed class OrderLifecycleEventConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(item => new { item.OrderId, item.OccurredAt });
         builder.HasIndex(item => item.ClientOrderId);
+        builder.HasIndex(item => item.OccurredAt);
 
         builder.HasOne<Order>()
             .WithMany()

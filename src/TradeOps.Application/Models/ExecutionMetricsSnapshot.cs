@@ -33,3 +33,29 @@ public sealed record ExecutionMetricsSnapshot(
     long FillsReceived,
     ExecutionRiskMetrics Risk,
     OperationalExecutionMetrics Operations);
+
+public sealed record WindowSignalExecutionMetrics(
+    long Received,
+    long AcceptedCurrentOutcome,
+    long RejectedCurrentOutcome,
+    long PendingCurrentOutcome);
+
+public sealed record WindowOrderLifecycleMetrics(
+    long Events,
+    long OrdersTouched,
+    long Created,
+    long Submitted,
+    long Accepted,
+    long PartiallyFilled,
+    long Filled,
+    long Cancelled,
+    long Rejected,
+    long Unknown);
+
+public sealed record ExecutionMetricsWindowSnapshot(
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset FromInclusive,
+    DateTimeOffset ToExclusive,
+    WindowSignalExecutionMetrics Signals,
+    WindowOrderLifecycleMetrics OrderLifecycle,
+    long FillsReceived);

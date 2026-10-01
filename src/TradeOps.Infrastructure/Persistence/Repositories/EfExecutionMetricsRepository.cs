@@ -93,4 +93,84 @@ public sealed class EfExecutionMetricsRepository(
                 recovery?.Succeeded,
                 recovery?.PositionMismatches));
     }
+
+    public async Task<ExecutionMetricsWindowSnapshot> GetWindowAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var signalCounts = await dbContext.TradingSignals
+            .AsNoTracking()
+            .Where(signal =>
+                signal.CreatedAt >= fromInclusive &&
+                signal.CreatedAt < toExclusive)
+            .GroupBy(signal => signal.Outcome)
+            .Select(group => new
+            {
+                Outcome = group.Key,
+                Count = group.LongCount()
+            })
+            .ToDictionaryAsync(
+                item => item.Outcome,
+                item => item.Count,
+                cancellationToken);
+
+        var acceptedSignals = signalCounts.GetValueOrDefault(SignalOutcome.Accepted);
+        var rejectedSignals = signalCounts.GetValueOrDefault(SignalOutcome.Rejected);
+        var pendingSignals = signalCounts.GetValueOrDefault(SignalOutcome.Received);
+        var receivedSignals = acceptedSignals + rejectedSignals + pendingSignals;
+
+        var lifecycleQuery = dbContext.OrderLifecycleEvents
+            .AsNoTracking()
+            .Where(item =>
+                item.OccurredAt >= fromInclusive &&
+                item.OccurredAt < toExclusive);
+
+        var lifecycleCounts = await lifecycleQuery
+            .GroupBy(item => item.Status)
+            .Select(group => new
+            {
+                Status = group.Key,
+                Count = group.LongCount()
+            })
+            .ToDictionaryAsync(
+                item => item.Status,
+                item => item.Count,
+                cancellationToken);
+
+        var lifecycleEvents = lifecycleCounts.Values.Sum();
+        var ordersTouched = await lifecycleQuery
+            .Select(item => item.OrderId)
+            .Distinct()
+            .LongCountAsync(cancellationToken);
+
+        var fillsReceived = await dbContext.Fills
+            .AsNoTracking()
+            .Where(fill =>
+                fill.FilledAt >= fromInclusive &&
+                fill.FilledAt < toExclusive)
+            .LongCountAsync(cancellationToken);
+
+        return new ExecutionMetricsWindowSnapshot(
+            DateTimeOffset.UtcNow,
+            fromInclusive,
+            toExclusive,
+            new WindowSignalExecutionMetrics(
+                receivedSignals,
+                acceptedSignals,
+                rejectedSignals,
+                pendingSignals),
+            new WindowOrderLifecycleMetrics(
+                lifecycleEvents,
+                ordersTouched,
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Created),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Submitted),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Accepted),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.PartiallyFilled),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Filled),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Cancelled),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Rejected),
+                lifecycleCounts.GetValueOrDefault(OrderStatus.Unknown)),
+            fillsReceived);
+    }
 }

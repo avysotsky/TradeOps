@@ -29,6 +29,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.Property<decimal>("Quantity").HasPrecision(28, 12).HasColumnType("numeric(28,12)");
             b.HasKey("Id");
             b.HasIndex("ExchangeFillId").IsUnique();
+            b.HasIndex("FilledAt");
             b.HasIndex("OrderId");
             b.ToTable("Fills");
         });
@@ -121,6 +122,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.Property<OrderStatus>("Status").HasConversion<string>().HasMaxLength(30).HasColumnType("character varying(30)");
             b.HasKey("Id");
             b.HasIndex("ClientOrderId");
+            b.HasIndex("OccurredAt");
             b.HasIndex("OrderId", "OccurredAt");
             b.ToTable("OrderLifecycleEvents");
         });
@@ -180,6 +182,7 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.Property<decimal?>("TakeProfit").HasPrecision(28, 12).HasColumnType("numeric(28,12)");
             b.HasKey("Id");
             b.HasIndex("ClientOrderId").IsUnique();
+            b.HasIndex("CreatedAt");
             b.HasIndex("OrderId").IsUnique();
             b.ToTable("TradingSignals");
         });

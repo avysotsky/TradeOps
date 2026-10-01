@@ -16,4 +16,39 @@ public sealed class MetricsController(IExecutionMetricsRepository metricsReposit
         var metrics = await metricsRepository.GetAsync(cancellationToken);
         return Ok(metrics);
     }
+
+    [HttpGet("execution/window")]
+    [ProducesResponseType(typeof(ExecutionMetricsWindowSnapshot), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ExecutionMetricsWindowSnapshot>> GetExecutionWindowAsync(
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (from is null || to is null)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid execution metrics window",
+                detail: "Both 'from' and 'to' query parameters are required.");
+        }
+
+        var fromUtc = from.Value.ToUniversalTime();
+        var toUtc = to.Value.ToUniversalTime();
+
+        if (fromUtc >= toUtc)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid execution metrics window",
+                detail: "'from' must be earlier than 'to'. The window uses [from, to) semantics.");
+        }
+
+        var metrics = await metricsRepository.GetWindowAsync(
+            fromUtc,
+            toUtc,
+            cancellationToken);
+
+        return Ok(metrics);
+    }
 }

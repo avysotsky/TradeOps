@@ -96,7 +96,8 @@ jobs:
               '/api/orders/local/{idOrClientOrderId}/cancel',
               '/api/orders/local/cancel-all',
               '/api/system/reconciliation/status', '/api/system/recovery/status',
-              '/api/system/runs', '/api/metrics/execution', '/api/fills', '/api/pnl/daily')
+              '/api/system/runs', '/api/metrics/execution', '/api/metrics/execution/window',
+              '/api/fills', '/api/pnl/daily')
           for path in required:
               assert path in paths, (path, list(paths))
           PY
@@ -336,6 +337,39 @@ jobs:
           assert operations['lastRecoverySucceeded'] is True, operations
           assert isinstance(operations['lastRecoveryPositionMismatches'], int), operations
           PY
+
+          WINDOW_FROM=$(date -u -d '10 minutes ago' '+%Y-%m-%dT%H:%M:%SZ')
+          WINDOW_TO=$(date -u -d '10 minutes' '+%Y-%m-%dT%H:%M:%SZ')
+          WINDOW_METRICS=$(curl --fail --silent --show-error -G \
+            --data-urlencode "from=$WINDOW_FROM" \
+            --data-urlencode "to=$WINDOW_TO" \
+            http://127.0.0.1:5080/api/metrics/execution/window)
+          WINDOW_METRICS_JSON="$WINDOW_METRICS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['WINDOW_METRICS_JSON'])
+          signals = data['signals']
+          lifecycle = data['orderLifecycle']
+          assert data['generatedAt'] and data['fromInclusive'] and data['toExclusive'], data
+          assert signals['received'] == (
+              signals['acceptedCurrentOutcome'] +
+              signals['rejectedCurrentOutcome'] +
+              signals['pendingCurrentOutcome']), signals
+          assert signals['acceptedCurrentOutcome'] >= 4, signals
+          assert signals['rejectedCurrentOutcome'] >= 1, signals
+          counted_events = sum(lifecycle[key] for key in (
+              'created', 'submitted', 'accepted', 'partiallyFilled',
+              'filled', 'cancelled', 'rejected', 'unknown'))
+          assert lifecycle['events'] == counted_events, lifecycle
+          assert lifecycle['ordersTouched'] >= 4, lifecycle
+          assert lifecycle['filled'] >= 1 and lifecycle['cancelled'] >= 3, lifecycle
+          assert isinstance(data['fillsReceived'], int) and data['fillsReceived'] >= 0, data
+          PY
+
+          CODE=$(curl --silent --show-error -o invalid-window.json -w '%{http_code}' -G \
+            --data-urlencode "from=$WINDOW_TO" \
+            --data-urlencode "to=$WINDOW_FROM" \
+            http://127.0.0.1:5080/api/metrics/execution/window)
+          test "$CODE" = '400'
 
       - name: Validate Docker Compose
         run: docker compose config --quiet
