@@ -96,7 +96,7 @@ jobs:
               '/api/orders/local/{idOrClientOrderId}/cancel',
               '/api/orders/local/cancel-all',
               '/api/system/reconciliation/status', '/api/system/recovery/status',
-              '/api/metrics/execution', '/api/fills', '/api/pnl/daily')
+              '/api/system/runs', '/api/metrics/execution', '/api/fills', '/api/pnl/daily')
           for path in required:
               assert path in paths, (path, list(paths))
           PY
@@ -287,6 +287,30 @@ jobs:
           assert data['positionsCompared'] >= 1, data
           assert isinstance(data['positionSnapshots'], int) and data['positionSnapshots'] >= 0, data
           assert isinstance(data['positionMismatches'], int), data
+          PY
+
+          RUNS=$(curl --fail --silent --show-error 'http://127.0.0.1:5080/api/system/runs?limit=10')
+          RUNS_JSON="$RUNS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['RUNS_JSON'])
+          assert isinstance(data, list) and len(data) >= 3, data
+          run_types = {item['runType'] for item in data}
+          assert 'OrderReconciliation' in run_types, data
+          assert 'RecoveryCycle' in run_types, data
+          for item in data:
+              assert item['id'], item
+              assert item['isRunning'] is False, item
+              assert item['succeeded'] is True, item
+              assert item['startedAt'] and item['completedAt'], item
+          PY
+
+          RECOVERY_RUNS=$(curl --fail --silent --show-error 'http://127.0.0.1:5080/api/system/runs?runType=RecoveryCycle&limit=1')
+          RECOVERY_RUNS_JSON="$RECOVERY_RUNS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ['RECOVERY_RUNS_JSON'])
+          assert len(data) == 1, data
+          assert data[0]['runType'] == 'RecoveryCycle', data
+          assert data[0]['succeeded'] is True and data[0]['isRunning'] is False, data
           PY
 
           METRICS=$(curl --fail --silent --show-error http://127.0.0.1:5080/api/metrics/execution)
