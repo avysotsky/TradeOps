@@ -32,11 +32,12 @@ builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
 builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
-builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
 builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddScoped<IRiskEventRepository, EfRiskEventRepository>();
 builder.Services.AddScoped<IOperationalRiskStateRepository, EfOperationalRiskStateRepository>();
+builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
+builder.Services.AddScoped<IOperatorReadRepository, EfOperatorReadRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());

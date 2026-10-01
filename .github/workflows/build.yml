@@ -101,6 +101,61 @@ jobs:
           assert abs(float(order["filledQuantity"]) - 0.0006) < 1e-12, order
           PY
 
+          SIGNAL_AUDIT=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/signals/$SIGNAL_ID")
+          SIGNAL_AUDIT_JSON="$SIGNAL_AUDIT" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["SIGNAL_AUDIT_JSON"])
+          assert data["signalId"] == "d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58", data
+          assert data["outcome"] == "Accepted", data
+          assert data["clientOrderId"], data
+          assert data["orderId"], data
+          PY
+
+          SIGNALS=$(curl --fail --silent --show-error \
+            'http://127.0.0.1:5080/api/signals?limit=10')
+          SIGNALS_JSON="$SIGNALS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["SIGNALS_JSON"])
+          assert any(item["signalId"] == "d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58" for item in data), data
+          PY
+
+          CLIENT_ORDER_ID=$(SIGNAL_AUDIT_JSON="$SIGNAL_AUDIT" python3 - <<'PY'
+          import json, os
+          print(json.loads(os.environ["SIGNAL_AUDIT_JSON"])["clientOrderId"])
+          PY
+          )
+
+          LOCAL_ORDER=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/orders/local/$CLIENT_ORDER_ID")
+          LOCAL_ORDER_JSON="$LOCAL_ORDER" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["LOCAL_ORDER_JSON"])
+          assert data["clientOrderId"].startswith("trd-"), data
+          assert data["symbol"] == "BTCUSDT", data
+          assert data["status"] == "PartiallyFilled", data
+          PY
+
+          FILLS=$(curl --fail --silent --show-error \
+            'http://127.0.0.1:5080/api/fills?symbol=BTCUSDT&limit=10')
+          FILLS_JSON="$FILLS" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["FILLS_JSON"])
+          assert isinstance(data, list), data
+          PY
+
+          DAILY_PNL=$(curl --fail --silent --show-error \
+            http://127.0.0.1:5080/api/pnl/daily)
+          DAILY_PNL_JSON="$DAILY_PNL" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["DAILY_PNL_JSON"])
+          assert data["settlementCurrency"] == "USDT", data
+          assert data["isComplete"] is True, data
+          assert "grossRealizedPnL" in data, data
+          assert "settlementFees" in data, data
+          assert "netRealizedPnL" in data, data
+          PY
+
           RECONCILIATION=$(curl --fail --silent --show-error \
             -X POST \
             http://127.0.0.1:5080/api/system/reconcile)
@@ -154,6 +209,16 @@ jobs:
               data = json.load(f)
           assert data["accepted"] is False, data
           assert any("Emergency stop" in reason for reason in data["riskReasons"]), data
+          PY
+
+          BLOCKED_AUDIT=$(curl --fail --silent --show-error \
+            "http://127.0.0.1:5080/api/signals/$BLOCKED_SIGNAL_ID")
+          BLOCKED_AUDIT_JSON="$BLOCKED_AUDIT" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["BLOCKED_AUDIT_JSON"])
+          assert data["outcome"] == "Rejected", data
+          assert any("Emergency stop" in reason for reason in data["riskRejectionReasons"]), data
+          assert data["orderId"] is None, data
           PY
 
           EVENTS=$(curl --fail --silent --show-error \

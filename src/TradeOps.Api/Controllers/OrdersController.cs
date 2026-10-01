@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using TradeOps.Api.Contracts;
 using TradeOps.Application.Interfaces;
 using TradeOps.Domain.Entities;
 using TradeOps.Domain.Enums;
@@ -7,7 +8,9 @@ namespace TradeOps.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-public sealed class OrdersController(IExchangeClient exchangeClient) : ControllerBase
+public sealed class OrdersController(
+    IExchangeClient exchangeClient,
+    IOperatorReadRepository operatorReadRepository) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<Order>>(StatusCodes.Status200OK)]
@@ -16,6 +19,20 @@ public sealed class OrdersController(IExchangeClient exchangeClient) : Controlle
     {
         var orders = await exchangeClient.GetOpenOrdersAsync(cancellationToken);
         return Ok(orders);
+    }
+
+    [HttpGet("local/{idOrClientOrderId}")]
+    [ProducesResponseType<LocalOrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<LocalOrderResponse>> GetLocalOrder(
+        string idOrClientOrderId,
+        CancellationToken cancellationToken)
+    {
+        var order = await operatorReadRepository.GetLocalOrderAsync(
+            idOrClientOrderId,
+            cancellationToken);
+
+        return order is null ? NotFound() : Ok(ToLocalResponse(order));
     }
 
     [HttpGet("{exchangeOrderId}")]
@@ -69,5 +86,23 @@ public sealed class OrdersController(IExchangeClient exchangeClient) : Controlle
 
         await exchangeClient.CancelOrderAsync(exchangeOrderId, cancellationToken);
         return Accepted();
+    }
+
+    private static LocalOrderResponse ToLocalResponse(Order order)
+    {
+        return new LocalOrderResponse(
+            order.Id,
+            order.ExchangeOrderId,
+            order.ClientOrderId,
+            order.Symbol,
+            order.Side,
+            order.OrderType,
+            order.RequestedQuantity,
+            order.FilledQuantity,
+            order.AverageFillPrice,
+            order.Price,
+            order.Status,
+            order.CreatedAt,
+            order.UpdatedAt);
     }
 }
