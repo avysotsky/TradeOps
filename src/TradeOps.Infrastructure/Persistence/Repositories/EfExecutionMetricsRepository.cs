@@ -1,4 +1,9 @@
+using System.Data;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
+using NpgsqlTypes;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -172,108 +177,193 @@ public sealed class EfExecutionMetricsRepository(
         string? symbol = null,
         CancellationToken cancellationToken = default)
     {
-        var firstBucketStart = AlignToBucketStart(fromInclusive, bucketSize);
-        var buckets = new SortedDictionary<DateTimeOffset, SeriesBucketAccumulator>();
+        var signalSymbolPredicate = symbol is null
+            ? string.Empty
+            : "AND signal.\"Symbol\" = @symbol";
+        var lifecycleOrderJoin = symbol is null
+            ? string.Empty
+            : "JOIN \"Orders\" AS lifecycle_order ON lifecycle_order.\"Id\" = lifecycle.\"OrderId\"";
+        var lifecycleSymbolPredicate = symbol is null
+            ? string.Empty
+            : "AND lifecycle_order.\"Symbol\" = @symbol";
+        var fillOrderJoin = symbol is null
+            ? string.Empty
+            : "JOIN \"Orders\" AS fill_order ON fill_order.\"Id\" = fill.\"OrderId\"";
+        var fillSymbolPredicate = symbol is null
+            ? string.Empty
+            : "AND fill_order.\"Symbol\" = @symbol";
 
-        for (var bucketStart = firstBucketStart;
-             bucketStart < toExclusive;
-             bucketStart = bucketStart.Add(bucketSize))
+        var sql = $"""
+            WITH buckets AS (
+                SELECT bucket_start
+                FROM generate_series(
+                    date_bin(
+                        @bucketSize,
+                        @fromInclusive,
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00'),
+                    @toExclusive,
+                    @bucketSize) AS bucket_start
+                WHERE bucket_start < @toExclusive
+            ),
+            signal_counts AS (
+                SELECT
+                    date_bin(
+                        @bucketSize,
+                        signal."CreatedAt",
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00') AS bucket_start,
+                    COUNT(*) FILTER (WHERE signal."Outcome" = 'Accepted') AS accepted,
+                    COUNT(*) FILTER (WHERE signal."Outcome" = 'Rejected') AS rejected,
+                    COUNT(*) FILTER (WHERE signal."Outcome" = 'Received') AS pending
+                FROM "TradingSignals" AS signal
+                WHERE signal."CreatedAt" >= @fromInclusive
+                  AND signal."CreatedAt" < @toExclusive
+                  {signalSymbolPredicate}
+                GROUP BY 1
+            ),
+            lifecycle_counts AS (
+                SELECT
+                    date_bin(
+                        @bucketSize,
+                        lifecycle."OccurredAt",
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00') AS bucket_start,
+                    COUNT(*) AS events,
+                    COUNT(DISTINCT lifecycle."OrderId") AS orders_touched,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Created') AS created,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Submitted') AS submitted,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Accepted') AS accepted,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'PartiallyFilled') AS partially_filled,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Filled') AS filled,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Cancelled') AS cancelled,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Rejected') AS rejected,
+                    COUNT(*) FILTER (WHERE lifecycle."Status" = 'Unknown') AS unknown
+                FROM "OrderLifecycleEvents" AS lifecycle
+                {lifecycleOrderJoin}
+                WHERE lifecycle."OccurredAt" >= @fromInclusive
+                  AND lifecycle."OccurredAt" < @toExclusive
+                  {lifecycleSymbolPredicate}
+                GROUP BY 1
+            ),
+            fill_counts AS (
+                SELECT
+                    date_bin(
+                        @bucketSize,
+                        fill."FilledAt",
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00') AS bucket_start,
+                    COUNT(*) AS fills_received
+                FROM "Fills" AS fill
+                {fillOrderJoin}
+                WHERE fill."FilledAt" >= @fromInclusive
+                  AND fill."FilledAt" < @toExclusive
+                  {fillSymbolPredicate}
+                GROUP BY 1
+            )
+            SELECT
+                GREATEST(bucket.bucket_start, @fromInclusive) AS from_inclusive,
+                LEAST(bucket.bucket_start + @bucketSize, @toExclusive) AS to_exclusive,
+                COALESCE(signal.accepted, 0) AS accepted_signals,
+                COALESCE(signal.rejected, 0) AS rejected_signals,
+                COALESCE(signal.pending, 0) AS pending_signals,
+                COALESCE(lifecycle.events, 0) AS lifecycle_events,
+                COALESCE(lifecycle.orders_touched, 0) AS orders_touched,
+                COALESCE(lifecycle.created, 0) AS created,
+                COALESCE(lifecycle.submitted, 0) AS submitted,
+                COALESCE(lifecycle.accepted, 0) AS accepted,
+                COALESCE(lifecycle.partially_filled, 0) AS partially_filled,
+                COALESCE(lifecycle.filled, 0) AS filled,
+                COALESCE(lifecycle.cancelled, 0) AS cancelled,
+                COALESCE(lifecycle.rejected, 0) AS rejected,
+                COALESCE(lifecycle.unknown, 0) AS unknown,
+                COALESCE(fill.fills_received, 0) AS fills_received
+            FROM buckets AS bucket
+            LEFT JOIN signal_counts AS signal
+                ON signal.bucket_start = bucket.bucket_start
+            LEFT JOIN lifecycle_counts AS lifecycle
+                ON lifecycle.bucket_start = bucket.bucket_start
+            LEFT JOIN fill_counts AS fill
+                ON fill.bucket_start = bucket.bucket_start
+            ORDER BY bucket.bucket_start;
+            """;
+
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+
+        if (shouldCloseConnection)
         {
-            var bucketEnd = bucketStart.Add(bucketSize);
-            buckets[bucketStart] = new SeriesBucketAccumulator(
-                bucketStart < fromInclusive ? fromInclusive : bucketStart,
-                bucketEnd > toExclusive ? toExclusive : bucketEnd);
+            await dbContext.Database.OpenConnectionAsync(cancellationToken);
         }
 
-        var signalFacts = await BuildSignalQuery(fromInclusive, toExclusive, symbol)
-            .Select(signal => new
-            {
-                signal.CreatedAt,
-                signal.Outcome
-            })
-            .ToArrayAsync(cancellationToken);
-
-        foreach (var signal in signalFacts)
+        try
         {
-            var accumulator = buckets[AlignToBucketStart(signal.CreatedAt, bucketSize)];
-            switch (signal.Outcome)
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = dbContext.Database.CurrentTransaction?.GetDbTransaction();
+            command.Parameters.Add(new NpgsqlParameter("@fromInclusive", NpgsqlDbType.TimestampTz)
             {
-                case SignalOutcome.Accepted:
-                    accumulator.AcceptedSignals++;
-                    break;
-                case SignalOutcome.Rejected:
-                    accumulator.RejectedSignals++;
-                    break;
-                case SignalOutcome.Received:
-                    accumulator.PendingSignals++;
-                    break;
+                Value = fromInclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@toExclusive", NpgsqlDbType.TimestampTz)
+            {
+                Value = toExclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@bucketSize", NpgsqlDbType.Interval)
+            {
+                Value = bucketSize
+            });
+
+            if (symbol is not null)
+            {
+                command.Parameters.Add(new NpgsqlParameter("@symbol", NpgsqlDbType.Varchar)
+                {
+                    Value = symbol
+                });
+            }
+
+            var series = new List<ExecutionMetricsSeriesBucket>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var acceptedSignals = reader.GetInt64(2);
+                var rejectedSignals = reader.GetInt64(3);
+                var pendingSignals = reader.GetInt64(4);
+
+                series.Add(new ExecutionMetricsSeriesBucket(
+                    ReadUtcTimestamp(reader, 0),
+                    ReadUtcTimestamp(reader, 1),
+                    new WindowSignalExecutionMetrics(
+                        acceptedSignals + rejectedSignals + pendingSignals,
+                        acceptedSignals,
+                        rejectedSignals,
+                        pendingSignals),
+                    new WindowOrderLifecycleMetrics(
+                        reader.GetInt64(5),
+                        reader.GetInt64(6),
+                        reader.GetInt64(7),
+                        reader.GetInt64(8),
+                        reader.GetInt64(9),
+                        reader.GetInt64(10),
+                        reader.GetInt64(11),
+                        reader.GetInt64(12),
+                        reader.GetInt64(13),
+                        reader.GetInt64(14)),
+                    reader.GetInt64(15)));
+            }
+
+            return new ExecutionMetricsSeriesSnapshot(
+                DateTimeOffset.UtcNow,
+                fromInclusive,
+                toExclusive,
+                bucket,
+                symbol,
+                series);
+        }
+        finally
+        {
+            if (shouldCloseConnection)
+            {
+                await dbContext.Database.CloseConnectionAsync();
             }
         }
-
-        var lifecycleFacts = await BuildLifecycleQuery(fromInclusive, toExclusive, symbol)
-            .Select(item => new
-            {
-                item.OccurredAt,
-                item.OrderId,
-                item.Status
-            })
-            .ToArrayAsync(cancellationToken);
-
-        foreach (var lifecycle in lifecycleFacts)
-        {
-            var accumulator = buckets[AlignToBucketStart(lifecycle.OccurredAt, bucketSize)];
-            accumulator.LifecycleEvents++;
-            accumulator.OrderIds.Add(lifecycle.OrderId);
-
-            switch (lifecycle.Status)
-            {
-                case OrderStatus.Created:
-                    accumulator.Created++;
-                    break;
-                case OrderStatus.Submitted:
-                    accumulator.Submitted++;
-                    break;
-                case OrderStatus.Accepted:
-                    accumulator.Accepted++;
-                    break;
-                case OrderStatus.PartiallyFilled:
-                    accumulator.PartiallyFilled++;
-                    break;
-                case OrderStatus.Filled:
-                    accumulator.Filled++;
-                    break;
-                case OrderStatus.Cancelled:
-                    accumulator.Cancelled++;
-                    break;
-                case OrderStatus.Rejected:
-                    accumulator.Rejected++;
-                    break;
-                case OrderStatus.Unknown:
-                    accumulator.Unknown++;
-                    break;
-            }
-        }
-
-        var fillFacts = await BuildFillQuery(fromInclusive, toExclusive, symbol)
-            .Select(fill => fill.FilledAt)
-            .ToArrayAsync(cancellationToken);
-
-        foreach (var filledAt in fillFacts)
-        {
-            buckets[AlignToBucketStart(filledAt, bucketSize)].FillsReceived++;
-        }
-
-        var series = buckets.Values
-            .Select(item => item.ToSnapshot())
-            .ToArray();
-
-        return new ExecutionMetricsSeriesSnapshot(
-            DateTimeOffset.UtcNow,
-            fromInclusive,
-            toExclusive,
-            bucket,
-            symbol,
-            series);
     }
 
     private IQueryable<TradingSignal> BuildSignalQuery(
@@ -340,63 +430,9 @@ public sealed class EfExecutionMetricsRepository(
             select fill;
     }
 
-    private static DateTimeOffset AlignToBucketStart(DateTimeOffset timestamp, TimeSpan bucketSize)
+    private static DateTimeOffset ReadUtcTimestamp(DbDataReader reader, int ordinal)
     {
-        var utcTicksSinceEpoch = timestamp.ToUniversalTime().UtcDateTime.Ticks - DateTime.UnixEpoch.Ticks;
-        var quotient = Math.DivRem(utcTicksSinceEpoch, bucketSize.Ticks, out var remainder);
-        if (remainder < 0)
-        {
-            quotient--;
-        }
-
-        return DateTimeOffset.UnixEpoch.AddTicks(quotient * bucketSize.Ticks);
-    }
-
-    private sealed class SeriesBucketAccumulator(
-        DateTimeOffset fromInclusive,
-        DateTimeOffset toExclusive)
-    {
-        public DateTimeOffset FromInclusive { get; } = fromInclusive;
-        public DateTimeOffset ToExclusive { get; } = toExclusive;
-        public long AcceptedSignals { get; set; }
-        public long RejectedSignals { get; set; }
-        public long PendingSignals { get; set; }
-        public long LifecycleEvents { get; set; }
-        public HashSet<Guid> OrderIds { get; } = [];
-        public long Created { get; set; }
-        public long Submitted { get; set; }
-        public long Accepted { get; set; }
-        public long PartiallyFilled { get; set; }
-        public long Filled { get; set; }
-        public long Cancelled { get; set; }
-        public long Rejected { get; set; }
-        public long Unknown { get; set; }
-        public long FillsReceived { get; set; }
-
-        public ExecutionMetricsSeriesBucket ToSnapshot()
-        {
-            var receivedSignals = AcceptedSignals + RejectedSignals + PendingSignals;
-
-            return new ExecutionMetricsSeriesBucket(
-                FromInclusive,
-                ToExclusive,
-                new WindowSignalExecutionMetrics(
-                    receivedSignals,
-                    AcceptedSignals,
-                    RejectedSignals,
-                    PendingSignals),
-                new WindowOrderLifecycleMetrics(
-                    LifecycleEvents,
-                    OrderIds.Count,
-                    Created,
-                    Submitted,
-                    Accepted,
-                    PartiallyFilled,
-                    Filled,
-                    Cancelled,
-                    Rejected,
-                    Unknown),
-                FillsReceived);
-        }
+        var value = reader.GetDateTime(ordinal);
+        return new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc));
     }
 }
