@@ -8,7 +8,7 @@ namespace TradeOps.Api.Controllers;
 
 [ApiController]
 [Route("api/signals")]
-public sealed class SignalsController(IOrderManager orderManager) : ControllerBase
+public sealed class SignalsController(ISignalExecutionService signalExecutionService) : ControllerBase
 {
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
@@ -31,7 +31,7 @@ public sealed class SignalsController(IOrderManager orderManager) : ControllerBa
             Source = request.Source
         };
 
-        var result = await orderManager.ExecuteSignalAsync(
+        var result = await signalExecutionService.ExecuteSignalAsync(
             signal,
             cancellationToken);
 

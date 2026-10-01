@@ -264,6 +264,76 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("RiskEvents");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignal", b =>
+        {
+            b.Property<Guid>("Id")
+                .ValueGeneratedNever()
+                .HasColumnType("uuid");
+
+            b.Property<string>("ClientOrderId")
+                .HasMaxLength(100)
+                .HasColumnType("character varying(100)");
+
+            b.Property<DateTimeOffset>("CreatedAt")
+                .HasColumnType("timestamp with time zone");
+
+            b.Property<Guid?>("OrderId")
+                .HasColumnType("uuid");
+
+            b.Property<SignalOutcome>("Outcome")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<decimal?>("RiskPercent")
+                .HasPrecision(18, 8)
+                .HasColumnType("numeric(18,8)");
+
+            b.Property<string[]>("RiskRejectionReasons")
+                .IsRequired()
+                .HasColumnType("text[]");
+
+            b.Property<decimal>("RequestedQuantity")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<OrderSide>("Side")
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasColumnType("character varying(20)");
+
+            b.Property<string>("SignalType")
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.Property<string>("Source")
+                .HasMaxLength(100)
+                .HasColumnType("character varying(100)");
+
+            b.Property<decimal?>("StopLoss")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.Property<string>("Symbol")
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnType("character varying(50)");
+
+            b.Property<decimal?>("TakeProfit")
+                .HasPrecision(28, 12)
+                .HasColumnType("numeric(28,12)");
+
+            b.HasKey("Id");
+
+            b.HasIndex("ClientOrderId")
+                .IsUnique();
+
+            b.HasIndex("OrderId")
+                .IsUnique();
+
+            b.ToTable("TradingSignals");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.Fill", b =>
         {
             b.HasOne("TradeOps.Domain.Entities.Order", null)
@@ -271,6 +341,14 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
                 .HasForeignKey("OrderId")
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired();
+        });
+
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignal", b =>
+        {
+            b.HasOne("TradeOps.Domain.Entities.Order", null)
+                .WithMany()
+                .HasForeignKey("OrderId")
+                .OnDelete(DeleteBehavior.SetNull);
         });
 #pragma warning restore 612, 618
     }

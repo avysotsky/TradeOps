@@ -25,4 +25,12 @@ public sealed class TradingSignal
     public DateTimeOffset CreatedAt { get; set; }
 
     public string? Source { get; set; }
+
+    public SignalOutcome Outcome { get; set; } = SignalOutcome.Received;
+
+    public string[] RiskRejectionReasons { get; set; } = [];
+
+    public Guid? OrderId { get; set; }
+
+    public string? ClientOrderId { get; set; }
 }

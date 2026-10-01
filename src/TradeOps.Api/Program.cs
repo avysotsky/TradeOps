@@ -32,6 +32,7 @@ builder.Services.AddSingleton<IAlertService, TelegramAlertService>();
 builder.Services.AddTradeOpsExchange(builder.Configuration);
 
 builder.Services.AddScoped<IOrderRepository, EfOrderRepository>();
+builder.Services.AddScoped<ITradingSignalRepository, EfTradingSignalRepository>();
 builder.Services.AddScoped<IFillRepository, EfFillRepository>();
 builder.Services.AddScoped<IPositionSnapshotRepository, EfPositionSnapshotRepository>();
 builder.Services.AddScoped<IRiskEventRepository, EfRiskEventRepository>();
@@ -47,6 +48,7 @@ builder.Services.AddSingleton(new AccountingSettings
 builder.Services.AddScoped<IRiskControlService, RiskControlService>();
 builder.Services.AddScoped<IRiskEngine, RiskEngine>();
 builder.Services.AddScoped<IOrderManager, OrderManager>();
+builder.Services.AddScoped<ISignalExecutionService, SignalExecutionService>();
 builder.Services.AddScoped<IOrderReconciliationService, OrderReconciliationService>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IPositionReconciliationService, PositionReconciliationService>();
