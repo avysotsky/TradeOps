@@ -33,6 +33,13 @@ GitHub Actions #82: green
 5498ef5943198e689c5f83b249f393bdad28d767
 feat: add operator read APIs
 GitHub Actions #83: green
+
+440e2d343e38a209aa8d93e56f85207bba171b39
+docs: add operator api and health guide
+
+41bb973d62b7f0bf6a69ad7b22b9e3d6753b5f27
+feat: add OpenAPI and runtime health probes
+GitHub Actions #85: green
 ```
 
 The Block 2 corrective commit only registered the hand-written EF Core migration with the same
@@ -447,63 +454,97 @@ The CI runtime smoke validates accepted signal lookup/listing, local-order looku
 
 ---
 
-## 9. CURRENT NEXT TASK — Block 4: Swagger/OpenAPI + health/readiness + docs
+## 9. COMPLETED in v1.1.1.3 — Block 4: Swagger/OpenAPI + health/readiness + docs
 
-This is the next implementation block.
+Block 4 is finished. Do not reimplement it.
 
-Add:
+Commits:
 
 ```text
-/health/live
-/health/ready
-Swagger / OpenAPI
+440e2d343e38a209aa8d93e56f85207bba171b39
+docs: add operator api and health guide
+
+41bb973d62b7f0bf6a69ad7b22b9e3d6753b5f27
+feat: add OpenAPI and runtime health probes
 ```
 
-Readiness should check PostgreSQL and safe dependency resolution without performing unsafe exchange actions.
+Validation:
 
-Document clearly which APIs reflect exchange state versus local PostgreSQL state and mark Bybit as testnet-only.
+```text
+GitHub Actions #85
+Restore                     ✓
+Build                       ✓
+Unit tests                  ✓
+API + PostgreSQL smoke      ✓
+Liveness                    ✓
+Readiness                   ✓
+OpenAPI JSON                ✓
+Docker Compose validation   ✓
+Docker API/Worker images    ✓
+```
+
+Implemented:
+
+```text
+GET /health/live
+GET /health/ready
+GET /health                  (legacy liveness alias)
+Swagger UI:   /swagger
+OpenAPI JSON: /swagger/v1/swagger.json
+```
+
+`Swashbuckle.AspNetCore 10.2.3` is used with the existing .NET 8 API.
+
+Liveness intentionally performs no PostgreSQL or exchange operation.
+
+Readiness verifies PostgreSQL connectivity through `TradeOpsDbContext` and safe DI resolution of the configured `IExchangeClient`. It does not call Mock/Bybit endpoints, authenticate remotely, place/cancel orders, or otherwise perform an exchange action. PostgreSQL or exchange-client resolution failure returns HTTP 503.
+
+`docs/operator-api.md` documents the state-source boundary:
+
+- exchange-facing routes query the configured `IExchangeClient`;
+- signal/local-order/fill/PnL operator views read local PostgreSQL state;
+- risk/reconciliation semantics are called out separately;
+- Mock remains the default;
+- Bybit remains testnet-only;
+- mainnet remains unsupported.
+
+The CI smoke now validates the new health endpoints and verifies that the generated OpenAPI document contains the operator API routes.
 
 ---
 
-## 10. Definition of Done for v1.1.1.3
+## 10. Definition of Done for v1.1.1.3 — COMPLETE
 
-Completed already:
+Completed:
 
 - [x] gross realized PnL remains available;
 - [x] settlement-currency fees are accounted explicitly;
 - [x] net realized PnL is exposed;
 - [x] unsupported/unconverted fee currencies are visible;
 - [x] daily risk math uses the shared accounting source;
-- [x] normal Mock/Bybit execution behavior is unchanged after accounting work.
-
-Completed in Block 2:
-
+- [x] normal Mock/Bybit execution behavior is unchanged after accounting work;
 - [x] logical trading signals persisted idempotently;
 - [x] accepted/rejected signal outcome persisted;
-- [x] accepted signal linked to resulting order/client ID.
-
-Completed in Block 3:
-
+- [x] accepted signal linked to resulting order/client ID;
 - [x] accepted/rejected signal outcome exposed through operator read API;
 - [x] fills queryable through operator API;
 - [x] local order/audit view available;
-- [x] daily accounting/risk snapshot query available through dedicated operator API.
+- [x] daily accounting/risk snapshot available through dedicated operator API;
+- [x] Swagger/OpenAPI documents operational APIs;
+- [x] liveness/readiness endpoints exist;
+- [x] operator API / state-source / health documentation exists;
+- [x] Docker Compose still validates and API/Worker images build in CI;
+- [x] Bybit testnet adapter code and safety boundary remain unchanged by Blocks 1-4;
+- [x] no mainnet support introduced;
+- [x] no secrets committed by v1.1.1.3 work;
+- [x] final full build/tests/runtime smoke/Actions #85 green.
 
-Still required:
-- [ ] Swagger/OpenAPI documents operational APIs;
-- [ ] liveness/readiness endpoints exist;
-- [ ] README/docs updated;
-- [ ] Docker demo remains reproducible;
-- [ ] Bybit testnet adapter remains functional;
-- [ ] no mainnet support introduced;
-- [ ] no secrets committed/logged;
-- [ ] final build/tests/Actions green.
+The credential-driven Bybit remote smoke remains intentionally manual and outside ordinary CI. No claim is made that Actions #85 authenticated to Bybit; it verifies the credential-free Mock/PostgreSQL runtime plus compilation of the complete solution.
 
 ---
 
 ## 11. Out of scope for v1.1.1.3
 
-Do not add unless strictly required by the above milestone:
+Do not add unless explicitly starting a new milestone/version:
 
 - second exchange adapter;
 - Binance integration;
@@ -520,10 +561,30 @@ Do not add unless strictly required by the above milestone:
 
 ---
 
-## 12. Instruction for the next chat
+## 12. CURRENT NEXT TASK — release or define the next milestone
+
+The implementation scope and Definition of Done for `v1.1.1.3` are complete at code commit:
+
+```text
+41bb973d62b7f0bf6a69ad7b22b9e3d6753b5f27
+GitHub Actions #85: fully green
+```
+
+Do not add another feature to `v1.1.1.3` without explicitly changing the milestone scope.
+
+The next clean action is one of:
+
+1. finalize/tag/release `v1.1.1.3`; or
+2. define a new `v1.1.2` milestone/backlog and branch before implementing additional capabilities.
+
+No release tag was created automatically in this session.
+
+---
+
+## 13. Instruction for the next chat
 
 Start with:
 
-> Continue TradeOps on `TradeOps/v_1.1.1.3`. Read the current `Handsoff.md`. Block 1 (fee-aware net PnL accounting) is complete at `9a51782b46cfe3c53dba356cb8fedd4efcdc00bb`. Block 2 (persistent signal audit) is complete at `119c3a84928d46bbb0aff3b200b8b829cf35bcd9` plus fix `53e6d91b99449253666374b23409897601a9a444`; Actions #82 is green. Block 3 (operator read APIs) is complete at `5498ef5943198e689c5f83b249f393bdad28d767`; Actions #83 is green. Implement Block 4 — Swagger/OpenAPI, `/health/live`, `/health/ready`, and documentation. Readiness must verify PostgreSQL and safe dependency resolution without unsafe exchange actions. Preserve testnet-only exchange safety and existing execution semantics.
+> Continue TradeOps. Read the current `Handsoff.md` first. `v1.1.1.3` implementation is complete: Block 1 fee-aware accounting (`9a51782...`, Actions #79), Block 2 persistent signal audit (`119c3a8...` + `53e6d91...`, Actions #82), Block 3 operator read APIs (`5498ef5...`, Actions #83), and Block 4 Swagger/OpenAPI + liveness/readiness + operator documentation (`440e2d3...` + `41bb973...`, Actions #85). Actions #85 is fully green, including runtime PostgreSQL/API smoke, health probes, OpenAPI validation and Docker image builds. Do not reimplement Blocks 1-4. Decide whether to finalize/tag `v1.1.1.3` or define the next version/milestone before adding features. Preserve Mock-default, Bybit-testnet-only, no-mainnet and no-blind-retry safety boundaries.
 
 No additional context from the previous chat should be required beyond this file and the repository code.
