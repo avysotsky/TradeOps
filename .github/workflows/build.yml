@@ -153,7 +153,7 @@ jobs:
           with open('blocked.json', encoding='utf-8') as f:
               data = json.load(f)
           assert data["accepted"] is False, data
-          assert any("Emergency stop" in reason for reason in data["reasons"]), data
+          assert any("Emergency stop" in reason for reason in data["riskReasons"]), data
           PY
 
           EVENTS=$(curl --fail --silent --show-error \
