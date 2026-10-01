@@ -105,6 +105,11 @@ public sealed class ExchangeEventFillPersistenceTests
             Fills.Add(fill);
             return Task.FromResult(true);
         }
+
+        public Task<IReadOnlyCollection<PositionFill>> GetPositionFillsAsync(
+            string? symbol = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<PositionFill>>(Array.Empty<PositionFill>());
     }
 
     private sealed class FakeOrderRepository(Order order) : IOrderRepository
