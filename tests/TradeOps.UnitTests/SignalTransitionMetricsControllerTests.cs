@@ -134,6 +134,45 @@ public sealed class SignalTransitionMetricsControllerTests
         Assert.Equal(1, repository.SeriesCallCount);
     }
 
+    [Fact]
+    public async Task BySymbol_NormalizesWindowAndUsesDefaultLimit()
+    {
+        var repository = new CapturingRepository();
+        var controller = new SignalTransitionMetricsController(repository);
+
+        var action = await controller.GetBySymbolAsync(
+            DateTimeOffset.Parse("2026-10-01T12:00:00+02:00"),
+            DateTimeOffset.Parse("2026-10-01T13:00:00+02:00"),
+            cancellationToken: CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var payload = Assert.IsType<SignalTransitionMetricsBySymbolSnapshot>(ok.Value);
+
+        Assert.Equal(DateTimeOffset.Parse("2026-10-01T10:00:00Z"), repository.BySymbolFrom);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-01T11:00:00Z"), repository.BySymbolTo);
+        Assert.Equal(20, repository.BySymbolLimit);
+        Assert.Equal(20, payload.Limit);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public async Task BySymbol_RejectsLimitOutsideAllowedRange(int limit)
+    {
+        var repository = new CapturingRepository();
+        var controller = new SignalTransitionMetricsController(repository);
+
+        var action = await controller.GetBySymbolAsync(
+            DateTimeOffset.Parse("2026-10-01T10:00:00Z"),
+            DateTimeOffset.Parse("2026-10-01T11:00:00Z"),
+            limit,
+            CancellationToken.None);
+
+        var problem = Assert.IsType<ObjectResult>(action.Result);
+        Assert.Equal(400, problem.StatusCode);
+        Assert.Equal(0, repository.BySymbolCallCount);
+    }
+
     private sealed class CapturingRepository : ISignalTransitionMetricsRepository
     {
         public int WindowCallCount { get; private set; }
@@ -147,6 +186,11 @@ public sealed class SignalTransitionMetricsControllerTests
         public string? SeriesBucket { get; private set; }
         public TimeSpan? SeriesBucketSize { get; private set; }
         public string? SeriesSymbol { get; private set; }
+
+        public int BySymbolCallCount { get; private set; }
+        public DateTimeOffset? BySymbolFrom { get; private set; }
+        public DateTimeOffset? BySymbolTo { get; private set; }
+        public int? BySymbolLimit { get; private set; }
 
         public Task<SignalTransitionMetricsWindowSnapshot> GetWindowAsync(
             DateTimeOffset fromInclusive,
@@ -191,6 +235,26 @@ public sealed class SignalTransitionMetricsControllerTests
                 bucket,
                 symbol,
                 Array.Empty<SignalTransitionMetricsSeriesBucket>()));
+        }
+
+        public Task<SignalTransitionMetricsBySymbolSnapshot> GetBySymbolAsync(
+            DateTimeOffset fromInclusive,
+            DateTimeOffset toExclusive,
+            int limit,
+            CancellationToken cancellationToken = default)
+        {
+            BySymbolCallCount++;
+            BySymbolFrom = fromInclusive;
+            BySymbolTo = toExclusive;
+            BySymbolLimit = limit;
+
+            return Task.FromResult(new SignalTransitionMetricsBySymbolSnapshot(
+                DateTimeOffset.UtcNow,
+                fromInclusive,
+                toExclusive,
+                limit,
+                false,
+                Array.Empty<SignalTransitionMetricsBySymbolItem>()));
         }
     }
 }

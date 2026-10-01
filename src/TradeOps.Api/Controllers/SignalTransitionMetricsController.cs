@@ -10,6 +10,8 @@ public sealed class SignalTransitionMetricsController(
     ISignalTransitionMetricsRepository metricsRepository) : ControllerBase
 {
     private const int MaxSeriesBuckets = 500;
+    private const int DefaultBySymbolLimit = 20;
+    private const int MaxBySymbolLimit = 100;
 
     private static readonly IReadOnlyDictionary<string, TimeSpan> SupportedBuckets =
         new Dictionary<string, TimeSpan>(StringComparer.OrdinalIgnoreCase)
@@ -89,6 +91,39 @@ public sealed class SignalTransitionMetricsController(
             normalizedBucket,
             bucketSize,
             validation.Symbol,
+            cancellationToken);
+
+        return Ok(metrics);
+    }
+
+    [HttpGet("by-symbol")]
+    [ProducesResponseType(typeof(SignalTransitionMetricsBySymbolSnapshot), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SignalTransitionMetricsBySymbolSnapshot>> GetBySymbolAsync(
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] int? limit = null,
+        CancellationToken cancellationToken = default)
+    {
+        var validation = ValidateWindowAndSymbol(from, to, null);
+        if (validation.Problem is not null)
+        {
+            return validation.Problem;
+        }
+
+        var resolvedLimit = limit ?? DefaultBySymbolLimit;
+        if (resolvedLimit is < 1 or > MaxBySymbolLimit)
+        {
+            return Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: "Invalid signal transition metrics symbol limit",
+                detail: $"'limit' must be between 1 and {MaxBySymbolLimit}. The default is {DefaultBySymbolLimit}.");
+        }
+
+        var metrics = await metricsRepository.GetBySymbolAsync(
+            validation.FromUtc!.Value,
+            validation.ToUtc!.Value,
+            resolvedLimit,
             cancellationToken);
 
         return Ok(metrics);

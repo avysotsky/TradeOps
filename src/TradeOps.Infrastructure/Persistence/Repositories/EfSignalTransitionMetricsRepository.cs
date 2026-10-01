@@ -177,6 +177,91 @@ public sealed class EfSignalTransitionMetricsRepository(TradeOpsDbContext dbCont
         }
     }
 
+    public async Task<SignalTransitionMetricsBySymbolSnapshot> GetBySymbolAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT
+                signal."Symbol" AS symbol,
+                COUNT(*) AS total_transitions,
+                COUNT(*) FILTER (WHERE transition."Outcome" = 'Received') AS received,
+                COUNT(*) FILTER (WHERE transition."Outcome" = 'Accepted') AS accepted,
+                COUNT(*) FILTER (WHERE transition."Outcome" = 'Rejected') AS rejected
+            FROM "TradingSignalOutcomeEvents" AS transition
+            JOIN "TradingSignals" AS signal
+                ON signal."Id" = transition."TradingSignalId"
+            WHERE transition."OccurredAt" >= @fromInclusive
+              AND transition."OccurredAt" < @toExclusive
+            GROUP BY signal."Symbol"
+            ORDER BY total_transitions DESC, symbol ASC
+            LIMIT @fetchLimit;
+            """;
+
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+
+        if (shouldCloseConnection)
+        {
+            await dbContext.Database.OpenConnectionAsync(cancellationToken);
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = dbContext.Database.CurrentTransaction?.GetDbTransaction();
+            command.Parameters.Add(new NpgsqlParameter("@fromInclusive", NpgsqlDbType.TimestampTz)
+            {
+                Value = fromInclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@toExclusive", NpgsqlDbType.TimestampTz)
+            {
+                Value = toExclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@fetchLimit", NpgsqlDbType.Integer)
+            {
+                Value = limit + 1
+            });
+
+            var items = new List<SignalTransitionMetricsBySymbolItem>(limit + 1);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new SignalTransitionMetricsBySymbolItem(
+                    reader.GetString(0),
+                    reader.GetInt64(1),
+                    reader.GetInt64(2),
+                    reader.GetInt64(3),
+                    reader.GetInt64(4)));
+            }
+
+            var isTruncated = items.Count > limit;
+            if (isTruncated)
+            {
+                items.RemoveAt(items.Count - 1);
+            }
+
+            return new SignalTransitionMetricsBySymbolSnapshot(
+                DateTimeOffset.UtcNow,
+                fromInclusive,
+                toExclusive,
+                limit,
+                isTruncated,
+                items);
+        }
+        finally
+        {
+            if (shouldCloseConnection)
+            {
+                await dbContext.Database.CloseConnectionAsync();
+            }
+        }
+    }
+
     private static DateTimeOffset ReadUtcTimestamp(DbDataReader reader, int ordinal)
     {
         var value = reader.GetDateTime(ordinal);

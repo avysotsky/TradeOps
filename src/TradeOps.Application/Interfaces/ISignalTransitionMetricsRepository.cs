@@ -17,4 +17,10 @@ public interface ISignalTransitionMetricsRepository
         TimeSpan bucketSize,
         string? symbol = null,
         CancellationToken cancellationToken = default);
+
+    Task<SignalTransitionMetricsBySymbolSnapshot> GetBySymbolAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
