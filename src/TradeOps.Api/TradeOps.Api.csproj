@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\TradeOps.Application\TradeOps.Application.csproj" />
     <ProjectReference Include="..\TradeOps.Infrastructure\TradeOps.Infrastructure.csproj" />
   </ItemGroup>

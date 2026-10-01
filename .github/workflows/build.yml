@@ -73,17 +73,45 @@ jobs:
           trap cleanup EXIT
 
           for attempt in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:5080/health >/dev/null; then
+            if curl --fail --silent http://127.0.0.1:5080/health/live >/dev/null; then
               break
             fi
 
             if [ "$attempt" -eq 30 ]; then
-              echo 'API did not become ready.' >&2
+              echo 'API did not become live.' >&2
               exit 1
             fi
 
             sleep 2
           done
+
+          READY=$(curl --fail --silent --show-error \
+            http://127.0.0.1:5080/health/ready)
+          READY_JSON="$READY" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["READY_JSON"])
+          assert data["status"] == "ready", data
+          assert data["dependencies"]["postgres"] == "ready", data
+          assert data["dependencies"]["exchangeClient"], data
+          PY
+
+          OPENAPI=$(curl --fail --silent --show-error \
+            http://127.0.0.1:5080/swagger/v1/swagger.json)
+          OPENAPI_JSON="$OPENAPI" python3 - <<'PY'
+          import json, os
+          data = json.loads(os.environ["OPENAPI_JSON"])
+          paths = data["paths"]
+          for path in (
+              "/health/live",
+              "/health/ready",
+              "/api/signals",
+              "/api/signals/{id}",
+              "/api/orders/local/{idOrClientOrderId}",
+              "/api/fills",
+              "/api/pnl/daily",
+          ):
+              assert path in paths, (path, list(paths))
+          PY
 
           SIGNAL_ID='d0f8625f-2ad4-44eb-a1ec-22acbfbb2e58'
 
