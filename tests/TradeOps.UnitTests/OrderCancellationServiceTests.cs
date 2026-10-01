@@ -231,6 +231,11 @@ public sealed class OrderCancellationServiceTests
             return Task.FromResult(matches ? localOrder : null);
         }
 
+        public Task<IReadOnlyCollection<OrderLifecycleEvent>> GetOrderHistoryAsync(
+            string idOrClientOrderId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<IReadOnlyCollection<FillAuditRecord>> GetFillsAsync(
             string? symbol,
             int limit,

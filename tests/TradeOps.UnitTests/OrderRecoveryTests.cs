@@ -61,12 +61,8 @@ public sealed class OrderRecoveryTests
         Assert.Null(stored.ExchangeOrderId);
 
         exchange.LookupByClientOrderIdResult = CreateExchangeOrder(signal, OrderStatus.Filled);
-        var reconciliation = new OrderReconciliationService(
-            exchange,
-            repository,
-            new OrderStateMachine(),
-            new NoOpAlertService(),
-            NullLogger<OrderReconciliationService>.Instance);
+        var runStatus = new InMemoryOperationalRunStatusRepository();
+        var reconciliation = CreateReconciliationService(exchange, repository, runStatus);
 
         var summary = await reconciliation.ReconcileAsync();
 
@@ -79,6 +75,15 @@ public sealed class OrderRecoveryTests
         Assert.Equal(signal.RequestedQuantity, stored.FilledQuantity);
         Assert.Equal(2, exchange.LookupByClientOrderIdCallCount);
         Assert.Equal(1, exchange.PlaceOrderCallCount);
+
+        var status = await runStatus.GetAsync(OperationalRunTypes.OrderReconciliation);
+        Assert.NotNull(status);
+        Assert.False(status.IsRunning);
+        Assert.True(status.Succeeded);
+        Assert.Equal(1, status.OrdersScanned);
+        Assert.Equal(1, status.OrdersUpdated);
+        Assert.Equal(0, status.OrderIssues);
+        Assert.Equal(0, status.OrdersMissingOnExchange);
     }
 
     [Fact]
@@ -102,12 +107,8 @@ public sealed class OrderRecoveryTests
         repository.Orders.Add(order);
 
         var exchange = new RecoveryExchangeClient();
-        var reconciliation = new OrderReconciliationService(
-            exchange,
-            repository,
-            new OrderStateMachine(),
-            new NoOpAlertService(),
-            NullLogger<OrderReconciliationService>.Instance);
+        var runStatus = new InMemoryOperationalRunStatusRepository();
+        var reconciliation = CreateReconciliationService(exchange, repository, runStatus);
 
         var summary = await reconciliation.ReconcileAsync();
 
@@ -119,7 +120,27 @@ public sealed class OrderRecoveryTests
         Assert.Single(summary.Issues);
         Assert.Equal(1, exchange.LookupByClientOrderIdCallCount);
         Assert.Equal(0, exchange.PlaceOrderCallCount);
+
+        var status = await runStatus.GetAsync(OperationalRunTypes.OrderReconciliation);
+        Assert.NotNull(status);
+        Assert.True(status.Succeeded);
+        Assert.Equal(1, status.OrdersScanned);
+        Assert.Equal(0, status.OrdersUpdated);
+        Assert.Equal(1, status.OrderIssues);
+        Assert.Equal(1, status.OrdersMissingOnExchange);
     }
+
+    private static OrderReconciliationService CreateReconciliationService(
+        IExchangeClient exchangeClient,
+        IOrderRepository repository,
+        IOperationalRunStatusRepository runStatusRepository) =>
+        new(
+            exchangeClient,
+            repository,
+            new OrderStateMachine(),
+            new NoOpAlertService(),
+            runStatusRepository,
+            NullLogger<OrderReconciliationService>.Instance);
 
     private static OrderManager CreateOrderManager(
         IExchangeClient exchangeClient,
@@ -174,6 +195,65 @@ public sealed class OrderRecoveryTests
             AlertMessage alert,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class InMemoryOperationalRunStatusRepository : IOperationalRunStatusRepository
+    {
+        private readonly Dictionary<string, OperationalRunStatus> _statuses = new();
+
+        public Task<OperationalRunStatus?> GetAsync(
+            string runType,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(_statuses.GetValueOrDefault(runType));
+
+        public Task MarkStartedAsync(
+            string runType,
+            CancellationToken cancellationToken = default)
+        {
+            var now = DateTimeOffset.UtcNow;
+            _statuses[runType] = new OperationalRunStatus
+            {
+                RunType = runType,
+                StartedAt = now,
+                IsRunning = true,
+                UpdatedAt = now
+            };
+            return Task.CompletedTask;
+        }
+
+        public Task MarkCompletedAsync(
+            string runType,
+            OperationalRunMetrics metrics,
+            CancellationToken cancellationToken = default)
+        {
+            var status = _statuses[runType];
+            status.CompletedAt = DateTimeOffset.UtcNow;
+            status.IsRunning = false;
+            status.Succeeded = true;
+            status.OrdersScanned = metrics.OrdersScanned;
+            status.OrdersUpdated = metrics.OrdersUpdated;
+            status.OrderIssues = metrics.OrderIssues;
+            status.OrdersMissingOnExchange = metrics.OrdersMissingOnExchange;
+            status.PositionsCompared = metrics.PositionsCompared;
+            status.PositionMismatches = metrics.PositionMismatches;
+            status.PositionSnapshots = metrics.PositionSnapshots;
+            status.UpdatedAt = DateTimeOffset.UtcNow;
+            return Task.CompletedTask;
+        }
+
+        public Task MarkFailedAsync(
+            string runType,
+            string errorMessage,
+            CancellationToken cancellationToken = default)
+        {
+            var status = _statuses[runType];
+            status.CompletedAt = DateTimeOffset.UtcNow;
+            status.IsRunning = false;
+            status.Succeeded = false;
+            status.ErrorMessage = errorMessage;
+            status.UpdatedAt = DateTimeOffset.UtcNow;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class InMemoryOrderRepository : IOrderRepository
