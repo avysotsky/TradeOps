@@ -8,3 +8,18 @@ public sealed record SignalTransitionMetricsWindowSnapshot(
     long ReceivedTransitions,
     long AcceptedTransitions,
     long RejectedTransitions);
+
+public sealed record SignalTransitionMetricsSeriesBucket(
+    DateTimeOffset FromInclusive,
+    DateTimeOffset ToExclusive,
+    long ReceivedTransitions,
+    long AcceptedTransitions,
+    long RejectedTransitions);
+
+public sealed record SignalTransitionMetricsSeriesSnapshot(
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset FromInclusive,
+    DateTimeOffset ToExclusive,
+    string Bucket,
+    string? Symbol,
+    IReadOnlyList<SignalTransitionMetricsSeriesBucket> Buckets);

@@ -1,4 +1,9 @@
+using System.Data;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
+using NpgsqlTypes;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -51,5 +56,130 @@ public sealed class EfSignalTransitionMetricsRepository(TradeOpsDbContext dbCont
             counts.GetValueOrDefault(SignalOutcome.Received),
             counts.GetValueOrDefault(SignalOutcome.Accepted),
             counts.GetValueOrDefault(SignalOutcome.Rejected));
+    }
+
+    public async Task<SignalTransitionMetricsSeriesSnapshot> GetSeriesAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        string bucket,
+        TimeSpan bucketSize,
+        string? symbol = null,
+        CancellationToken cancellationToken = default)
+    {
+        var signalJoin = symbol is null
+            ? string.Empty
+            : "JOIN \"TradingSignals\" AS signal ON signal.\"Id\" = transition.\"TradingSignalId\"";
+        var symbolPredicate = symbol is null
+            ? string.Empty
+            : "AND signal.\"Symbol\" = @symbol";
+
+        var sql = $"""
+            WITH buckets AS (
+                SELECT bucket_start
+                FROM generate_series(
+                    date_bin(
+                        @bucketSize,
+                        @fromInclusive,
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00'),
+                    @toExclusive,
+                    @bucketSize) AS bucket_start
+                WHERE bucket_start < @toExclusive
+            ),
+            transition_counts AS (
+                SELECT
+                    date_bin(
+                        @bucketSize,
+                        transition."OccurredAt",
+                        TIMESTAMPTZ '1970-01-01 00:00:00+00') AS bucket_start,
+                    COUNT(*) FILTER (WHERE transition."Outcome" = 'Received') AS received,
+                    COUNT(*) FILTER (WHERE transition."Outcome" = 'Accepted') AS accepted,
+                    COUNT(*) FILTER (WHERE transition."Outcome" = 'Rejected') AS rejected
+                FROM "TradingSignalOutcomeEvents" AS transition
+                {signalJoin}
+                WHERE transition."OccurredAt" >= @fromInclusive
+                  AND transition."OccurredAt" < @toExclusive
+                  {symbolPredicate}
+                GROUP BY 1
+            )
+            SELECT
+                GREATEST(bucket.bucket_start, @fromInclusive) AS from_inclusive,
+                LEAST(bucket.bucket_start + @bucketSize, @toExclusive) AS to_exclusive,
+                COALESCE(transition.received, 0) AS received,
+                COALESCE(transition.accepted, 0) AS accepted,
+                COALESCE(transition.rejected, 0) AS rejected
+            FROM buckets AS bucket
+            LEFT JOIN transition_counts AS transition
+                ON transition.bucket_start = bucket.bucket_start
+            ORDER BY bucket.bucket_start;
+            """;
+
+        var connection = dbContext.Database.GetDbConnection();
+        var shouldCloseConnection = connection.State != ConnectionState.Open;
+
+        if (shouldCloseConnection)
+        {
+            await dbContext.Database.OpenConnectionAsync(cancellationToken);
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = dbContext.Database.CurrentTransaction?.GetDbTransaction();
+            command.Parameters.Add(new NpgsqlParameter("@fromInclusive", NpgsqlDbType.TimestampTz)
+            {
+                Value = fromInclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@toExclusive", NpgsqlDbType.TimestampTz)
+            {
+                Value = toExclusive
+            });
+            command.Parameters.Add(new NpgsqlParameter("@bucketSize", NpgsqlDbType.Interval)
+            {
+                Value = bucketSize
+            });
+
+            if (symbol is not null)
+            {
+                command.Parameters.Add(new NpgsqlParameter("@symbol", NpgsqlDbType.Varchar)
+                {
+                    Value = symbol
+                });
+            }
+
+            var buckets = new List<SignalTransitionMetricsSeriesBucket>();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                buckets.Add(new SignalTransitionMetricsSeriesBucket(
+                    ReadUtcTimestamp(reader, 0),
+                    ReadUtcTimestamp(reader, 1),
+                    reader.GetInt64(2),
+                    reader.GetInt64(3),
+                    reader.GetInt64(4)));
+            }
+
+            return new SignalTransitionMetricsSeriesSnapshot(
+                DateTimeOffset.UtcNow,
+                fromInclusive,
+                toExclusive,
+                bucket,
+                symbol,
+                buckets);
+        }
+        finally
+        {
+            if (shouldCloseConnection)
+            {
+                await dbContext.Database.CloseConnectionAsync();
+            }
+        }
+    }
+
+    private static DateTimeOffset ReadUtcTimestamp(DbDataReader reader, int ordinal)
+    {
+        var value = reader.GetDateTime(ordinal);
+        return new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc));
     }
 }

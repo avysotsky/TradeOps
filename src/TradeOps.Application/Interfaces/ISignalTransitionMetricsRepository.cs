@@ -9,4 +9,12 @@ public interface ISignalTransitionMetricsRepository
         DateTimeOffset toExclusive,
         string? symbol = null,
         CancellationToken cancellationToken = default);
+
+    Task<SignalTransitionMetricsSeriesSnapshot> GetSeriesAsync(
+        DateTimeOffset fromInclusive,
+        DateTimeOffset toExclusive,
+        string bucket,
+        TimeSpan bucketSize,
+        string? symbol = null,
+        CancellationToken cancellationToken = default);
 }
