@@ -96,7 +96,7 @@ public sealed class SignalTransitionMetricsAggregationQueryPlanPostgresTests(ITe
 
             Assert.Equal(4, allSeriesWarmup.Buckets.Count);
             Assert.Equal(4, symbolSeriesWarmup.Buckets.Count);
-            Assert.NotEmpty(bySymbolWarmup.Items);
+            Assert.NotEmpty(bySymbolWarmup.Symbols);
 
             var allSeriesMedianMs = await MeasureMedianAsync(async () =>
             {
