@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
+using TradeOps.Domain.Enums;
 
 namespace TradeOps.Infrastructure.Persistence.Repositories;
 
@@ -20,13 +21,38 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
     }
 
     public async Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
         int limit,
         CancellationToken cancellationToken = default)
     {
         var safeLimit = Math.Clamp(limit, 1, 200);
+        IQueryable<TradingSignal> query = dbContext.TradingSignals.AsNoTracking();
 
-        return await dbContext.TradingSignals
-            .AsNoTracking()
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            var normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            query = query.Where(signal => signal.Symbol == normalizedSymbol);
+        }
+
+        if (outcome.HasValue)
+        {
+            query = query.Where(signal => signal.Outcome == outcome.Value);
+        }
+
+        if (fromInclusive.HasValue)
+        {
+            query = query.Where(signal => signal.CreatedAt >= fromInclusive.Value);
+        }
+
+        if (toExclusive.HasValue)
+        {
+            query = query.Where(signal => signal.CreatedAt < toExclusive.Value);
+        }
+
+        return await query
             .OrderByDescending(signal => signal.CreatedAt)
             .ThenByDescending(signal => signal.Id)
             .Take(safeLimit)

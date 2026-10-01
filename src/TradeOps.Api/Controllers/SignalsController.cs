@@ -3,6 +3,7 @@ using TradeOps.Api.Contracts;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
+using TradeOps.Domain.Enums;
 
 namespace TradeOps.Api.Controllers;
 
@@ -13,6 +14,9 @@ public sealed class SignalsController(
     IOperatorReadRepository operatorReadRepository,
     ITradingSignalOutcomeHistoryRepository outcomeHistoryRepository) : ControllerBase
 {
+    private const int MaxAuditLimit = 200;
+    private const int MaxSymbolLength = 50;
+
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status422UnprocessableEntity)]
@@ -73,11 +77,53 @@ public sealed class SignalsController(
 
     [HttpGet]
     [ProducesResponseType<IReadOnlyCollection<TradingSignalAuditResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyCollection<TradingSignalAuditResponse>>> GetRecent(
+        [FromQuery] string? symbol = null,
+        [FromQuery] SignalOutcome? outcome = null,
+        [FromQuery] DateTimeOffset? from = null,
+        [FromQuery] DateTimeOffset? to = null,
         [FromQuery] int limit = 50,
         CancellationToken cancellationToken = default)
     {
-        var signals = await operatorReadRepository.GetSignalsAsync(limit, cancellationToken);
+        if (limit is < 1 or > MaxAuditLimit)
+        {
+            return Problem(
+                title: $"Signal audit limit must be between 1 and {MaxAuditLimit}.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        string? normalizedSymbol = null;
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            if (normalizedSymbol.Length > MaxSymbolLength)
+            {
+                return Problem(
+                    title: $"Signal symbol must not exceed {MaxSymbolLength} characters.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
+        var fromInclusive = from?.ToUniversalTime();
+        var toExclusive = to?.ToUniversalTime();
+        if (fromInclusive.HasValue &&
+            toExclusive.HasValue &&
+            fromInclusive.Value >= toExclusive.Value)
+        {
+            return Problem(
+                title: "Signal audit 'from' must be earlier than 'to'.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var signals = await operatorReadRepository.GetSignalsAsync(
+            normalizedSymbol,
+            outcome,
+            fromInclusive,
+            toExclusive,
+            limit,
+            cancellationToken);
+
         return Ok(signals.Select(ToResponse).ToArray());
     }
 

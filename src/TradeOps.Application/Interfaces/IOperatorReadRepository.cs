@@ -1,5 +1,6 @@
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
+using TradeOps.Domain.Enums;
 
 namespace TradeOps.Application.Interfaces;
 
@@ -10,6 +11,10 @@ public interface IOperatorReadRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
         int limit,
         CancellationToken cancellationToken = default);
 
