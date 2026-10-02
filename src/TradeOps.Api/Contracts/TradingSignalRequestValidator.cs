@@ -21,7 +21,7 @@ public static class TradingSignalRequestValidator
             Add(errors, nameof(request.Symbol), $"Symbol must not exceed {MaxSymbolLength} characters.");
         }
 
-        if (!Enum.IsDefined(typeof(Domain.Enums.OrderSide), request.Side))
+        if (!Enum.IsDefined(typeof(TradeOps.Domain.Enums.OrderSide), request.Side))
         {
             Add(errors, nameof(request.Side), "Side must be a supported OrderSide value.");
         }
