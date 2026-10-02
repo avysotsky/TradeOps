@@ -19,12 +19,19 @@ public sealed class SignalsController(
 
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType<SignalIdConflictResponse>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SignalExecutionResult>> Post(
         CreateTradingSignalRequest request,
         CancellationToken cancellationToken)
     {
+        var validationErrors = TradingSignalRequestValidator.Validate(request);
+        if (validationErrors.Count > 0)
+        {
+            return ValidationProblem(validationErrors);
+        }
+
         var signal = new TradingSignal
         {
             Id = request.SignalId ?? Guid.NewGuid(),
