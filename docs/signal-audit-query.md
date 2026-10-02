@@ -79,3 +79,37 @@ Example:
 This is intended for operator diagnosis of unresolved signals carrying the durable current execution issue projection introduced in v1.1.2.25.
 
 No dedicated index is added in this version; indexing remains evidence-driven.
+
+
+## Keyset pagination
+
+The signal audit supports optional keyset pagination without changing the JSON response body.
+
+Query parameter:
+
+- `cursor` — opaque token returned by the previous page.
+
+Response header when more rows are available:
+
+- `X-Next-Cursor`
+
+Example flow:
+
+1. `GET /api/signals?symbol=BTCUSDT&limit=50`
+2. read `X-Next-Cursor` from the response;
+3. `GET /api/signals?symbol=BTCUSDT&limit=50&cursor=<token>`
+
+The body remains an array of `TradingSignalAuditResponse`.
+
+Pagination follows the existing deterministic order:
+
+1. `CreatedAt DESC`
+2. `Id DESC`
+
+The database predicate uses the last returned `CreatedAt + Id` position rather than OFFSET, so equal timestamps are handled deterministically.
+
+The cursor is bound to the normalized `symbol`, `outcome`, `executionIssueCode`, `from`, and `to` filters. Reusing a cursor with different filters returns HTTP 400. Page size is intentionally not bound to the cursor, so callers may reduce or increase `limit` within the existing 1..200 range while continuing the same traversal.
+
+Malformed or oversized cursor values return HTTP 400.
+
+No new index is added in this milestone. Existing `CreatedAt` and `(Symbol, CreatedAt)` access paths remain in place; any new compound pagination index must be justified by representative PostgreSQL plan evidence.

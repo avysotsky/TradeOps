@@ -94,6 +94,70 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
             .ToArrayAsync(cancellationToken);
     }
 
+    public async Task<SignalAuditPageResult> GetSignalsPageAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        string? executionIssueCode,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
+        SignalAuditCursorPosition? cursor,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        var safeLimit = Math.Clamp(limit, 1, 200);
+
+        IQueryable<TradingSignal> query = cursor is null
+            ? dbContext.TradingSignals.AsNoTracking()
+            : dbContext.TradingSignals
+                .FromSqlInterpolated($"""
+                    SELECT *
+                    FROM "TradingSignals"
+                    WHERE "CreatedAt" < {cursor.CreatedAt}
+                       OR ("CreatedAt" = {cursor.CreatedAt} AND "Id" < {cursor.Id})
+                    """)
+                .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(symbol))
+        {
+            var normalizedSymbol = symbol.Trim().ToUpperInvariant();
+            query = query.Where(signal => signal.Symbol == normalizedSymbol);
+        }
+
+        if (outcome.HasValue)
+        {
+            query = query.Where(signal => signal.Outcome == outcome.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(executionIssueCode))
+        {
+            var normalizedIssueCode = executionIssueCode.Trim();
+            query = query.Where(signal => signal.ExecutionIssueCode == normalizedIssueCode);
+        }
+
+        if (fromInclusive.HasValue)
+        {
+            query = query.Where(signal => signal.CreatedAt >= fromInclusive.Value);
+        }
+
+        if (toExclusive.HasValue)
+        {
+            query = query.Where(signal => signal.CreatedAt < toExclusive.Value);
+        }
+
+        var rows = await query
+            .OrderByDescending(signal => signal.CreatedAt)
+            .ThenByDescending(signal => signal.Id)
+            .Take(safeLimit + 1)
+            .ToArrayAsync(cancellationToken);
+
+        var hasMore = rows.Length > safeLimit;
+        IReadOnlyCollection<TradingSignal> page = hasMore
+            ? rows.Take(safeLimit).ToArray()
+            : rows;
+
+        return new SignalAuditPageResult(page, hasMore);
+    }
+
     public Task<Order?> GetLocalOrderAsync(
         string idOrClientOrderId,
         CancellationToken cancellationToken = default)

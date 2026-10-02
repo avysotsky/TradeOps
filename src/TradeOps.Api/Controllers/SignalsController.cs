@@ -17,6 +17,8 @@ public sealed class SignalsController(
     private const int MaxAuditLimit = 200;
     private const int MaxSymbolLength = 50;
     private const int MaxExecutionIssueCodeLength = 50;
+    private const int MaxCursorLength = 1024;
+    private const string NextCursorHeader = "X-Next-Cursor";
 
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
@@ -115,6 +117,7 @@ public sealed class SignalsController(
         [FromQuery] string? executionIssueCode = null,
         [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null,
+        [FromQuery] string? cursor = null,
         [FromQuery] int limit = 50,
         CancellationToken cancellationToken = default)
     {
@@ -160,16 +163,46 @@ public sealed class SignalsController(
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var signals = await operatorReadRepository.GetSignalsAsync(
+        var filterFingerprint = SignalAuditCursorCodec.CreateFilterFingerprint(
+            normalizedSymbol,
+            outcome,
+            normalizedExecutionIssueCode,
+            fromInclusive,
+            toExclusive);
+
+        SignalAuditCursorPosition? cursorPosition = null;
+        if (!string.IsNullOrWhiteSpace(cursor))
+        {
+            if (cursor.Length > MaxCursorLength
+                || !SignalAuditCursorCodec.TryDecode(
+                    cursor,
+                    filterFingerprint,
+                    out cursorPosition))
+            {
+                return Problem(
+                    title: "Signal audit cursor is invalid or does not match the current filters.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
+        var page = await operatorReadRepository.GetSignalsPageAsync(
             normalizedSymbol,
             outcome,
             normalizedExecutionIssueCode,
             fromInclusive,
             toExclusive,
+            cursorPosition,
             limit,
             cancellationToken);
 
-        return Ok(signals.Select(ToResponse).ToArray());
+        if (page.HasMore && page.Signals.LastOrDefault() is { } lastSignal)
+        {
+            Response.Headers[NextCursorHeader] = SignalAuditCursorCodec.Encode(
+                new SignalAuditCursorPosition(lastSignal.CreatedAt, lastSignal.Id),
+                filterFingerprint);
+        }
+
+        return Ok(page.Signals.Select(ToResponse).ToArray());
     }
 
     private static TradingSignalAuditResponse ToResponse(TradingSignal signal)

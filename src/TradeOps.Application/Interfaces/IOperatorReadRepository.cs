@@ -39,6 +39,33 @@ public interface IOperatorReadRepository
             limit,
             cancellationToken);
 
+    async Task<SignalAuditPageResult> GetSignalsPageAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        string? executionIssueCode,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
+        SignalAuditCursorPosition? cursor,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        if (cursor is not null)
+        {
+            throw new NotSupportedException("This operator-read implementation does not support signal audit cursors.");
+        }
+
+        var signals = await GetSignalsAsync(
+            symbol,
+            outcome,
+            executionIssueCode,
+            fromInclusive,
+            toExclusive,
+            limit,
+            cancellationToken);
+
+        return new SignalAuditPageResult(signals, false);
+    }
+
     Task<Order?> GetLocalOrderAsync(
         string idOrClientOrderId,
         CancellationToken cancellationToken = default);
