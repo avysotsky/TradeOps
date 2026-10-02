@@ -95,7 +95,7 @@ public sealed class SignalTransitionMetricsExtendedQueryPlanPostgresTests(ITestO
 
             Assert.Equal(12, unscopedSeries.Buckets.Count);
             Assert.Equal(12, symbolSeries.Buckets.Count);
-            Assert.NotEmpty(bySymbol.Items);
+            Assert.NotEmpty(bySymbol.Symbols);
 
             var unscopedSeriesMedianMs = await MeasureMedianAsync(async () =>
             {
