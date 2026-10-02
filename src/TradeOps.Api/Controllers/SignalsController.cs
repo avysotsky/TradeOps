@@ -29,7 +29,11 @@ public sealed class SignalsController(
         var validationErrors = TradingSignalRequestValidator.Validate(request);
         if (validationErrors.Count > 0)
         {
-            return ValidationProblem(validationErrors);
+            return BadRequest(new ValidationProblemDetails(validationErrors)
+            {
+                Title = "External signal request validation failed.",
+                Status = StatusCodes.Status400BadRequest
+            });
         }
 
         var signal = new TradingSignal
