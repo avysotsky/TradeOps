@@ -26,14 +26,32 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
         GetSignalsAsync(
             symbol: null,
             outcome: null,
+            executionIssueCode: null,
             fromInclusive: null,
             toExclusive: null,
+            limit,
+            cancellationToken);
+
+    public Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        GetSignalsAsync(
+            symbol,
+            outcome,
+            executionIssueCode: null,
+            fromInclusive,
+            toExclusive,
             limit,
             cancellationToken);
 
     public async Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
         string? symbol,
         SignalOutcome? outcome,
+        string? executionIssueCode,
         DateTimeOffset? fromInclusive,
         DateTimeOffset? toExclusive,
         int limit,
@@ -51,6 +69,12 @@ public sealed class EfOperatorReadRepository(TradeOpsDbContext dbContext)
         if (outcome.HasValue)
         {
             query = query.Where(signal => signal.Outcome == outcome.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(executionIssueCode))
+        {
+            var normalizedIssueCode = executionIssueCode.Trim();
+            query = query.Where(signal => signal.ExecutionIssueCode == normalizedIssueCode);
         }
 
         if (fromInclusive.HasValue)

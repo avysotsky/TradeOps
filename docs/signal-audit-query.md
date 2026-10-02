@@ -66,3 +66,16 @@ Recent BTCUSDT signals:
 Rejected BTCUSDT signals created in a UTC interval:
 
 `GET /api/signals?symbol=BTCUSDT&outcome=Rejected&from=2026-10-01T10:00:00Z&to=2026-10-01T11:00:00Z&limit=100`
+
+
+## Current execution issue filter
+
+`executionIssueCode` filters the current signal projection, not outcome history.
+
+Example:
+
+`GET /api/signals?executionIssueCode=ClientOrderIdConflict&outcome=Received&limit=50`
+
+This is intended for operator diagnosis of unresolved signals carrying the durable current execution issue projection introduced in v1.1.2.25.
+
+No dedicated index is added in this version; indexing remains evidence-driven.

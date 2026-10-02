@@ -16,6 +16,7 @@ public sealed class SignalsController(
 {
     private const int MaxAuditLimit = 200;
     private const int MaxSymbolLength = 50;
+    private const int MaxExecutionIssueCodeLength = 50;
 
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
@@ -111,6 +112,7 @@ public sealed class SignalsController(
     public async Task<ActionResult<IReadOnlyCollection<TradingSignalAuditResponse>>> GetRecent(
         [FromQuery] string? symbol = null,
         [FromQuery] SignalOutcome? outcome = null,
+        [FromQuery] string? executionIssueCode = null,
         [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null,
         [FromQuery] int limit = 50,
@@ -135,6 +137,18 @@ public sealed class SignalsController(
             }
         }
 
+        string? normalizedExecutionIssueCode = null;
+        if (!string.IsNullOrWhiteSpace(executionIssueCode))
+        {
+            normalizedExecutionIssueCode = executionIssueCode.Trim();
+            if (normalizedExecutionIssueCode.Length > MaxExecutionIssueCodeLength)
+            {
+                return Problem(
+                    title: $"Execution issue code must not exceed {MaxExecutionIssueCodeLength} characters.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
+
         var fromInclusive = from?.ToUniversalTime();
         var toExclusive = to?.ToUniversalTime();
         if (fromInclusive.HasValue &&
@@ -149,6 +163,7 @@ public sealed class SignalsController(
         var signals = await operatorReadRepository.GetSignalsAsync(
             normalizedSymbol,
             outcome,
+            normalizedExecutionIssueCode,
             fromInclusive,
             toExclusive,
             limit,

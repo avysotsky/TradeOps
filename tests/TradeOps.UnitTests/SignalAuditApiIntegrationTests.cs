@@ -73,11 +73,18 @@ public sealed class SignalAuditApiIntegrationTests
             var btcRejectedId = Guid.Parse("22222222-2222-4222-8222-222222222222");
             var ethAcceptedId = Guid.Parse("33333333-3333-4333-8333-333333333333");
 
+            var btcAccepted = NewSignal(btcAcceptedId, "BTCUSDT", SignalOutcome.Accepted, fromUtc.AddMinutes(15));
+            var btcRejected = NewSignal(btcRejectedId, "BTCUSDT", SignalOutcome.Rejected, fromUtc.AddMinutes(30));
+            btcRejected.ExecutionIssueCode = "ClientOrderIdConflict";
+            btcRejected.ExecutionIssueMessage = "Representative issue";
+            btcRejected.ExecutionIssueAt = fromUtc.AddMinutes(31);
+            var ethAccepted = NewSignal(ethAcceptedId, "ETHUSDT", SignalOutcome.Accepted, fromUtc.AddMinutes(45));
+
             await SeedSignalsAsync(
                 factory.Services,
-                NewSignal(btcAcceptedId, "BTCUSDT", SignalOutcome.Accepted, fromUtc.AddMinutes(15)),
-                NewSignal(btcRejectedId, "BTCUSDT", SignalOutcome.Rejected, fromUtc.AddMinutes(30)),
-                NewSignal(ethAcceptedId, "ETHUSDT", SignalOutcome.Accepted, fromUtc.AddMinutes(45)),
+                btcAccepted,
+                btcRejected,
+                ethAccepted,
                 NewSignal(
                     Guid.Parse("44444444-4444-4444-8444-444444444444"),
                     "BTCUSDT",
@@ -101,6 +108,29 @@ public sealed class SignalAuditApiIntegrationTests
                 Assert.Equal("Accepted", items[0].GetProperty("outcome").GetString());
             }
 
+            using (var issueResponse = await client.GetAsync(
+                       BuildUri(fromLocal, toLocal) +
+                       "&executionIssueCode=%20ClientOrderIdConflict%20&outcome=Rejected&limit=10"))
+            {
+                Assert.Equal(HttpStatusCode.OK, issueResponse.StatusCode);
+
+                using var document = JsonDocument.Parse(await issueResponse.Content.ReadAsStringAsync());
+                var items = document.RootElement;
+                Assert.Equal(1, items.GetArrayLength());
+                Assert.Equal(btcRejectedId, items[0].GetProperty("signalId").GetGuid());
+                Assert.Equal("ClientOrderIdConflict", items[0].GetProperty("executionIssueCode").GetString());
+            }
+
+            using (var unknownIssueResponse = await client.GetAsync(
+                       BuildUri(fromLocal, toLocal) +
+                       "&executionIssueCode=UnknownIssue"))
+            {
+                Assert.Equal(HttpStatusCode.OK, unknownIssueResponse.StatusCode);
+
+                using var document = JsonDocument.Parse(await unknownIssueResponse.Content.ReadAsStringAsync());
+                Assert.Equal(0, document.RootElement.GetArrayLength());
+            }
+
             using (var windowResponse = await client.GetAsync(BuildUri(fromLocal, toLocal) + "&limit=2"))
             {
                 Assert.Equal(HttpStatusCode.OK, windowResponse.StatusCode);
@@ -115,6 +145,7 @@ public sealed class SignalAuditApiIntegrationTests
             await AssertBadRequestAsync(client, "/api/signals?limit=0");
             await AssertBadRequestAsync(client, "/api/signals?limit=201");
             await AssertBadRequestAsync(client, "/api/signals?symbol=" + new string('A', 51));
+            await AssertBadRequestAsync(client, "/api/signals?executionIssueCode=" + new string('A', 51));
             await AssertBadRequestAsync(client, "/api/signals?outcome=NotARealOutcome");
             await AssertBadRequestAsync(
                 client,

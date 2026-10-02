@@ -23,6 +23,22 @@ public interface IOperatorReadRepository
         CancellationToken cancellationToken = default) =>
         GetSignalsAsync(limit, cancellationToken);
 
+    Task<IReadOnlyCollection<TradingSignal>> GetSignalsAsync(
+        string? symbol,
+        SignalOutcome? outcome,
+        string? executionIssueCode,
+        DateTimeOffset? fromInclusive,
+        DateTimeOffset? toExclusive,
+        int limit,
+        CancellationToken cancellationToken = default) =>
+        GetSignalsAsync(
+            symbol,
+            outcome,
+            fromInclusive,
+            toExclusive,
+            limit,
+            cancellationToken);
+
     Task<Order?> GetLocalOrderAsync(
         string idOrClientOrderId,
         CancellationToken cancellationToken = default);

@@ -81,6 +81,11 @@ public sealed class SignalAuditPostgresTests
                 "BTCUSDT",
                 SignalOutcome.Rejected,
                 from.AddMinutes(30));
+            btcRejected.ExecutionIssueCode = "ClientOrderIdConflict";
+            btcRejected.ExecutionIssueMessage = "Representative issue";
+            btcRejected.ExecutionIssueAt = from.AddMinutes(31);
+            ethRejected.ExecutionIssueCode = "OtherIssue";
+
             var before = NewSignal(
                 "55555555-5555-4555-8555-555555555555",
                 "BTCUSDT",
@@ -123,6 +128,28 @@ public sealed class SignalAuditPostgresTests
 
             var filtered = Assert.Single(btcRejectedOnly);
             Assert.Equal(btcRejected.Id, filtered.Id);
+
+            var issueFiltered = await repository.GetSignalsAsync(
+                symbol: null,
+                outcome: null,
+                executionIssueCode: " ClientOrderIdConflict ",
+                fromInclusive: from,
+                toExclusive: to,
+                limit: 50);
+
+            var issueSignal = Assert.Single(issueFiltered);
+            Assert.Equal(btcRejected.Id, issueSignal.Id);
+            Assert.Equal("ClientOrderIdConflict", issueSignal.ExecutionIssueCode);
+
+            var issueAndOutcomeFiltered = await repository.GetSignalsAsync(
+                symbol: "BTCUSDT",
+                outcome: SignalOutcome.Rejected,
+                executionIssueCode: "ClientOrderIdConflict",
+                fromInclusive: from,
+                toExclusive: to,
+                limit: 50);
+
+            Assert.Equal(btcRejected.Id, Assert.Single(issueAndOutcomeFiltered).Id);
 
             var limited = await repository.GetSignalsAsync(
                 symbol: null,
