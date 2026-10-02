@@ -16,20 +16,24 @@ Commit message:
 
 `feat: validate external signal requests`
 
-Final corrective commit:
+Final corrective commits:
 
 `50ee941d040854c0694b22f4c3d721965b9d8ea3`
 
-Commit message:
-
 `fix: return signal validation problem details`
+
+`32cdcbfedefa8d6dc3919ec761c949790d9ffc67`
+
+`fix: return request validation problem details`
+
+The latter corrective commit is behavior-equivalent to the earlier validation response fix; the resulting controller content is unchanged. It is the current branch head and therefore the final verified implementation SHA.
 
 GitHub Actions validation:
 
 - workflow: `build`
-- run number: **129**
-- run id: `36989739166`
-- job id: `110782899759`
+- run number: **134**
+- run id: `36995649822`
+- job id: `110801634541`
 - result: **success**
 - tests: **136 passed / 136 total**
 - Build: success
@@ -176,9 +180,9 @@ No database migration or schema change was added.
 
 ## 10. CI result
 
-GitHub Actions #129 validates final commit:
+GitHub Actions #134 validates final commit:
 
-`50ee941d040854c0694b22f4c3d721965b9d8ea3`
+`32cdcbfedefa8d6dc3919ec761c949790d9ffc67`
 
 Results:
 
@@ -256,6 +260,6 @@ Continue from:
 
 Verified implementation SHA:
 
-`50ee941d040854c0694b22f4c3d721965b9d8ea3`
+`32cdcbfedefa8d6dc3919ec761c949790d9ffc67`
 
-GitHub Actions #129 (`36989739166`) is fully green with 136/136 tests passing.
+GitHub Actions #134 (`36995649822`) is fully green with 136/136 tests passing.
