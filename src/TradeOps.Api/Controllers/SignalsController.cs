@@ -64,6 +64,13 @@ public sealed class SignalsController(
                 exception.Message,
                 exception.ConflictingFields));
         }
+        catch (ClientOrderIdConflictException exception)
+        {
+            return Conflict(new SignalIdConflictResponse(
+                exception.SignalId,
+                exception.Message,
+                exception.ConflictingFields));
+        }
 
         return result.Accepted
             ? Ok(result)

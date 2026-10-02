@@ -141,6 +141,8 @@ public sealed class SignalExecutionService(
                     $"Signal '{signal.Id}' is marked Accepted, but linked order '{clientOrderId}' could not be loaded.");
             }
 
+            OrderExecutionIdentityGuard.EnsureMatches(order, signal);
+
             logger.LogInformation(
                 "Idempotent signal retry {SignalId} returned linked order {ClientOrderId} with status {Status}.",
                 signal.Id,

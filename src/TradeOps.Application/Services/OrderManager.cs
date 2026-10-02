@@ -27,6 +27,8 @@ public sealed class OrderManager(
 
         if (existingOrder is not null)
         {
+            OrderExecutionIdentityGuard.EnsureMatches(existingOrder, signal);
+
             logger.LogInformation(
                 "Idempotent signal retry returned existing order {ClientOrderId} with status {Status}.",
                 clientOrderId,
@@ -89,6 +91,8 @@ public sealed class OrderManager(
                 throw new InvalidOperationException(
                     $"Duplicate ClientOrderId '{clientOrderId}' was detected, but the existing order could not be loaded.");
             }
+
+            OrderExecutionIdentityGuard.EnsureMatches(existingOrder, signal);
 
             logger.LogInformation(
                 "Concurrent duplicate signal resolved to existing order {ClientOrderId} with status {Status}.",

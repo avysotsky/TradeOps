@@ -214,6 +214,42 @@ public sealed class SignalExecutionServiceTests
         Assert.Equal("original", signalRepository.Find(signalId)?.Source);
     }
 
+
+    [Fact]
+    public async Task AcceptedSignalRetry_WithConflictingLinkedOrder_ThrowsClientOrderIdConflict()
+    {
+        var signalId = Guid.Parse("98989898-9898-4898-8898-989898989898");
+        var generator = new ClientOrderIdGenerator();
+        var clientOrderId = generator.Generate(signalId);
+        var localOrder = CreateOrder(
+            Guid.Parse("97979797-9797-4797-8797-979797979797"),
+            clientOrderId,
+            OrderStatus.Accepted);
+        localOrder.RequestedQuantity = 0.002m;
+
+        var persistedSignal = CreateSignal(signalId, source: "original");
+        persistedSignal.Outcome = SignalOutcome.Accepted;
+        persistedSignal.OrderId = localOrder.Id;
+        persistedSignal.ClientOrderId = clientOrderId;
+
+        var signalRepository = new FakeTradingSignalRepository(persistedSignal);
+        var orderRepository = new FakeOrderRepository(localOrder);
+        var orderManager = new FakeOrderManager(_ =>
+            throw new InvalidOperationException("OrderManager must not run for an Accepted retry."));
+
+        var service = CreateService(
+            signalRepository,
+            orderRepository,
+            orderManager,
+            generator);
+
+        var exception = await Assert.ThrowsAsync<ClientOrderIdConflictException>(
+            () => service.ExecuteSignalAsync(CreateSignal(signalId, source: "retry")));
+
+        Assert.Contains(nameof(Order.RequestedQuantity), exception.ConflictingFields);
+        Assert.Equal(0, orderManager.CallCount);
+    }
+
     [Fact]
     public async Task DuplicateInsertRace_ReusesWinnerWithoutCreatingSecondAuditRow()
     {
