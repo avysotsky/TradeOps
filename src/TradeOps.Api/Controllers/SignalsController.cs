@@ -20,6 +20,7 @@ public sealed class SignalsController(
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<SignalIdConflictResponse>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SignalExecutionResult>> Post(
         CreateTradingSignalRequest request,
         CancellationToken cancellationToken)
@@ -38,9 +39,20 @@ public sealed class SignalsController(
             Source = request.Source
         };
 
-        var result = await signalExecutionService.ExecuteSignalAsync(
-            signal,
-            cancellationToken);
+        SignalExecutionResult result;
+        try
+        {
+            result = await signalExecutionService.ExecuteSignalAsync(
+                signal,
+                cancellationToken);
+        }
+        catch (SignalIdConflictException exception)
+        {
+            return Conflict(new SignalIdConflictResponse(
+                exception.SignalId,
+                exception.Message,
+                exception.ConflictingFields));
+        }
 
         return result.Accepted
             ? Ok(result)

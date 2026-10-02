@@ -23,6 +23,8 @@ public sealed class SignalExecutionService(
 
         if (existingSignal is not null)
         {
+            EnsureExecutionIdentityMatches(existingSignal, signal);
+
             return await ReuseExistingSignalAsync(
                 existingSignal,
                 cancellationToken);
@@ -44,6 +46,8 @@ public sealed class SignalExecutionService(
                     $"Duplicate SignalId '{signal.Id}' was detected, but the existing signal audit could not be loaded.");
             }
 
+            EnsureExecutionIdentityMatches(existingSignal, signal);
+
             logger.LogInformation(
                 "Concurrent duplicate signal {SignalId} resolved to the persisted logical signal.",
                 signal.Id);
@@ -56,6 +60,53 @@ public sealed class SignalExecutionService(
         return await ExecuteAndFinalizeAuditAsync(
             signal,
             cancellationToken);
+    }
+
+    private static void EnsureExecutionIdentityMatches(
+        TradingSignal persisted,
+        TradingSignal incoming)
+    {
+        var conflictingFields = new List<string>();
+
+        if (!string.Equals(persisted.Symbol, incoming.Symbol, StringComparison.Ordinal))
+        {
+            conflictingFields.Add(nameof(TradingSignal.Symbol));
+        }
+
+        if (persisted.Side != incoming.Side)
+        {
+            conflictingFields.Add(nameof(TradingSignal.Side));
+        }
+
+        if (!string.Equals(persisted.SignalType, incoming.SignalType, StringComparison.Ordinal))
+        {
+            conflictingFields.Add(nameof(TradingSignal.SignalType));
+        }
+
+        if (persisted.RequestedQuantity != incoming.RequestedQuantity)
+        {
+            conflictingFields.Add(nameof(TradingSignal.RequestedQuantity));
+        }
+
+        if (persisted.RiskPercent != incoming.RiskPercent)
+        {
+            conflictingFields.Add(nameof(TradingSignal.RiskPercent));
+        }
+
+        if (persisted.StopLoss != incoming.StopLoss)
+        {
+            conflictingFields.Add(nameof(TradingSignal.StopLoss));
+        }
+
+        if (persisted.TakeProfit != incoming.TakeProfit)
+        {
+            conflictingFields.Add(nameof(TradingSignal.TakeProfit));
+        }
+
+        if (conflictingFields.Count > 0)
+        {
+            throw new SignalIdConflictException(incoming.Id, conflictingFields);
+        }
     }
 
     private async Task<SignalExecutionResult> ReuseExistingSignalAsync(

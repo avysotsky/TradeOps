@@ -129,7 +129,6 @@ public sealed class SignalExecutionServiceTests
             generator);
 
         var retry = CreateSignal(signalId, source: "retry-with-different-source");
-        retry.RequestedQuantity = 99m;
 
         var result = await service.ExecuteSignalAsync(retry);
 
@@ -138,6 +137,80 @@ public sealed class SignalExecutionServiceTests
         Assert.Equal(clientOrderId, result.Order?.ClientOrderId);
         Assert.Equal(1, signalRepository.Count);
         Assert.Equal(0, orderManager.CallCount);
+        Assert.Equal("original", signalRepository.Find(signalId)?.Source);
+    }
+
+
+    [Theory]
+    [InlineData("Symbol")]
+    [InlineData("Side")]
+    [InlineData("SignalType")]
+    [InlineData("RequestedQuantity")]
+    [InlineData("RiskPercent")]
+    [InlineData("StopLoss")]
+    [InlineData("TakeProfit")]
+    public async Task SameSignalIdRetry_WithConflictingExecutionPayload_ThrowsConflictWithoutOrderExecution(
+        string conflictingField)
+    {
+        var signalId = Guid.Parse("66666666-6666-4666-8666-666666666666");
+        var generator = new ClientOrderIdGenerator();
+        var clientOrderId = generator.Generate(signalId);
+        var localOrder = CreateOrder(
+            Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+            clientOrderId,
+            OrderStatus.Accepted);
+
+        var persistedSignal = CreateSignal(signalId, source: "original");
+        persistedSignal.Outcome = SignalOutcome.Accepted;
+        persistedSignal.OrderId = localOrder.Id;
+        persistedSignal.ClientOrderId = clientOrderId;
+
+        var signalRepository = new FakeTradingSignalRepository(persistedSignal);
+        var orderRepository = new FakeOrderRepository(localOrder);
+        var orderManager = new FakeOrderManager(_ =>
+            throw new InvalidOperationException("OrderManager must not run for a conflicting SignalId retry."));
+
+        var service = CreateService(
+            signalRepository,
+            orderRepository,
+            orderManager,
+            generator);
+
+        var retry = CreateSignal(signalId, source: "retry-metadata");
+        switch (conflictingField)
+        {
+            case "Symbol":
+                retry.Symbol = "ETHUSDT";
+                break;
+            case "Side":
+                retry.Side = OrderSide.Sell;
+                break;
+            case "SignalType":
+                retry.SignalType = "DifferentExternalType";
+                break;
+            case "RequestedQuantity":
+                retry.RequestedQuantity = 0.002m;
+                break;
+            case "RiskPercent":
+                retry.RiskPercent = 1m;
+                break;
+            case "StopLoss":
+                retry.StopLoss = 49000m;
+                break;
+            case "TakeProfit":
+                retry.TakeProfit = 51000m;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(conflictingField));
+        }
+
+        var exception = await Assert.ThrowsAsync<SignalIdConflictException>(
+            () => service.ExecuteSignalAsync(retry));
+
+        Assert.Equal(signalId, exception.SignalId);
+        Assert.Contains(conflictingField, exception.ConflictingFields);
+        Assert.Equal(0, orderManager.CallCount);
+        Assert.Equal(1, signalRepository.Count);
         Assert.Equal("original", signalRepository.Find(signalId)?.Source);
     }
 
@@ -179,6 +252,40 @@ public sealed class SignalExecutionServiceTests
         Assert.Equal(1, signalRepository.Count);
         Assert.Equal("race-winner", signalRepository.Find(signalId)?.Source);
         Assert.Equal(0, orderManager.CallCount);
+    }
+
+
+    [Fact]
+    public async Task DuplicateInsertRace_WithConflictingWinner_ThrowsConflictWithoutOrderExecution()
+    {
+        var signalId = Guid.Parse("77777777-7777-4777-8777-777777777777");
+        var raceWinner = CreateSignal(signalId, source: "race-winner");
+        raceWinner.RequestedQuantity = 0.002m;
+        raceWinner.Outcome = SignalOutcome.Received;
+
+        var signalRepository = new FakeTradingSignalRepository
+        {
+            DuplicateWinnerOnNextInsert = raceWinner
+        };
+        var orderRepository = new FakeOrderRepository();
+        var orderManager = new FakeOrderManager(_ =>
+            throw new InvalidOperationException("OrderManager must not run after a conflicting duplicate insert race."));
+
+        var service = CreateService(
+            signalRepository,
+            orderRepository,
+            orderManager,
+            new ClientOrderIdGenerator());
+
+        var incoming = CreateSignal(signalId, source: "race-loser");
+
+        var exception = await Assert.ThrowsAsync<SignalIdConflictException>(
+            () => service.ExecuteSignalAsync(incoming));
+
+        Assert.Contains(nameof(TradingSignal.RequestedQuantity), exception.ConflictingFields);
+        Assert.Equal(0, orderManager.CallCount);
+        Assert.Equal(1, signalRepository.Count);
+        Assert.Equal(0.002m, signalRepository.Find(signalId)?.RequestedQuantity);
     }
 
     [Fact]
