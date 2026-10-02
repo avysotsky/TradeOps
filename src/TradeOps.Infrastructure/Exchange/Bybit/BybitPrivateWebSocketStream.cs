@@ -154,7 +154,7 @@ public sealed class BybitPrivateWebSocketStream(
     {
         if (!string.Equals(options.PrivateWebSocketUrl, "wss://stream-testnet.bybit.com/v5/private", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Only the official Bybit private testnet websocket endpoint is allowed in v1.1.1.2.");
+            throw new InvalidOperationException("Only the official Bybit private testnet websocket endpoint is allowed.");
         }
 
         if (string.IsNullOrWhiteSpace(options.ApiKey) || string.IsNullOrWhiteSpace(options.ApiSecret))
