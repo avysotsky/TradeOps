@@ -90,7 +90,7 @@ public sealed class SignalAuditPaginationPostgresTests
                     outcome: SignalOutcome.Received,
                     executionIssueCode: null,
                     fromInclusive: t0,
-                    toExclusive: t3.AddTicks(1),
+                    toExclusive: t3.AddMilliseconds(1),
                     cursor,
                     limit: 2);
 
