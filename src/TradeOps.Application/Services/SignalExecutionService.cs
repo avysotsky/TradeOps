@@ -141,7 +141,21 @@ public sealed class SignalExecutionService(
                     $"Signal '{signal.Id}' is marked Accepted, but linked order '{clientOrderId}' could not be loaded.");
             }
 
-            OrderExecutionIdentityGuard.EnsureMatches(order, signal);
+            try
+            {
+                OrderExecutionIdentityGuard.EnsureMatches(order, signal);
+            }
+            catch (ClientOrderIdConflictException exception)
+            {
+                await PersistExecutionIssueAsync(signal, exception, cancellationToken);
+                throw;
+            }
+
+            if (HasExecutionIssue(signal))
+            {
+                ClearExecutionIssue(signal);
+                await tradingSignalRepository.UpdateAsync(signal, cancellationToken);
+            }
 
             logger.LogInformation(
                 "Idempotent signal retry {SignalId} returned linked order {ClientOrderId} with status {Status}.",
@@ -165,9 +179,20 @@ public sealed class SignalExecutionService(
         TradingSignal signal,
         CancellationToken cancellationToken)
     {
-        var result = await orderManager.ExecuteSignalAsync(
-            signal,
-            cancellationToken);
+        SignalExecutionResult result;
+        try
+        {
+            result = await orderManager.ExecuteSignalAsync(
+                signal,
+                cancellationToken);
+        }
+        catch (ClientOrderIdConflictException exception)
+        {
+            await PersistExecutionIssueAsync(signal, exception, cancellationToken);
+            throw;
+        }
+
+        ClearExecutionIssue(signal);
 
         if (!result.Accepted)
         {
@@ -209,6 +234,30 @@ public sealed class SignalExecutionService(
             cancellationToken);
 
         return result;
+    }
+
+    private async Task PersistExecutionIssueAsync(
+        TradingSignal signal,
+        ClientOrderIdConflictException exception,
+        CancellationToken cancellationToken)
+    {
+        signal.ExecutionIssueCode = "ClientOrderIdConflict";
+        signal.ExecutionIssueMessage = exception.Message;
+        signal.ExecutionIssueAt = DateTimeOffset.UtcNow;
+
+        await tradingSignalRepository.UpdateAsync(signal, cancellationToken);
+    }
+
+    private static bool HasExecutionIssue(TradingSignal signal) =>
+        signal.ExecutionIssueCode is not null
+        || signal.ExecutionIssueMessage is not null
+        || signal.ExecutionIssueAt.HasValue;
+
+    private static void ClearExecutionIssue(TradingSignal signal)
+    {
+        signal.ExecutionIssueCode = null;
+        signal.ExecutionIssueMessage = null;
+        signal.ExecutionIssueAt = null;
     }
 
     private static SignalExecutionResult FromExistingOrder(

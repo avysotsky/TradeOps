@@ -17,7 +17,10 @@ public sealed record TradingSignalAuditResponse(
     SignalOutcome Outcome,
     IReadOnlyCollection<string> RiskRejectionReasons,
     Guid? OrderId,
-    string? ClientOrderId);
+    string? ClientOrderId,
+    string? ExecutionIssueCode,
+    string? ExecutionIssueMessage,
+    DateTimeOffset? ExecutionIssueAt);
 
 public sealed record LocalOrderResponse(
     Guid Id,

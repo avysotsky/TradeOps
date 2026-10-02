@@ -49,6 +49,12 @@ public sealed class TradingSignalConfiguration : IEntityTypeConfiguration<Tradin
         builder.Property(signal => signal.ClientOrderId)
             .HasMaxLength(100);
 
+        builder.Property(signal => signal.ExecutionIssueCode)
+            .HasMaxLength(50);
+
+        builder.Property(signal => signal.ExecutionIssueMessage)
+            .HasMaxLength(1000);
+
         builder.HasIndex(signal => signal.ClientOrderId)
             .IsUnique();
 

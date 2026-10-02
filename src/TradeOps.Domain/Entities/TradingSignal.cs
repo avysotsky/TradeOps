@@ -33,4 +33,10 @@ public sealed class TradingSignal
     public Guid? OrderId { get; set; }
 
     public string? ClientOrderId { get; set; }
+
+    public string? ExecutionIssueCode { get; set; }
+
+    public string? ExecutionIssueMessage { get; set; }
+
+    public DateTimeOffset? ExecutionIssueAt { get; set; }
 }

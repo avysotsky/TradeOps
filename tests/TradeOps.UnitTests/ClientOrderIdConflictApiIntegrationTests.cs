@@ -119,9 +119,51 @@ public sealed class ClientOrderIdConflictApiIntegrationTests
                 Assert.Equal(SignalOutcome.Received, signal.Outcome);
                 Assert.Null(signal.OrderId);
                 Assert.Null(signal.ClientOrderId);
+                Assert.Equal("ClientOrderIdConflict", signal.ExecutionIssueCode);
+                Assert.NotNull(signal.ExecutionIssueMessage);
+                Assert.NotNull(signal.ExecutionIssueAt);
                 Assert.Equal(1, await dbContext.TradingSignalOutcomeEvents.CountAsync(
                     item => item.TradingSignalId == conflictingSignalId));
                 Assert.Equal(1, await dbContext.Orders.CountAsync());
+            }
+
+            using (var auditResponse = await client.GetAsync($"/api/signals/{conflictingSignalId}"))
+            {
+                Assert.Equal(HttpStatusCode.OK, auditResponse.StatusCode);
+                using var document = JsonDocument.Parse(await auditResponse.Content.ReadAsStringAsync());
+                Assert.Equal("Received", document.RootElement.GetProperty("outcome").GetString());
+                Assert.Equal("ClientOrderIdConflict", document.RootElement.GetProperty("executionIssueCode").GetString());
+                Assert.False(string.IsNullOrWhiteSpace(
+                    document.RootElement.GetProperty("executionIssueMessage").GetString()));
+                Assert.Equal(JsonValueKind.String, document.RootElement.GetProperty("executionIssueAt").ValueKind);
+            }
+
+            await FixOrderQuantityAsync(
+                factory.Services,
+                conflictingOrder.Id,
+                0.001m);
+
+            using (var recoveredResponse = await PostSignalAsync(
+                       client,
+                       conflictingSignalId,
+                       0.001m))
+            {
+                Assert.Equal(HttpStatusCode.OK, recoveredResponse.StatusCode);
+            }
+
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<TradeOpsDbContext>();
+                var signal = await dbContext.TradingSignals.SingleAsync(item => item.Id == conflictingSignalId);
+
+                Assert.Equal(SignalOutcome.Accepted, signal.Outcome);
+                Assert.Equal(conflictingOrder.Id, signal.OrderId);
+                Assert.Equal(conflictingOrder.ClientOrderId, signal.ClientOrderId);
+                Assert.Null(signal.ExecutionIssueCode);
+                Assert.Null(signal.ExecutionIssueMessage);
+                Assert.Null(signal.ExecutionIssueAt);
+                Assert.Equal(2, await dbContext.TradingSignalOutcomeEvents.CountAsync(
+                    item => item.TradingSignalId == conflictingSignalId));
             }
 
             var matchingSignalId = Guid.Parse("83838383-8383-4383-8383-838383838383");
@@ -160,6 +202,9 @@ public sealed class ClientOrderIdConflictApiIntegrationTests
                 Assert.Equal(SignalOutcome.Accepted, signal.Outcome);
                 Assert.Equal(matchingOrder.Id, signal.OrderId);
                 Assert.Equal(matchingOrder.ClientOrderId, signal.ClientOrderId);
+                Assert.Null(signal.ExecutionIssueCode);
+                Assert.Null(signal.ExecutionIssueMessage);
+                Assert.Null(signal.ExecutionIssueAt);
                 Assert.Equal(2, await dbContext.TradingSignalOutcomeEvents.CountAsync(
                     item => item.TradingSignalId == matchingSignalId));
                 Assert.Equal(2, await dbContext.Orders.CountAsync());
@@ -191,6 +236,19 @@ public sealed class ClientOrderIdConflictApiIntegrationTests
                 source = "ClientOrderIdentityApiTest",
                 signalId
             });
+
+    private static async Task FixOrderQuantityAsync(
+        IServiceProvider services,
+        Guid orderId,
+        decimal requestedQuantity)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TradeOpsDbContext>();
+        var order = await dbContext.Orders.SingleAsync(item => item.Id == orderId);
+        order.RequestedQuantity = requestedQuantity;
+        order.UpdatedAt = DateTimeOffset.UtcNow;
+        await dbContext.SaveChangesAsync();
+    }
 
     private static async Task SeedOrderAsync(
         IServiceProvider services,

@@ -173,7 +173,10 @@ public sealed class SignalsController(
             signal.Outcome,
             signal.RiskRejectionReasons,
             signal.OrderId,
-            signal.ClientOrderId);
+            signal.ClientOrderId,
+            signal.ExecutionIssueCode,
+            signal.ExecutionIssueMessage,
+            signal.ExecutionIssueAt);
     }
 
     private static TradingSignalOutcomeEventResponse ToResponse(TradingSignalOutcomeEvent item)

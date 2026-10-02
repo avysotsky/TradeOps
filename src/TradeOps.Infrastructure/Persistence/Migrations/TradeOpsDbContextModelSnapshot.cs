@@ -171,6 +171,9 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
             b.Property<string>("ClientOrderId").HasMaxLength(100).HasColumnType("character varying(100)");
             b.Property<DateTimeOffset>("CreatedAt").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset?>("ExecutionIssueAt").HasColumnType("timestamp with time zone");
+            b.Property<string>("ExecutionIssueCode").HasMaxLength(50).HasColumnType("character varying(50)");
+            b.Property<string>("ExecutionIssueMessage").HasMaxLength(1000).HasColumnType("character varying(1000)");
             b.Property<Guid?>("OrderId").HasColumnType("uuid");
             b.Property<SignalOutcome>("Outcome").HasConversion<string>().HasMaxLength(20).HasColumnType("character varying(20)");
             b.Property<decimal?>("RiskPercent").HasPrecision(18, 8).HasColumnType("numeric(18,8)");

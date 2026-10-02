@@ -248,6 +248,24 @@ public sealed class SignalExecutionServiceTests
 
         Assert.Contains(nameof(Order.RequestedQuantity), exception.ConflictingFields);
         Assert.Equal(0, orderManager.CallCount);
+
+        var afterConflict = signalRepository.Find(signalId);
+        Assert.Equal("ClientOrderIdConflict", afterConflict?.ExecutionIssueCode);
+        Assert.NotNull(afterConflict?.ExecutionIssueMessage);
+        Assert.NotNull(afterConflict?.ExecutionIssueAt);
+        Assert.Equal(SignalOutcome.Accepted, afterConflict?.Outcome);
+
+        localOrder.RequestedQuantity = persistedSignal.RequestedQuantity;
+
+        var recovered = await service.ExecuteSignalAsync(
+            CreateSignal(signalId, source: "recovered-retry"));
+
+        Assert.True(recovered.Accepted);
+        var afterRecovery = signalRepository.Find(signalId);
+        Assert.Null(afterRecovery?.ExecutionIssueCode);
+        Assert.Null(afterRecovery?.ExecutionIssueMessage);
+        Assert.Null(afterRecovery?.ExecutionIssueAt);
+        Assert.Equal(SignalOutcome.Accepted, afterRecovery?.Outcome);
     }
 
     [Fact]
