@@ -12,16 +12,16 @@ TradeOps is built for the case where a client already has trading rules, signals
 - deterministic `ClientOrderId` generation and idempotent signal retries;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
-- guarded order state transitions;
-- partial-fill handling;
-- reconciliation between local state and exchange state;
-- restart recovery through a background Worker;
-- exchange reconnect abstraction with exponential backoff;
-- structured logging;
-- optional fail-safe Telegram alerts;
+- guarded order state transitions and partial-fill handling;
+- local order lifecycle history, fill audit and signal outcome audit;
+- order and position reconciliation;
+- persistent trading controls, emergency stop and bulk cancellation;
+- restart recovery and persisted operational run status through background workers;
+- Bybit testnet REST integration plus authenticated private WebSocket order/execution events;
+- execution and signal-transition metrics, including window/series/by-symbol views;
+- structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
-- CI build + PostgreSQL runtime smoke test;
-- Bybit V5 HMAC request signing and testnet REST adapter.
+- CI build, unit tests and PostgreSQL-backed runtime/integration smoke tests.
 
 ## Stack
 
@@ -83,7 +83,7 @@ The selected adapter is controlled by configuration:
 }
 ```
 
-Supported providers in this branch:
+Supported providers in the current public version:
 
 ```text
 Mock
@@ -306,7 +306,7 @@ The default Bybit configuration is:
 }
 ```
 
-The adapter currently implements the existing exchange contract for:
+The adapter currently implements the exchange contract for:
 
 ```text
 GetAccountAsync
@@ -316,24 +316,63 @@ GetOrderAsync
 GetOrderByClientOrderIdAsync
 PlaceOrderAsync
 CancelOrderAsync
-EnsureConnectedAsync
 ```
+
+Connection readiness/recovery is handled separately through the exchange connection manager and background Worker. Bybit private WebSocket order/execution events are consumed through `IExchangeEventStream`.
 
 Bybit order acknowledgements are asynchronous. A successful create/cancel HTTP acknowledgement is therefore not treated as proof of a fill or final cancellation; subsequent lookup/reconciliation confirms state.
 
 ## API
 
+Swagger/OpenAPI is exposed by the running API. Main routes:
+
 ```text
 GET    /health
+GET    /health/live
+GET    /health/ready
+
 GET    /api/account
 GET    /api/positions
+GET    /api/positions/local
+
+POST   /api/signals
+GET    /api/signals
+GET    /api/signals/{id}
+GET    /api/signals/{id}/history
+
 GET    /api/orders
 GET    /api/orders/{exchangeOrderId}
 GET    /api/orders/by-client/{clientOrderId}
 DELETE /api/orders/{exchangeOrderId}
+
+GET    /api/orders/local
+GET    /api/orders/local/{idOrClientOrderId}
+GET    /api/orders/local/{idOrClientOrderId}/history
+POST   /api/orders/local/{idOrClientOrderId}/cancel
+POST   /api/orders/local/cancel-all
+
+GET    /api/fills
+GET    /api/pnl/daily
+
 GET    /api/risk
-POST   /api/signals
+POST   /api/risk/trading-enabled
+POST   /api/risk/emergency-stop
+GET    /api/risk/events
+
 POST   /api/system/reconcile
+POST   /api/system/reconcile/positions
+GET    /api/system/reconciliation/status
+GET    /api/system/recovery/status
+GET    /api/system/runs
+
+GET    /api/metrics/execution
+GET    /api/metrics/execution/window
+GET    /api/metrics/execution/series
+GET    /api/metrics/execution/by-symbol
+
+GET    /api/metrics/signal-transitions/window
+GET    /api/metrics/signal-transitions/series
+GET    /api/metrics/signal-transitions/by-symbol
 ```
 
 ## Order lifecycle
@@ -471,17 +510,18 @@ export Exchange__Bybit__ApiSecret='YOUR_TESTNET_SECRET'
 
 ## CI
 
-GitHub Actions runs on `main` and `TradeOps/**` branches. The default pipeline remains credential-free and uses `MockExchangeClient`. It:
+GitHub Actions runs on `main` and `TradeOps/**` branches. The default pipeline remains credential-free and uses `MockExchangeClient`.
 
-1. restores dependencies;
-2. builds the complete .NET 8 solution;
-3. starts PostgreSQL 16;
-4. starts the API against that database;
-5. verifies `/health`;
-6. submits a mock signal and verifies a partial fill;
-7. reconciles and verifies the update;
-8. retries the same signal and verifies idempotency;
-9. validates/builds the Docker Compose images.
+It:
+
+1. restores and builds the complete .NET 8 solution;
+2. runs the unit/integration test suite;
+3. starts PostgreSQL 16 and the API;
+4. verifies liveness/readiness and the OpenAPI surface;
+5. exercises signal execution, idempotent retry, reconciliation and order history;
+6. verifies local cancellation, bulk cancellation and persistent emergency-stop behavior;
+7. exercises fills, daily P&L, operational run status and execution metrics;
+8. validates Docker Compose and builds the API/Worker images.
 
 Real Bybit testnet credentials are intentionally not required by ordinary CI.
 
@@ -492,4 +532,4 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - no API key or secret is stored in the repository;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
-- real-money/mainnet trading remains out of scope for v1.1.1.2.
+- real-money/mainnet trading remains out of scope for the current public version.
