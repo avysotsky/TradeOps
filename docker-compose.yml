@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tradeops
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: tradeops
+    ports:
+      - "54321:5432"
+    volumes:
+      - tradeops-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tradeops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: src/TradeOps.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__TradeOpsDb: Host=postgres;Port=5432;Database=tradeops;Username=postgres;Password=tradeops
+      Exchange__Provider: ${TRADEOPS_EXCHANGE_PROVIDER:-Mock}
+      Exchange__Bybit__ApiKey: ${BYBIT_TESTNET_API_KEY:-}
+      Exchange__Bybit__ApiSecret: ${BYBIT_TESTNET_API_SECRET:-}
+      Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+      Telegram__ChatId: ${TELEGRAM_CHAT_ID:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/TradeOps.Worker/Dockerfile
+    environment:
+      ConnectionStrings__TradeOpsDb: Host=postgres;Port=5432;Database=tradeops;Username=postgres;Password=tradeops
+      Exchange__Provider: ${TRADEOPS_EXCHANGE_PROVIDER:-Mock}
+      Exchange__Bybit__ApiKey: ${BYBIT_TESTNET_API_KEY:-}
+      Exchange__Bybit__ApiSecret: ${BYBIT_TESTNET_API_SECRET:-}
+      Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
+      Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+      Telegram__ChatId: ${TELEGRAM_CHAT_ID:-}
+      Worker__ReconciliationIntervalSeconds: 30
+      Worker__InitialRetryDelaySeconds: 2
+      Worker__MaxRetryDelaySeconds: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  tradeops-postgres:
