@@ -16,6 +16,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - persistent webhook-attempt audit linking request ID to signal and local order correlation identifiers;
 - optional TradingView webhook adapter behind a trusted gateway, with deterministic event-id idempotency;
 - production-like Nginx TradingView edge deployment with HTTPS, published source-IP allowlisting, client-certificate identity checks and internal credential injection;
+- persistent TradingView delivery audit with event-level correlation, outcomes and processing-latency metrics;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -381,6 +382,8 @@ GET    /api/signals/{id}
 GET    /api/signals/{id}/history
 GET    /api/signal-ingress/requests/{requestId}
 POST   /api/integrations/tradingview
+GET    /api/integrations/tradingview/operations/deliveries
+GET    /api/integrations/tradingview/operations/metrics
 
 GET    /api/orders
 GET    /api/orders/{exchangeOrderId}
@@ -568,7 +571,21 @@ deploy/tradingview-gateway/
 
 The public endpoint is `https://<host>/webhooks/tradingview`. It accepts only TradingView's published webhook source IPs, requires a presented client certificate whose subject identifies `webhook-server@tradingview.com`, overwrites the internal gateway credential, and proxies only to the internal adapter.
 
-See `docs/tradingview-webhook-adapter.md` and `deploy/tradingview-gateway/README.md`.
+TradeOps v1.2.1.0 adds provider-delivery observability. Each authenticated delivery is stored separately with outcome, HTTP result, processing latency and signal/order correlation. The webhook response exposes `X-TradeOps-TradingView-Delivery-Id`.
+
+Read recent or event-specific deliveries:
+
+```text
+GET /api/integrations/tradingview/operations/deliveries?eventId=<eventId>&limit=50
+```
+
+Read default 24-hour delivery metrics:
+
+```text
+GET /api/integrations/tradingview/operations/metrics
+```
+
+See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
 
@@ -757,7 +774,8 @@ It:
 6. verifies local cancellation, bulk cancellation and persistent emergency-stop behavior;
 7. exercises fills, daily P&L, operational run status and execution metrics;
 8. runs the signed webhook end-to-end demo against a secured Mock API instance;
-9. validates Docker Compose and builds the API/Worker images.
+9. validates Docker Compose and the TradingView Nginx gateway configuration;
+10. builds the API/Worker images.
 
 Real Bybit testnet credentials are intentionally not required by ordinary CI.
 
@@ -772,6 +790,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - authenticated replay-protected attempts are persisted as correlation audit records without storing request bodies or secrets;
 - the optional TradingView adapter normalizes provider payloads behind a separate trusted-gateway boundary without changing the signed core ingress;
 - the v1.2.0.1 gateway deployment terminates HTTPS on port 443, filters TradingView source IPs and client-certificate identity, and injects the internal adapter credential;
+- TradingView authenticated delivery attempts are persisted with provider outcome, HTTP result, latency and signal/order correlation without storing alert bodies or gateway secrets;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;

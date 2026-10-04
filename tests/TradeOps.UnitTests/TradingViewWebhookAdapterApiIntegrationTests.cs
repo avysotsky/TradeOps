@@ -18,7 +18,7 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
         "tradingview-integration-gateway-key-32-plus";
 
     [Fact]
-    public async Task Adapter_Authenticates_Normalizes_AndMakesRedeliveryIdempotent()
+    public async Task Adapter_AuditsAcceptedRedeliveredAndConflictingDeliveries()
     {
         var adminConnectionString = Environment.GetEnvironmentVariable(
             "TRADEOPS_TEST_POSTGRES_ADMIN");
@@ -68,9 +68,12 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
                 testBuilder.ConnectionString);
             using var client = factory.CreateClient();
 
+            const string eventId =
+                "BTCUSDT|1h|2026-10-04T15:00:00Z|long-entry";
+
             var payload = new
             {
-                eventId = "BTCUSDT|1h|2026-10-04T15:00:00Z|long-entry",
+                eventId,
                 symbol = "btcusdt",
                 action = "buy",
                 quantity = 0.001m,
@@ -89,11 +92,15 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
             await AssertCountsAsync(
                 factory.Services,
                 expectedSignals: 0,
-                expectedOrders: 0);
+                expectedOrders: 0,
+                expectedDeliveries: 0);
 
             using var firstRequest = CreateGatewayRequest(payload);
             using var firstResponse = await client.SendAsync(firstRequest);
             Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+            Assert.True(
+                firstResponse.Headers.Contains(
+                    "X-TradeOps-TradingView-Delivery-Id"));
 
             var first = await firstResponse.Content
                 .ReadFromJsonAsync<TradingViewResponse>();
@@ -108,7 +115,8 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
             await AssertCountsAsync(
                 factory.Services,
                 expectedSignals: 1,
-                expectedOrders: 1);
+                expectedOrders: 1,
+                expectedDeliveries: 1);
 
             using var retryRequest = CreateGatewayRequest(payload);
             using var retryResponse = await client.SendAsync(retryRequest);
@@ -122,14 +130,9 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
                 first.Order!.ClientOrderId,
                 retry.Order!.ClientOrderId);
 
-            await AssertCountsAsync(
-                factory.Services,
-                expectedSignals: 1,
-                expectedOrders: 1);
-
             var conflictingPayload = new
             {
-                eventId = payload.eventId,
+                eventId,
                 symbol = "BTCUSDT",
                 action = "buy",
                 quantity = 0.002m,
@@ -148,7 +151,75 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
             await AssertCountsAsync(
                 factory.Services,
                 expectedSignals: 1,
-                expectedOrders: 1);
+                expectedOrders: 1,
+                expectedDeliveries: 3);
+
+            using var deliveryResponse = await client.GetAsync(
+                $"/api/integrations/tradingview/operations/deliveries?eventId={Uri.EscapeDataString(eventId)}&limit=10");
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                deliveryResponse.StatusCode);
+
+            var deliveries = await deliveryResponse.Content
+                .ReadFromJsonAsync<TradingViewDelivery[]>();
+
+            Assert.NotNull(deliveries);
+            Assert.Equal(3, deliveries.Length);
+
+            var ordered = deliveries
+                .OrderBy(item => item.ReceivedAt)
+                .ToArray();
+
+            Assert.Equal("Accepted", ordered[0].Outcome);
+            Assert.Equal(200, ordered[0].HttpStatusCode);
+            Assert.Equal(first.SignalId, ordered[0].SignalId);
+            Assert.NotNull(ordered[0].OrderId);
+            Assert.Equal(
+                first.Order.ClientOrderId,
+                ordered[0].ClientOrderId);
+
+            Assert.Equal("Redelivered", ordered[1].Outcome);
+            Assert.Equal(200, ordered[1].HttpStatusCode);
+            Assert.Equal(first.SignalId, ordered[1].SignalId);
+            Assert.Equal(
+                first.Order.ClientOrderId,
+                ordered[1].ClientOrderId);
+
+            Assert.Equal("Conflict", ordered[2].Outcome);
+            Assert.Equal(409, ordered[2].HttpStatusCode);
+            Assert.Equal(first.SignalId, ordered[2].SignalId);
+
+            Assert.All(
+                ordered,
+                item =>
+                {
+                    Assert.NotNull(item.CompletedAt);
+                    Assert.NotNull(item.DurationMilliseconds);
+                    Assert.True(item.DurationMilliseconds >= 0);
+                    Assert.Equal("BTCUSDT", item.Symbol);
+                    Assert.Equal("buy", item.Action);
+                });
+
+            using var metricsResponse = await client.GetAsync(
+                "/api/integrations/tradingview/operations/metrics");
+
+            Assert.Equal(
+                HttpStatusCode.OK,
+                metricsResponse.StatusCode);
+
+            var metrics = await metricsResponse.Content
+                .ReadFromJsonAsync<TradingViewMetrics>();
+
+            Assert.NotNull(metrics);
+            Assert.Equal(3, metrics.Total);
+            Assert.Equal(0, metrics.Pending);
+            Assert.Equal(1, metrics.Accepted);
+            Assert.Equal(1, metrics.Redelivered);
+            Assert.Equal(1, metrics.Conflict);
+            Assert.Equal(0, metrics.ValidationRejected);
+            Assert.NotNull(metrics.AverageLatencyMilliseconds);
+            Assert.NotNull(metrics.MaxLatencyMilliseconds);
 
             using var signalAudit = await client.GetAsync(
                 $"/api/signals/{first.SignalId:D}");
@@ -173,7 +244,7 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
     }
 
     [Fact]
-    public async Task Adapter_RejectsInvalidActionBeforeExecution()
+    public async Task Adapter_AuditsValidationRejectionBeforeExecution()
     {
         var adminConnectionString = Environment.GetEnvironmentVariable(
             "TRADEOPS_TEST_POSTGRES_ADMIN");
@@ -223,9 +294,10 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
                 testBuilder.ConnectionString);
             using var client = factory.CreateClient();
 
+            const string eventId = "invalid-action-event";
             var invalid = new
             {
-                eventId = "invalid-action-event",
+                eventId,
                 symbol = "BTCUSDT",
                 action = "hold",
                 quantity = 0.001m
@@ -237,11 +309,31 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
             Assert.Equal(
                 HttpStatusCode.BadRequest,
                 response.StatusCode);
+            Assert.True(
+                response.Headers.Contains(
+                    "X-TradeOps-TradingView-Delivery-Id"));
 
             await AssertCountsAsync(
                 factory.Services,
                 expectedSignals: 0,
-                expectedOrders: 0);
+                expectedOrders: 0,
+                expectedDeliveries: 1);
+
+            using var deliveriesResponse = await client.GetAsync(
+                $"/api/integrations/tradingview/operations/deliveries?eventId={eventId}");
+
+            var deliveries = await deliveriesResponse.Content
+                .ReadFromJsonAsync<TradingViewDelivery[]>();
+
+            Assert.NotNull(deliveries);
+            Assert.Single(deliveries);
+            Assert.Equal(
+                "ValidationRejected",
+                deliveries[0].Outcome);
+            Assert.Equal(
+                400,
+                deliveries[0].HttpStatusCode);
+            Assert.Null(deliveries[0].SignalId);
         }
         finally
         {
@@ -299,7 +391,8 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
     private static async Task AssertCountsAsync(
         IServiceProvider services,
         int expectedSignals,
-        int expectedOrders)
+        int expectedOrders,
+        int expectedDeliveries)
     {
         await using var scope = services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider
@@ -311,6 +404,9 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
         Assert.Equal(
             expectedOrders,
             await dbContext.Orders.CountAsync());
+        Assert.Equal(
+            expectedDeliveries,
+            await dbContext.TradingViewDeliveryAudits.CountAsync());
     }
 
     private sealed record TradingViewResponse(
@@ -332,4 +428,33 @@ public sealed class TradingViewWebhookAdapterApiIntegrationTests
         string Symbol,
         string? SignalType,
         string? Source);
+
+    private sealed record TradingViewDelivery(
+        Guid DeliveryId,
+        string? EventId,
+        DateTimeOffset ReceivedAt,
+        DateTimeOffset? CompletedAt,
+        long? DurationMilliseconds,
+        string Outcome,
+        int? HttpStatusCode,
+        Guid? SignalId,
+        Guid? OrderId,
+        string? ClientOrderId,
+        string? Symbol,
+        string? Action);
+
+    private sealed record TradingViewMetrics(
+        DateTimeOffset GeneratedAt,
+        DateTimeOffset FromInclusive,
+        DateTimeOffset ToExclusive,
+        int Total,
+        int Pending,
+        int Accepted,
+        int Redelivered,
+        int ValidationRejected,
+        int RiskRejected,
+        int Conflict,
+        int Failed,
+        double? AverageLatencyMilliseconds,
+        long? MaxLatencyMilliseconds);
 }
