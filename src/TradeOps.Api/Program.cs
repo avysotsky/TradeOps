@@ -140,6 +140,7 @@ builder.Services.AddScoped<IExecutionMetricsRepository, EfExecutionMetricsReposi
 builder.Services.AddScoped<IExecutionMetricsBySymbolRepository, EfExecutionMetricsBySymbolRepository>();
 builder.Services.AddScoped<ISignalTransitionMetricsRepository, EfSignalTransitionMetricsRepository>();
 builder.Services.AddScoped<ISignalIngressReplayStore, EfSignalIngressReplayStore>();
+builder.Services.AddScoped<ISignalIngressRequestAuditRepository, EfSignalIngressRequestAuditRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());
