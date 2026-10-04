@@ -469,5 +469,31 @@ jobs:
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
+      - name: Validate TradingView gateway deployment
+        env:
+          TRADEOPS_TRADINGVIEW_GATEWAY_KEY: ci-tradingview-gateway-key-at-least-32-characters
+          TRADEOPS_TRADINGVIEW_TLS_CERT: /tmp/tradeops-gateway-tls/fullchain.pem
+          TRADEOPS_TRADINGVIEW_TLS_KEY: /tmp/tradeops-gateway-tls/privkey.pem
+        run: |
+          set -euo pipefail
+
+          mkdir -p /tmp/tradeops-gateway-tls
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -subj '/CN=localhost' \
+            -keyout /tmp/tradeops-gateway-tls/privkey.pem \
+            -out /tmp/tradeops-gateway-tls/fullchain.pem >/dev/null 2>&1
+
+          docker compose \
+            -f docker-compose.yml \
+            -f deploy/tradingview-gateway/docker-compose.tradingview-gateway.yml \
+            config --quiet
+
+          docker run --rm \
+            --add-host api:127.0.0.1 \
+            -e TRADEOPS_TRADINGVIEW_GATEWAY_KEY="$TRADEOPS_TRADINGVIEW_GATEWAY_KEY" \
+            -v "$PWD/deploy/tradingview-gateway/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro" \
+            -v "/tmp/tradeops-gateway-tls:/etc/nginx/tls:ro" \
+            nginx:1.27-alpine nginx -t
+
       - name: Build Docker images
         run: docker compose build api worker

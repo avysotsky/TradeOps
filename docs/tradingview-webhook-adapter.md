@@ -26,6 +26,8 @@ TradingView
   -> existing risk / execution / persistence / reconciliation
 ```
 
+TradeOps v1.2.0.1 includes a concrete Nginx deployment for that boundary under `deploy/tradingview-gateway/`.
+
 The TradeOps adapter validates a separate internal gateway key. Optionally it also checks the direct gateway source IP.
 
 Do not expose the adapter publicly with the gateway credential reachable from untrusted networks. Keep TradeOps network-isolated behind the trusted gateway.
@@ -92,6 +94,22 @@ TradingView strategy placeholders can populate a JSON alert message such as:
 ```
 
 The exact event-ID template is the customer's responsibility. It must be unique enough for distinct intended executions while remaining identical if TradingView redelivers the same event.
+
+## Trusted gateway deployment
+
+The included v1.2.0.1 gateway:
+
+- listens on HTTPS port 443;
+- accepts only TradingView's currently published webhook source IP addresses;
+- requires a presented client certificate whose subject contains `CN=webhook-server@tradingview.com`;
+- overwrites `X-TradeOps-TradingView-Gateway-Key` with the internal secret rather than trusting a caller-supplied value;
+- proxies only `/webhooks/tradingview` to the internal adapter;
+- exposes a separate `/healthz` endpoint;
+- limits request bodies to 64 KiB and applies short upstream timeouts.
+
+TradingView documents client-certificate identity fields but does not publish a dedicated webhook CA bundle in the same documentation. The supplied stock-Nginx template therefore combines certificate-subject verification with TradingView's published source-IP allowlist instead of claiming certificate-chain pinning.
+
+Deployment instructions are in `deploy/tradingview-gateway/README.md`.
 
 ## Operational constraints
 
