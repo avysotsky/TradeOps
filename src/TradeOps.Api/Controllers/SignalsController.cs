@@ -23,6 +23,7 @@ public sealed class SignalsController(
     [HttpPost]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType<SignalExecutionResult>(StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType<SignalIdConflictResponse>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<SignalExecutionResult>> Post(
