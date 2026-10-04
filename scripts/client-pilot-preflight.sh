@@ -57,6 +57,12 @@ esac
 require_secret "TRADEOPS_TRADINGVIEW_GATEWAY_KEY"
 require_secret "TRADEOPS_OPERATOR_API_KEY"
 
+gateway_secret=$(read_env "TRADEOPS_TRADINGVIEW_GATEWAY_KEY")
+operator_secret=$(read_env "TRADEOPS_OPERATOR_API_KEY")
+
+[[ "$gateway_secret" != "$operator_secret" ]] \
+  || fail "TRADEOPS_TRADINGVIEW_GATEWAY_KEY and TRADEOPS_OPERATOR_API_KEY must be different secrets."
+
 tls_cert=$(require_nonempty "TRADEOPS_TRADINGVIEW_TLS_CERT")
 tls_key=$(require_nonempty "TRADEOPS_TRADINGVIEW_TLS_KEY")
 
@@ -70,6 +76,12 @@ if [[ "$provider" == "BybitTestnet" ]]; then
   bybit_secret=$(require_nonempty "BYBIT_TESTNET_API_SECRET")
   [[ "$bybit_key" != CHANGE_ME* ]] || fail "BYBIT_TESTNET_API_KEY still contains a placeholder."
   [[ "$bybit_secret" != CHANGE_ME* ]] || fail "BYBIT_TESTNET_API_SECRET still contains a placeholder."
+fi
+
+telegram_enabled=$(read_env "TELEGRAM_ENABLED")
+if [[ "$telegram_enabled" == "true" ]]; then
+  require_nonempty "TELEGRAM_BOT_TOKEN" >/dev/null
+  require_nonempty "TELEGRAM_CHAT_ID" >/dev/null
 fi
 
 docker compose \
