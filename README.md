@@ -17,6 +17,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - optional TradingView webhook adapter behind a trusted gateway, with deterministic event-id idempotency;
 - production-like Nginx TradingView edge deployment with HTTPS, published source-IP allowlisting, client-certificate identity checks and internal credential injection;
 - persistent TradingView delivery audit with event-level correlation, outcomes and processing-latency metrics;
+- one-command Mock customer demo for the complete TradingView execution, idempotency, audit, reconciliation and health path;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -594,6 +595,14 @@ GET /api/integrations/tradingview/operations/health
 
 Health monitoring is disabled by default. Enable it with `TRADEOPS_TRADINGVIEW_HEALTH_ENABLED=true`. Rate-based checks require a minimum sample size; no-success monitoring is separately opt-in.
 
+For a customer-facing local demonstration, run:
+
+```bash
+bash scripts/tradingview-customer-demo.sh
+```
+
+The demo uses Mock execution only and leaves the stack running for inspection. It proves provider redelivery idempotency, event-id conflict protection, delivery correlation, protected reconciliation, lifecycle completion, metrics and Worker health. See `docs/customer-tradingview-demo.md`.
+
 See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md`, `docs/tradingview-delivery-health-alerting.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
@@ -783,8 +792,9 @@ It:
 6. verifies local cancellation, bulk cancellation and persistent emergency-stop behavior;
 7. exercises fills, daily P&L, operational run status and execution metrics;
 8. runs the signed webhook end-to-end demo against a secured Mock API instance;
-9. validates Docker Compose and the TradingView Nginx gateway configuration;
-10. builds the API/Worker images.
+9. runs the isolated customer TradingView demo against a dedicated Mock API/Worker database;
+10. validates Docker Compose and the TradingView Nginx gateway configuration;
+11. builds the API/Worker images.
 
 Real Bybit testnet credentials are intentionally not required by ordinary CI.
 
