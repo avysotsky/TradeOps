@@ -27,6 +27,34 @@ builder.Services.AddOptions<SignalIngressAuthOptions>()
         options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ApiKey),
         "Signal ingress API key is required when authentication is enabled.")
     .ValidateOnStart();
+builder.Services.AddOptions<SignalIngressReplayProtectionOptions>()
+    .Bind(builder.Configuration.GetSection(SignalIngressReplayProtectionOptions.SectionName))
+    .Validate(
+        options => !options.Enabled
+            || builder.Configuration.GetValue<bool>($"{SignalIngressAuthOptions.SectionName}:Enabled"),
+        "Signal ingress replay protection requires signal ingress authentication to be enabled.")
+    .Validate(
+        options => !options.Enabled
+            || (!string.IsNullOrWhiteSpace(options.TimestampHeaderName)
+                && !string.IsNullOrWhiteSpace(options.RequestIdHeaderName)),
+        "Signal ingress replay protection header names are required when replay protection is enabled.")
+    .Validate(
+        options => !options.Enabled
+            || !string.Equals(
+                options.TimestampHeaderName,
+                options.RequestIdHeaderName,
+                StringComparison.OrdinalIgnoreCase),
+        "Signal ingress replay protection timestamp and request-id header names must be different.")
+    .Validate(
+        options => !options.Enabled
+            || (options.AllowedClockSkewSeconds is >= 1 and <= 3600),
+        "Signal ingress replay protection clock skew must be between 1 and 3600 seconds.")
+    .Validate(
+        options => !options.Enabled
+            || (options.ReceiptRetentionSeconds >= options.AllowedClockSkewSeconds * 2
+                && options.ReceiptRetentionSeconds <= 86400),
+        "Signal ingress replay receipt retention must be at least twice the clock-skew window and no more than 86400 seconds.")
+    .ValidateOnStart();
 builder.Services.AddOptions<OperatorApiAuthOptions>()
     .Bind(builder.Configuration.GetSection(OperatorApiAuthOptions.SectionName))
     .Validate(
@@ -70,6 +98,7 @@ builder.Services.AddScoped<ILocalOrderAuditRepository, EfLocalOrderAuditReposito
 builder.Services.AddScoped<IExecutionMetricsRepository, EfExecutionMetricsRepository>();
 builder.Services.AddScoped<IExecutionMetricsBySymbolRepository, EfExecutionMetricsBySymbolRepository>();
 builder.Services.AddScoped<ISignalTransitionMetricsRepository, EfSignalTransitionMetricsRepository>();
+builder.Services.AddScoped<ISignalIngressReplayStore, EfSignalIngressReplayStore>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());
