@@ -469,6 +469,65 @@ jobs:
 
           dotnet run --project tools/TradeOps.SignedWebhookDemo --configuration Release --no-build
 
+      - name: Customer TradingView demo
+        env:
+          ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_tradingview_customer_demo_ci;Username=postgres;Password=postgres
+          ASPNETCORE_URLS: http://127.0.0.1:5082
+          Exchange__Provider: Mock
+          Telegram__Enabled: 'false'
+          Integrations__TradingView__Enabled: 'true'
+          Integrations__TradingView__GatewayKey: ci-customer-demo-gateway-key-at-least-32-characters
+          Integrations__TradingView__RequireGatewayIpAllowlist: 'false'
+          OperatorApi__Authentication__Enabled: 'true'
+          OperatorApi__Authentication__ApiKey: ci-customer-demo-operator-key-at-least-32-characters
+          TradingViewHealth__Enabled: 'true'
+          TradingViewHealth__EvaluationIntervalSeconds: '15'
+          TradingViewHealth__LookbackMinutes: '15'
+          TradingViewHealth__MinimumDeliveries: '3'
+          TradingViewHealth__CriticalFailureCount: '2'
+          TradingViewHealth__CriticalFailureRatePercent: '50'
+          TradingViewHealth__DegradedConflictRatePercent: '50'
+          TradingViewHealth__DegradedRiskRejectedRatePercent: '100'
+          TradingViewHealth__MaxAverageLatencyMilliseconds: '5000'
+          TradingViewHealth__NoSuccessfulDeliveryMinutes: '0'
+          TRADEOPS_TRADINGVIEW_DEMO_API_URL: http://127.0.0.1:5082
+          TRADEOPS_TRADINGVIEW_DEMO_GATEWAY_KEY: ci-customer-demo-gateway-key-at-least-32-characters
+          TRADEOPS_TRADINGVIEW_DEMO_OPERATOR_API_KEY: ci-customer-demo-operator-key-at-least-32-characters
+        run: |
+          set -euo pipefail
+
+          POSTGRES_CONTAINER=$(docker ps --filter 'ancestor=postgres:16' --format '{{.ID}}' | head -n 1)
+          test -n "$POSTGRES_CONTAINER"
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'DROP DATABASE IF EXISTS tradeops_tradingview_customer_demo_ci WITH (FORCE);'
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE tradeops_tradingview_customer_demo_ci;'
+
+          dotnet run --project src/TradeOps.Api --configuration Release --no-build > customer-demo-api.log 2>&1 &
+          API_PID=$!
+
+          cleanup() {
+            kill "$WORKER_PID" 2>/dev/null || true
+            kill "$API_PID" 2>/dev/null || true
+            echo '--- Customer demo API log ---'
+            cat customer-demo-api.log || true
+            echo '--- Customer demo Worker log ---'
+            cat customer-demo-worker.log || true
+          }
+          WORKER_PID=''
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5082/health/ready >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then echo 'Customer demo API did not become ready.' >&2; exit 1; fi
+            sleep 2
+          done
+
+          dotnet run --project src/TradeOps.Worker --configuration Release --no-build > customer-demo-worker.log 2>&1 &
+          WORKER_PID=$!
+
+          dotnet run --project tools/TradeOps.TradingViewDemo --configuration Release --no-build
+
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
