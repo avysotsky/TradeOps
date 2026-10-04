@@ -55,6 +55,47 @@ builder.Services.AddOptions<SignalIngressReplayProtectionOptions>()
                 && options.ReceiptRetentionSeconds <= 86400),
         "Signal ingress replay receipt retention must be at least twice the clock-skew window and no more than 86400 seconds.")
     .ValidateOnStart();
+builder.Services.AddOptions<SignalIngressSigningOptions>()
+    .Bind(builder.Configuration.GetSection(SignalIngressSigningOptions.SectionName))
+    .Validate(
+        options => !options.Enabled
+            || builder.Configuration.GetValue<bool>($"{SignalIngressAuthOptions.SectionName}:Enabled"),
+        "Signal ingress signing requires signal ingress authentication to be enabled.")
+    .Validate(
+        options => !options.Enabled
+            || builder.Configuration.GetValue<bool>($"{SignalIngressReplayProtectionOptions.SectionName}:Enabled"),
+        "Signal ingress signing requires replay protection to be enabled.")
+    .Validate(
+        options => !options.Enabled
+            || !string.IsNullOrWhiteSpace(options.SignatureHeaderName),
+        "Signal ingress signature header name is required when signing is enabled.")
+    .Validate(
+        options => !options.Enabled
+            || options.Secret.Length >= 32,
+        "Signal ingress signing secret must contain at least 32 characters when signing is enabled.")
+    .Validate(
+        options => !options.Enabled
+            || (options.MaxBodyBytes is >= 1024 and <= 1048576),
+        "Signal ingress signed body limit must be between 1024 and 1048576 bytes.")
+    .Validate(
+        options => !options.Enabled
+            || !string.Equals(
+                options.SignatureHeaderName,
+                builder.Configuration[$"{SignalIngressAuthOptions.SectionName}:HeaderName"],
+                StringComparison.OrdinalIgnoreCase),
+        "Signal ingress signature header must be different from the API-key header.")
+    .Validate(
+        options => !options.Enabled
+            || (!string.Equals(
+                    options.SignatureHeaderName,
+                    builder.Configuration[$"{SignalIngressReplayProtectionOptions.SectionName}:TimestampHeaderName"],
+                    StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(
+                    options.SignatureHeaderName,
+                    builder.Configuration[$"{SignalIngressReplayProtectionOptions.SectionName}:RequestIdHeaderName"],
+                    StringComparison.OrdinalIgnoreCase)),
+        "Signal ingress signature header must be different from replay-protection headers.")
+    .ValidateOnStart();
 builder.Services.AddOptions<OperatorApiAuthOptions>()
     .Bind(builder.Configuration.GetSection(OperatorApiAuthOptions.SectionName))
     .Validate(

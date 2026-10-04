@@ -12,6 +12,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - deterministic `ClientOrderId` generation and idempotent signal retries;
 - optional shared-secret authentication for external signal ingestion, rejected before persistence on authentication failure;
 - optional PostgreSQL-backed timestamp/request-id replay protection for authenticated signal ingress;
+- optional HMAC-SHA256 webhook signing that binds timestamp, request ID, method, path and exact request-body bytes;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -106,6 +107,9 @@ Optional shared-secret authentication
       |
       v
 Optional timestamp + request-id replay protection
+      |
+      v
+Optional HMAC-SHA256 request-body verification
       |
       v
 Deterministic ClientOrderId
@@ -441,7 +445,43 @@ docker compose up --build -d
 
 The default acceptance window is ±300 seconds. Accepted request IDs are persisted in PostgreSQL before signal validation/execution, so duplicate delivery is rejected across API restarts and multiple API instances sharing the database. Receipts are retained for 600 seconds by default and expired rows are pruned opportunistically.
 
-Replay protection currently prevents stale requests and reuse of the same request ID. The timestamp/request-id metadata is not yet cryptographically bound to the request body; HMAC body signing is a separate follow-up milestone.
+Replay protection prevents stale requests and reuse of the same request ID. HMAC signing can additionally bind the replay metadata to the exact request body.
+
+### HMAC-signed webhook contract
+
+Enable signing only together with signal API-key authentication and replay protection:
+
+```bash
+export TRADEOPS_SIGNAL_AUTH_ENABLED=true
+export TRADEOPS_SIGNAL_API_KEY='YOUR_API_KEY'
+export TRADEOPS_SIGNAL_REPLAY_ENABLED=true
+export TRADEOPS_SIGNAL_SIGNING_ENABLED=true
+export TRADEOPS_SIGNAL_SIGNING_SECRET='A_SEPARATE_SIGNING_SECRET_AT_LEAST_32_CHARACTERS'
+docker compose up --build -d
+```
+
+A signed request includes:
+
+```text
+X-TradeOps-Api-Key: <API key>
+X-TradeOps-Timestamp: <Unix seconds>
+X-TradeOps-Request-Id: <GUID>
+X-TradeOps-Signature: sha256=<HMAC-SHA256 hex digest>
+```
+
+The canonical HMAC input is:
+
+```text
+<timestamp>\n
+<request-id D format>\n
+<UPPERCASE method>\n
+<request path>\n
+<exact raw body bytes>
+```
+
+The signature is verified before the request ID is registered in PostgreSQL. A bad or tampered signature therefore cannot consume a nonce. The signing secret is separate from the API key. The default signed-body limit is 64 KiB.
+
+See `docs/signal-ingress-hmac-signing.md` for the complete contract.
 
 ## Operator API authentication
 
@@ -623,7 +663,7 @@ GitHub Actions runs on `main` and `TradeOps/**` branches. The default pipeline r
 It:
 
 1. restores and builds the complete .NET 8 solution;
-2. runs the unit/integration test suite, including signal authentication, persistent replay protection and operator API authentication coverage;
+2. runs the unit/integration test suite, including signal authentication, HMAC body binding, persistent replay protection and operator API authentication coverage;
 3. starts PostgreSQL 16 and the API;
 4. verifies liveness/readiness and the OpenAPI surface;
 5. exercises signal execution, idempotent retry, reconciliation and order history;
@@ -640,6 +680,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - no API key or secret is stored in the repository;
 - optional external signal-ingress authentication uses configuration/environment secrets only;
 - optional persistent replay protection rejects stale timestamps and repeated request IDs before execution;
+- optional HMAC-SHA256 signing cryptographically binds replay metadata, HTTP route and exact request body;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
