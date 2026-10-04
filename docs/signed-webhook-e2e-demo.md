@@ -26,6 +26,12 @@ The tamper check intentionally runs before the valid request and reuses the same
 
 ## Start TradeOps in secured mock mode
 
+For a deterministic presentation, start from a clean demo database/volume so existing risk or reconciliation state from earlier experiments cannot intentionally block a new signal:
+
+```bash
+docker compose down -v
+```
+
 Set demo-only credentials in your shell. Use different secrets outside a local demo.
 
 ```bash
