@@ -92,6 +92,8 @@ jobs:
           required = (
               '/health/live', '/health/ready', '/api/signals', '/api/signals/{id}',
               '/api/integrations/tradingview',
+              '/api/integrations/tradingview/operations/deliveries',
+              '/api/integrations/tradingview/operations/metrics',
               '/api/orders/local/{idOrClientOrderId}',
               '/api/orders/local/{idOrClientOrderId}/history',
               '/api/orders/local/{idOrClientOrderId}/cancel',

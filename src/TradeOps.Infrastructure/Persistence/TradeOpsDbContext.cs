@@ -32,6 +32,9 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
     public DbSet<SignalIngressRequestAudit> SignalIngressRequestAudits =>
         Set<SignalIngressRequestAudit>();
 
+    public DbSet<TradingViewDeliveryAudit> TradingViewDeliveryAudits =>
+        Set<TradingViewDeliveryAudit>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);
