@@ -27,6 +27,15 @@ builder.Services.AddOptions<SignalIngressAuthOptions>()
         options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ApiKey),
         "Signal ingress API key is required when authentication is enabled.")
     .ValidateOnStart();
+builder.Services.AddOptions<OperatorApiAuthOptions>()
+    .Bind(builder.Configuration.GetSection(OperatorApiAuthOptions.SectionName))
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.HeaderName),
+        "Operator API authentication header name is required when authentication is enabled.")
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ApiKey),
+        "Operator API key is required when authentication is enabled.")
+    .ValidateOnStart();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
