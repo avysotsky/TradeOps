@@ -63,6 +63,16 @@ services:
       Worker__ReconciliationIntervalSeconds: 30
       Worker__InitialRetryDelaySeconds: 2
       Worker__MaxRetryDelaySeconds: 30
+      TradingViewHealth__Enabled: ${TRADEOPS_TRADINGVIEW_HEALTH_ENABLED:-false}
+      TradingViewHealth__EvaluationIntervalSeconds: ${TRADEOPS_TRADINGVIEW_HEALTH_INTERVAL_SECONDS:-60}
+      TradingViewHealth__LookbackMinutes: ${TRADEOPS_TRADINGVIEW_HEALTH_LOOKBACK_MINUTES:-15}
+      TradingViewHealth__MinimumDeliveries: ${TRADEOPS_TRADINGVIEW_HEALTH_MINIMUM_DELIVERIES:-5}
+      TradingViewHealth__CriticalFailureCount: ${TRADEOPS_TRADINGVIEW_HEALTH_CRITICAL_FAILURE_COUNT:-2}
+      TradingViewHealth__CriticalFailureRatePercent: ${TRADEOPS_TRADINGVIEW_HEALTH_CRITICAL_FAILURE_RATE_PERCENT:-20}
+      TradingViewHealth__DegradedConflictRatePercent: ${TRADEOPS_TRADINGVIEW_HEALTH_CONFLICT_RATE_PERCENT:-20}
+      TradingViewHealth__DegradedRiskRejectedRatePercent: ${TRADEOPS_TRADINGVIEW_HEALTH_RISK_REJECTED_RATE_PERCENT:-50}
+      TradingViewHealth__MaxAverageLatencyMilliseconds: ${TRADEOPS_TRADINGVIEW_HEALTH_MAX_AVERAGE_LATENCY_MS:-1000}
+      TradingViewHealth__NoSuccessfulDeliveryMinutes: ${TRADEOPS_TRADINGVIEW_HEALTH_NO_SUCCESS_MINUTES:-0}
     depends_on:
       postgres:
         condition: service_healthy

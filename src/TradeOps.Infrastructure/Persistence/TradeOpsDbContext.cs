@@ -35,6 +35,9 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
     public DbSet<TradingViewDeliveryAudit> TradingViewDeliveryAudits =>
         Set<TradingViewDeliveryAudit>();
 
+    public DbSet<TradingViewDeliveryHealthState> TradingViewDeliveryHealthStates =>
+        Set<TradingViewDeliveryHealthState>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);

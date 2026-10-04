@@ -9,7 +9,8 @@ namespace TradeOps.Api.Controllers;
 [ApiController]
 [Route("api/integrations/tradingview/operations")]
 public sealed class TradingViewOperationsController(
-    ITradingViewDeliveryAuditRepository auditRepository) : ControllerBase
+    ITradingViewDeliveryAuditRepository auditRepository,
+    ITradingViewDeliveryHealthStateRepository healthStateRepository) : ControllerBase
 {
     [HttpGet("deliveries")]
     [ProducesResponseType<IReadOnlyCollection<TradingViewDeliveryAuditResponse>>(StatusCodes.Status200OK)]
@@ -69,6 +70,35 @@ public sealed class TradingViewOperationsController(
             fromInclusive,
             toExclusive,
             cancellationToken));
+    }
+
+    [HttpGet("health")]
+    [ProducesResponseType<TradingViewDeliveryHealthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TradingViewDeliveryHealthResponse>> GetHealth(
+        CancellationToken cancellationToken = default)
+    {
+        var state = await healthStateRepository.GetAsync(
+            cancellationToken);
+
+        if (state is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new TradingViewDeliveryHealthResponse(
+            state.Status,
+            state.Reason,
+            state.UpdatedAt,
+            state.WindowFrom,
+            state.WindowTo,
+            state.Total,
+            state.Failed,
+            state.Conflict,
+            state.RiskRejected,
+            state.AverageLatencyMilliseconds,
+            state.LatestDeliveryAt,
+            state.LatestSuccessfulAt));
     }
 
     private static TradingViewDeliveryAuditResponse ToResponse(

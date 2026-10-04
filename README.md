@@ -384,6 +384,7 @@ GET    /api/signal-ingress/requests/{requestId}
 POST   /api/integrations/tradingview
 GET    /api/integrations/tradingview/operations/deliveries
 GET    /api/integrations/tradingview/operations/metrics
+GET    /api/integrations/tradingview/operations/health
 
 GET    /api/orders
 GET    /api/orders/{exchangeOrderId}
@@ -585,7 +586,15 @@ Read default 24-hour delivery metrics:
 GET /api/integrations/tradingview/operations/metrics
 ```
 
-See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md` and `deploy/tradingview-gateway/README.md`.
+TradeOps v1.2.1.1 adds stateful health evaluation and transition-based operational alerts. The Worker persists the latest health state, suppresses repeated alerts while the state is unchanged, and emits a recovery notification only when health returns to `Healthy`.
+
+```text
+GET /api/integrations/tradingview/operations/health
+```
+
+Health monitoring is disabled by default. Enable it with `TRADEOPS_TRADINGVIEW_HEALTH_ENABLED=true`. Rate-based checks require a minimum sample size; no-success monitoring is separately opt-in.
+
+See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md`, `docs/tradingview-delivery-health-alerting.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
 
@@ -791,6 +800,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - the optional TradingView adapter normalizes provider payloads behind a separate trusted-gateway boundary without changing the signed core ingress;
 - the v1.2.0.1 gateway deployment terminates HTTPS on port 443, filters TradingView source IPs and client-certificate identity, and injects the internal adapter credential;
 - TradingView authenticated delivery attempts are persisted with provider outcome, HTTP result, latency and signal/order correlation without storing alert bodies or gateway secrets;
+- optional TradingView delivery health monitoring is observational only: it persists health state and sends transition alerts but never changes trading controls, cancels orders or bypasses risk decisions;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
