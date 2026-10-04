@@ -1,9 +1,6 @@
-using System.Net;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using TradeOps.Api.Contracts;
 using TradeOps.Api.Integrations.TradingView;
-using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -12,13 +9,12 @@ using TradeOps.Domain.Enums;
 namespace TradeOps.Api.Controllers;
 
 [ApiController]
+[TradingViewGateway]
 [Route("api/integrations/tradingview")]
 public sealed class TradingViewWebhookController(
-    ISignalExecutionService signalExecutionService,
-    IOptions<TradingViewWebhookOptions> options) : ControllerBase
+    ISignalExecutionService signalExecutionService) : ControllerBase
 {
     private const int MaxEventIdLength = 200;
-    private readonly TradingViewWebhookOptions _options = options.Value;
 
     [HttpPost]
     [ProducesResponseType<TradingViewWebhookResponse>(StatusCodes.Status200OK)]
@@ -32,27 +28,6 @@ public sealed class TradingViewWebhookController(
         TradingViewWebhookRequest request,
         CancellationToken cancellationToken)
     {
-        if (!_options.Enabled)
-        {
-            return NotFound();
-        }
-
-        if (!TryAuthenticateGateway())
-        {
-            Response.Headers["WWW-Authenticate"] = "GatewayApiKey";
-            return Problem(
-                title: "TradingView gateway authentication failed.",
-                statusCode: StatusCodes.Status401Unauthorized);
-        }
-
-        if (_options.RequireGatewayIpAllowlist
-            && !IsAllowedGatewayIp(HttpContext.Connection.RemoteIpAddress))
-        {
-            return Problem(
-                title: "TradingView gateway source IP is not allowed.",
-                statusCode: StatusCodes.Status403Forbidden);
-        }
-
         var validationErrors = ValidateAdapterRequest(request);
         if (validationErrors.Count > 0)
         {
@@ -137,46 +112,6 @@ public sealed class TradingViewWebhookController(
         return result.Accepted
             ? Ok(response)
             : UnprocessableEntity(response);
-    }
-
-    private bool TryAuthenticateGateway()
-    {
-        if (!Request.Headers.TryGetValue(
-                _options.GatewayHeaderName,
-                out var values)
-            || values.Count != 1
-            || string.IsNullOrWhiteSpace(values[0]))
-        {
-            return false;
-        }
-
-        return ApiKeyVerifier.Matches(
-            _options.GatewayKey,
-            values[0]!);
-    }
-
-    private bool IsAllowedGatewayIp(IPAddress? remoteIp)
-    {
-        if (remoteIp is null)
-        {
-            return false;
-        }
-
-        foreach (var configured in _options.AllowedGatewayIps)
-        {
-            if (!IPAddress.TryParse(configured, out var allowed))
-            {
-                continue;
-            }
-
-            if (remoteIp.Equals(allowed)
-                || remoteIp.MapToIPv6().Equals(allowed.MapToIPv6()))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static Dictionary<string, string[]> ValidateAdapterRequest(
