@@ -15,7 +15,7 @@ public sealed class EfSignalIngressReplayStore(
         CancellationToken cancellationToken)
     {
         await dbContext.SignalIngressReplayReceipts
-            .Where(receipt => receipt.ExpiresAt <= receivedAt)
+            .Where(receipt => receipt.ExpiresAt < receivedAt)
             .ExecuteDeleteAsync(cancellationToken);
 
         var receipt = new SignalIngressReplayReceipt
