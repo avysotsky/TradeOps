@@ -113,7 +113,7 @@ builder.Services.AddOptions<TradingViewWebhookOptions>()
     .Validate(
         options => !options.Enabled
             || !options.RequireGatewayIpAllowlist
-            || options.AllowedGatewayIps.All(System.Net.IPAddress.TryParse),
+            || options.AllowedGatewayIps.All(value => System.Net.IPAddress.TryParse(value, out _)),
         "TradingView gateway IP allowlist contains an invalid IP address.")
     .ValidateOnStart();
 builder.Services.AddOptions<OperatorApiAuthOptions>()
