@@ -420,6 +420,44 @@ jobs:
             http://127.0.0.1:5080/api/metrics/execution/window)
           test "$CODE" = '400'
 
+      - name: Signed webhook end-to-end demo
+        env:
+          ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_ci;Username=postgres;Password=postgres
+          ASPNETCORE_URLS: http://127.0.0.1:5081
+          Exchange__Provider: Mock
+          Telegram__Enabled: 'false'
+          SignalIngress__Authentication__Enabled: 'true'
+          SignalIngress__Authentication__ApiKey: ci-signed-demo-signal-api-key
+          SignalIngress__ReplayProtection__Enabled: 'true'
+          SignalIngress__Signing__Enabled: 'true'
+          SignalIngress__Signing__Secret: ci-signed-demo-signing-secret-at-least-32-characters
+          OperatorApi__Authentication__Enabled: 'true'
+          OperatorApi__Authentication__ApiKey: ci-signed-demo-operator-api-key
+          TRADEOPS_DEMO_API_URL: http://127.0.0.1:5081
+          TRADEOPS_DEMO_SIGNAL_API_KEY: ci-signed-demo-signal-api-key
+          TRADEOPS_DEMO_SIGNING_SECRET: ci-signed-demo-signing-secret-at-least-32-characters
+          TRADEOPS_DEMO_OPERATOR_API_KEY: ci-signed-demo-operator-api-key
+        run: |
+          set -euo pipefail
+
+          dotnet run --project src/TradeOps.Api --configuration Release --no-build > signed-demo-api.log 2>&1 &
+          API_PID=$!
+
+          cleanup() {
+            kill "$API_PID" 2>/dev/null || true
+            echo '--- Signed demo API log ---'
+            cat signed-demo-api.log || true
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5081/health/ready >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then echo 'Signed demo API did not become ready.' >&2; exit 1; fi
+            sleep 2
+          done
+
+          dotnet run --project tools/TradeOps.SignedWebhookDemo --configuration Release --no-build
+
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
