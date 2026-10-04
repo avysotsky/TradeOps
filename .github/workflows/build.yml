@@ -94,6 +94,7 @@ jobs:
               '/api/integrations/tradingview',
               '/api/integrations/tradingview/operations/deliveries',
               '/api/integrations/tradingview/operations/metrics',
+              '/api/integrations/tradingview/operations/health',
               '/api/orders/local/{idOrClientOrderId}',
               '/api/orders/local/{idOrClientOrderId}/history',
               '/api/orders/local/{idOrClientOrderId}/cancel',

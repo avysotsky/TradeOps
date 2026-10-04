@@ -198,6 +198,25 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("SignalIngressRequestAudits");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingViewDeliveryHealthState", b =>
+        {
+            b.Property<string>("Id").ValueGeneratedNever().HasMaxLength(50).HasColumnType("character varying(50)");
+            b.Property<double?>("AverageLatencyMilliseconds").HasColumnType("double precision");
+            b.Property<int>("Conflict").HasColumnType("integer");
+            b.Property<int>("Failed").HasColumnType("integer");
+            b.Property<DateTimeOffset?>("LatestDeliveryAt").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset?>("LatestSuccessfulAt").HasColumnType("timestamp with time zone");
+            b.Property<string>("Reason").IsRequired().HasMaxLength(1000).HasColumnType("character varying(1000)");
+            b.Property<int>("RiskRejected").HasColumnType("integer");
+            b.Property<TradingViewDeliveryHealthStatus>("Status").HasConversion<string>().HasMaxLength(30).HasColumnType("character varying(30)");
+            b.Property<int>("Total").HasColumnType("integer");
+            b.Property<DateTimeOffset>("UpdatedAt").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset>("WindowFrom").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset>("WindowTo").HasColumnType("timestamp with time zone");
+            b.HasKey("Id");
+            b.ToTable("TradingViewDeliveryHealthStates");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.TradingViewDeliveryAudit", b =>
         {
             b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
