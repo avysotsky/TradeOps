@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using TradeOps.Api.Contracts;
+using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Application.Services;
@@ -17,6 +18,15 @@ builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOptions<SignalIngressAuthOptions>()
+    .Bind(builder.Configuration.GetSection(SignalIngressAuthOptions.SectionName))
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.HeaderName),
+        "Signal ingress authentication header name is required when authentication is enabled.")
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.ApiKey),
+        "Signal ingress API key is required when authentication is enabled.")
+    .ValidateOnStart();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -76,6 +86,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<TradeOpsDbContext>();
     await dbContext.Database.MigrateAsync();
 }
+
+app.UseMiddleware<SignalIngressAuthenticationMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(options => options.SwaggerEndpoint("/swagger/v1/swagger.json", "TradeOps API v1"));
