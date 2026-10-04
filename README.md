@@ -13,6 +13,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - optional shared-secret authentication for external signal ingestion, rejected before persistence on authentication failure;
 - optional PostgreSQL-backed timestamp/request-id replay protection for authenticated signal ingress;
 - optional HMAC-SHA256 webhook signing that binds timestamp, request ID, method, path and exact request-body bytes;
+- persistent webhook-attempt audit linking request ID to signal and local order correlation identifiers;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -376,6 +377,7 @@ POST   /api/signals
 GET    /api/signals
 GET    /api/signals/{id}
 GET    /api/signals/{id}/history
+GET    /api/signal-ingress/requests/{requestId}
 
 GET    /api/orders
 GET    /api/orders/{exchangeOrderId}
@@ -506,6 +508,28 @@ The canonical HMAC input is:
 The signature is verified before the request ID is registered in PostgreSQL. A bad or tampered signature therefore cannot consume a nonce. The signing secret is separate from the API key. The default signed-body limit is 64 KiB.
 
 See `docs/signal-ingress-hmac-signing.md` for the complete contract.
+
+### Webhook request audit and correlation
+
+For replay-protected requests, TradeOps records each authenticated HTTP attempt separately and correlates successful execution to the persisted signal and order:
+
+```text
+requestId
+  -> ingress attempt outcome
+  -> signalId
+  -> orderId / ClientOrderId
+  -> lifecycle / fills / reconciliation
+```
+
+Lookup all attempts for one request ID:
+
+```text
+GET /api/signal-ingress/requests/{requestId}
+```
+
+This preserves the original accepted attempt and later replay attempts as separate rows. The audit stores operational metadata only; request bodies, API keys, HMAC signatures and signing secrets are not persisted.
+
+See `docs/signal-ingress-request-audit.md`.
 
 ## Operator API authentication
 
@@ -706,6 +730,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - optional external signal-ingress authentication uses configuration/environment secrets only;
 - optional persistent replay protection rejects stale timestamps and repeated request IDs before execution;
 - optional HMAC-SHA256 signing cryptographically binds replay metadata, HTTP route and exact request body;
+- authenticated replay-protected attempts are persisted as correlation audit records without storing request bodies or secrets;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;

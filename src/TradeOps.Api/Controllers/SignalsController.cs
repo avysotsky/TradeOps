@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Api.Contracts;
+using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -12,7 +13,8 @@ namespace TradeOps.Api.Controllers;
 public sealed class SignalsController(
     ISignalExecutionService signalExecutionService,
     IOperatorReadRepository operatorReadRepository,
-    ITradingSignalOutcomeHistoryRepository outcomeHistoryRepository) : ControllerBase
+    ITradingSignalOutcomeHistoryRepository outcomeHistoryRepository,
+    ISignalIngressRequestAuditRepository ingressAuditRepository) : ControllerBase
 {
     private const int MaxAuditLimit = 200;
     private const int MaxSymbolLength = 50;
@@ -34,6 +36,12 @@ public sealed class SignalsController(
         var validationErrors = TradingSignalRequestValidator.Validate(request);
         if (validationErrors.Count > 0)
         {
+            await CompleteIngressAuditAsync(
+                SignalIngressRequestOutcome.RequestRejected,
+                StatusCodes.Status400BadRequest,
+                request.SignalId,
+                cancellationToken: cancellationToken);
+
             return BadRequest(new ValidationProblemDetails(validationErrors)
             {
                 Title = "External signal request validation failed.",
@@ -64,6 +72,12 @@ public sealed class SignalsController(
         }
         catch (SignalIdConflictException exception)
         {
+            await CompleteIngressAuditAsync(
+                SignalIngressRequestOutcome.SignalConflict,
+                StatusCodes.Status409Conflict,
+                exception.SignalId,
+                cancellationToken: cancellationToken);
+
             return Conflict(new SignalIdConflictResponse(
                 exception.SignalId,
                 exception.Message,
@@ -71,11 +85,35 @@ public sealed class SignalsController(
         }
         catch (ClientOrderIdConflictException exception)
         {
+            await CompleteIngressAuditAsync(
+                SignalIngressRequestOutcome.SignalConflict,
+                StatusCodes.Status409Conflict,
+                exception.SignalId,
+                cancellationToken: cancellationToken);
+
             return Conflict(new SignalIdConflictResponse(
                 exception.SignalId,
                 exception.Message,
                 exception.ConflictingFields));
         }
+
+        var persistedSignal = await operatorReadRepository.GetSignalByIdAsync(
+            signal.Id,
+            cancellationToken);
+
+        var responseStatus = result.Accepted
+            ? StatusCodes.Status200OK
+            : StatusCodes.Status422UnprocessableEntity;
+
+        await CompleteIngressAuditAsync(
+            result.Accepted
+                ? SignalIngressRequestOutcome.Accepted
+                : SignalIngressRequestOutcome.RiskRejected,
+            responseStatus,
+            signal.Id,
+            persistedSignal?.OrderId,
+            persistedSignal?.ClientOrderId,
+            cancellationToken);
 
         return result.Accepted
             ? Ok(result)
@@ -205,6 +243,31 @@ public sealed class SignalsController(
         }
 
         return Ok(page.Signals.Select(ToResponse).ToArray());
+    }
+
+    private async Task CompleteIngressAuditAsync(
+        SignalIngressRequestOutcome outcome,
+        int httpStatusCode,
+        Guid? signalId = null,
+        Guid? orderId = null,
+        string? clientOrderId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!SignalIngressAuditContext.TryGetAuditId(
+                HttpContext,
+                out var auditId))
+        {
+            return;
+        }
+
+        await ingressAuditRepository.CompleteAsync(
+            auditId,
+            outcome,
+            httpStatusCode,
+            signalId,
+            orderId,
+            clientOrderId,
+            cancellationToken);
     }
 
     private static TradingSignalAuditResponse ToResponse(TradingSignal signal)

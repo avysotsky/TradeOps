@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Options;
 using TradeOps.Application.Interfaces;
+using TradeOps.Domain.Enums;
 
 namespace TradeOps.Api.Security;
 
@@ -16,7 +17,8 @@ public sealed class SignalIngressAuthenticationMiddleware(
 
     public async Task InvokeAsync(
         HttpContext context,
-        ISignalIngressReplayStore replayStore)
+        ISignalIngressReplayStore replayStore,
+        ISignalIngressRequestAuditRepository auditRepository)
     {
         if (!IsSignalSubmission(context.Request))
         {
@@ -37,22 +39,82 @@ public sealed class SignalIngressAuthenticationMiddleware(
         }
 
         ReplayMetadata? replayMetadata = null;
+        Guid? auditId = null;
+
         if (_replayOptions.Enabled)
         {
-            replayMetadata = await ValidateReplayMetadataAsync(context);
+            replayMetadata = await ParseReplayMetadataAsync(context);
             if (replayMetadata is null)
             {
+                return;
+            }
+
+            var path = GetRequestPath(context.Request);
+            auditId = await auditRepository.StartAsync(
+                replayMetadata.RequestId,
+                replayMetadata.RequestTimestamp,
+                replayMetadata.ReceivedAt,
+                context.Request.Method.ToUpperInvariant(),
+                path,
+                context.RequestAborted);
+
+            SignalIngressAuditContext.SetAuditId(
+                context,
+                auditId.Value);
+
+            var allowedClockSkew = TimeSpan.FromSeconds(
+                _replayOptions.AllowedClockSkewSeconds);
+
+            if ((replayMetadata.RequestTimestamp - replayMetadata.ReceivedAt)
+                .Duration() > allowedClockSkew)
+            {
+                await auditRepository.CompleteAsync(
+                    auditId.Value,
+                    SignalIngressRequestOutcome.TimestampRejected,
+                    StatusCodes.Status401Unauthorized,
+                    cancellationToken: context.RequestAborted);
+
+                await WriteProblemAsync(
+                    context,
+                    StatusCodes.Status401Unauthorized,
+                    "Signal ingress request timestamp is outside the allowed window.");
                 return;
             }
         }
 
         if (_signingOptions.Enabled)
         {
-            if (replayMetadata is null
-                || !await ValidateSignatureAsync(
-                    context,
-                    replayMetadata))
+            if (replayMetadata is null)
             {
+                throw new InvalidOperationException(
+                    "Signal ingress signing requires replay metadata.");
+            }
+
+            var signatureResult = await ValidateSignatureAsync(
+                context,
+                replayMetadata);
+
+            if (signatureResult != SignatureValidationResult.Valid)
+            {
+                if (auditId.HasValue)
+                {
+                    var (outcome, statusCode) = signatureResult switch
+                    {
+                        SignatureValidationResult.PayloadTooLarge =>
+                            (SignalIngressRequestOutcome.PayloadRejected,
+                                StatusCodes.Status413PayloadTooLarge),
+                        _ =>
+                            (SignalIngressRequestOutcome.SignatureRejected,
+                                StatusCodes.Status401Unauthorized)
+                    };
+
+                    await auditRepository.CompleteAsync(
+                        auditId.Value,
+                        outcome,
+                        statusCode,
+                        cancellationToken: context.RequestAborted);
+                }
+
                 return;
             }
         }
@@ -71,6 +133,15 @@ public sealed class SignalIngressAuthenticationMiddleware(
 
             if (!registered)
             {
+                if (auditId.HasValue)
+                {
+                    await auditRepository.CompleteAsync(
+                        auditId.Value,
+                        SignalIngressRequestOutcome.ReplayRejected,
+                        StatusCodes.Status409Conflict,
+                        cancellationToken: context.RequestAborted);
+                }
+
                 await WriteProblemAsync(
                     context,
                     StatusCodes.Status409Conflict,
@@ -79,10 +150,35 @@ public sealed class SignalIngressAuthenticationMiddleware(
             }
         }
 
-        await next(context);
+        try
+        {
+            await next(context);
+
+            if (auditId.HasValue)
+            {
+                await auditRepository.CompleteIfPendingAsync(
+                    auditId.Value,
+                    MapFallbackOutcome(context.Response.StatusCode),
+                    context.Response.StatusCode,
+                    context.RequestAborted);
+            }
+        }
+        catch
+        {
+            if (auditId.HasValue)
+            {
+                await auditRepository.CompleteIfPendingAsync(
+                    auditId.Value,
+                    SignalIngressRequestOutcome.Failed,
+                    StatusCodes.Status500InternalServerError,
+                    CancellationToken.None);
+            }
+
+            throw;
+        }
     }
 
-    private async Task<ReplayMetadata?> ValidateReplayMetadataAsync(
+    private async Task<ReplayMetadata?> ParseReplayMetadataAsync(
         HttpContext context)
     {
         if (!TryGetSingleHeader(
@@ -110,7 +206,8 @@ public sealed class SignalIngressAuthenticationMiddleware(
         DateTimeOffset requestTimestamp;
         try
         {
-            requestTimestamp = DateTimeOffset.FromUnixTimeSeconds(unixTimestamp);
+            requestTimestamp = DateTimeOffset.FromUnixTimeSeconds(
+                unixTimestamp);
         }
         catch (ArgumentOutOfRangeException)
         {
@@ -121,27 +218,14 @@ public sealed class SignalIngressAuthenticationMiddleware(
             return null;
         }
 
-        var receivedAt = DateTimeOffset.UtcNow;
-        var allowedClockSkew = TimeSpan.FromSeconds(
-            _replayOptions.AllowedClockSkewSeconds);
-
-        if ((requestTimestamp - receivedAt).Duration() > allowedClockSkew)
-        {
-            await WriteProblemAsync(
-                context,
-                StatusCodes.Status401Unauthorized,
-                "Signal ingress request timestamp is outside the allowed window.");
-            return null;
-        }
-
         return new ReplayMetadata(
             unixTimestamp,
             requestId,
             requestTimestamp,
-            receivedAt);
+            DateTimeOffset.UtcNow);
     }
 
-    private async Task<bool> ValidateSignatureAsync(
+    private async Task<SignatureValidationResult> ValidateSignatureAsync(
         HttpContext context,
         ReplayMetadata replayMetadata)
     {
@@ -155,7 +239,7 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status401Unauthorized,
                 "Signal ingress signature validation failed.");
-            return false;
+            return SignatureValidationResult.Rejected;
         }
 
         if (context.Request.ContentLength is > 0
@@ -165,7 +249,7 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status413PayloadTooLarge,
                 "Signal ingress request body exceeds the configured signing limit.");
-            return false;
+            return SignatureValidationResult.PayloadTooLarge;
         }
 
         byte[] body;
@@ -196,12 +280,10 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status413PayloadTooLarge,
                 "Signal ingress request body exceeds the configured signing limit.");
-            return false;
+            return SignatureValidationResult.PayloadTooLarge;
         }
 
-        var path = string.Concat(
-            context.Request.PathBase.Value,
-            context.Request.Path.Value);
+        var path = GetRequestPath(context.Request);
 
         if (!SignalIngressHmacVerifier.Verify(
                 _signingOptions.Secret,
@@ -217,11 +299,28 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status401Unauthorized,
                 "Signal ingress signature validation failed.");
-            return false;
+            return SignatureValidationResult.Rejected;
         }
 
-        return true;
+        return SignatureValidationResult.Valid;
     }
+
+    private static SignalIngressRequestOutcome MapFallbackOutcome(
+        int statusCode) => statusCode switch
+        {
+            >= 200 and < 300 => SignalIngressRequestOutcome.Accepted,
+            StatusCodes.Status409Conflict =>
+                SignalIngressRequestOutcome.SignalConflict,
+            StatusCodes.Status422UnprocessableEntity =>
+                SignalIngressRequestOutcome.RiskRejected,
+            >= 500 => SignalIngressRequestOutcome.Failed,
+            _ => SignalIngressRequestOutcome.RequestRejected
+        };
+
+    private static string GetRequestPath(HttpRequest request) =>
+        string.Concat(
+            request.PathBase.Value,
+            request.Path.Value);
 
     private static bool TryGetSingleHeader(
         HttpRequest request,
@@ -268,4 +367,11 @@ public sealed class SignalIngressAuthenticationMiddleware(
         Guid RequestId,
         DateTimeOffset RequestTimestamp,
         DateTimeOffset ReceivedAt);
+
+    private enum SignatureValidationResult
+    {
+        Valid,
+        Rejected,
+        PayloadTooLarge
+    }
 }
