@@ -1,6 +1,6 @@
 # Client pilot runbook
 
-TradeOps v1.3.1.0 defines a controlled path for the first paid TradingView integration pilot.
+TradeOps v1.3.2.0 defines a controlled path for the first paid TradingView integration pilot and its evidence handoff.
 
 ## Scope
 
@@ -120,9 +120,28 @@ Only after explicit Mock sign-off:
 
 TradeOps code restricts the Bybit adapter to the official testnet host. Mainnet remains out of scope.
 
-## Phase 5 — handoff
+## Phase 5 — evidence package
+
+For each agreed acceptance event, generate evidence:
+
+```bash
+export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
+export TRADEOPS_PILOT_CLIENT='Client name'
+export TRADEOPS_PILOT_STAGE='Mock'
+
+bash scripts/generate-pilot-evidence.sh
+```
+
+Acceptance gate: `PILOT EVIDENCE: PASS`.
+
+Review the generated Markdown with the client. Automated technical PASS does not replace client acceptance.
+
+## Phase 6 — handoff
 
 Deliver:
+
+- generated `pilot-evidence.json` and `pilot-evidence.md`;
+
 
 - approved TradingView alert template;
 - approved event-ID rule;
