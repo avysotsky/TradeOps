@@ -91,6 +91,7 @@ jobs:
           paths = json.loads(os.environ['OPENAPI_JSON'])['paths']
           required = (
               '/health/live', '/health/ready', '/api/signals', '/api/signals/{id}',
+              '/api/integrations/tradingview',
               '/api/orders/local/{idOrClientOrderId}',
               '/api/orders/local/{idOrClientOrderId}/history',
               '/api/orders/local/{idOrClientOrderId}/cancel',

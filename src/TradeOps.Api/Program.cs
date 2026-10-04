@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using TradeOps.Api.Contracts;
+using TradeOps.Api.Integrations.TradingView;
 using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
@@ -95,6 +96,25 @@ builder.Services.AddOptions<SignalIngressSigningOptions>()
                     builder.Configuration[$"{SignalIngressReplayProtectionOptions.SectionName}:RequestIdHeaderName"],
                     StringComparison.OrdinalIgnoreCase)),
         "Signal ingress signature header must be different from replay-protection headers.")
+    .ValidateOnStart();
+builder.Services.AddOptions<TradingViewWebhookOptions>()
+    .Bind(builder.Configuration.GetSection(TradingViewWebhookOptions.SectionName))
+    .Validate(
+        options => !options.Enabled || !string.IsNullOrWhiteSpace(options.GatewayHeaderName),
+        "TradingView gateway header name is required when the adapter is enabled.")
+    .Validate(
+        options => !options.Enabled || options.GatewayKey.Length >= 32,
+        "TradingView gateway key must contain at least 32 characters when the adapter is enabled.")
+    .Validate(
+        options => !options.Enabled
+            || !options.RequireGatewayIpAllowlist
+            || options.AllowedGatewayIps.Length > 0,
+        "TradingView gateway IP allowlist must not be empty when IP validation is enabled.")
+    .Validate(
+        options => !options.Enabled
+            || !options.RequireGatewayIpAllowlist
+            || options.AllowedGatewayIps.All(System.Net.IPAddress.TryParse),
+        "TradingView gateway IP allowlist contains an invalid IP address.")
     .ValidateOnStart();
 builder.Services.AddOptions<OperatorApiAuthOptions>()
     .Bind(builder.Configuration.GetSection(OperatorApiAuthOptions.SectionName))

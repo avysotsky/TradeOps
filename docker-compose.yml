@@ -33,6 +33,9 @@ services:
       SignalIngress__Signing__Enabled: ${TRADEOPS_SIGNAL_SIGNING_ENABLED:-false}
       SignalIngress__Signing__Secret: ${TRADEOPS_SIGNAL_SIGNING_SECRET:-}
       SignalIngress__Signing__MaxBodyBytes: ${TRADEOPS_SIGNAL_SIGNING_MAX_BODY_BYTES:-65536}
+      Integrations__TradingView__Enabled: ${TRADEOPS_TRADINGVIEW_ENABLED:-false}
+      Integrations__TradingView__GatewayKey: ${TRADEOPS_TRADINGVIEW_GATEWAY_KEY:-}
+      Integrations__TradingView__RequireGatewayIpAllowlist: ${TRADEOPS_TRADINGVIEW_REQUIRE_GATEWAY_IP_ALLOWLIST:-true}
       OperatorApi__Authentication__Enabled: ${TRADEOPS_OPERATOR_AUTH_ENABLED:-false}
       OperatorApi__Authentication__ApiKey: ${TRADEOPS_OPERATOR_API_KEY:-}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
