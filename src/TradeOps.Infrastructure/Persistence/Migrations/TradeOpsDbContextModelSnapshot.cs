@@ -198,6 +198,28 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("SignalIngressRequestAudits");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.TradingViewDeliveryAudit", b =>
+        {
+            b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
+            b.Property<string>("Action").HasMaxLength(10).HasColumnType("character varying(10)");
+            b.Property<string>("ClientOrderId").HasMaxLength(100).HasColumnType("character varying(100)");
+            b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
+            b.Property<long?>("DurationMilliseconds").HasColumnType("bigint");
+            b.Property<string>("EventId").HasMaxLength(200).HasColumnType("character varying(200)");
+            b.Property<int?>("HttpStatusCode").HasColumnType("integer");
+            b.Property<Guid?>("OrderId").HasColumnType("uuid");
+            b.Property<TradingViewDeliveryOutcome>("Outcome").HasConversion<string>().HasMaxLength(30).HasColumnType("character varying(30)");
+            b.Property<DateTimeOffset>("ReceivedAt").HasColumnType("timestamp with time zone");
+            b.Property<Guid?>("SignalId").HasColumnType("uuid");
+            b.Property<string>("Symbol").HasMaxLength(50).HasColumnType("character varying(50)");
+            b.HasKey("Id");
+            b.HasIndex("ClientOrderId");
+            b.HasIndex("ReceivedAt");
+            b.HasIndex("SignalId");
+            b.HasIndex("EventId", "ReceivedAt");
+            b.ToTable("TradingViewDeliveryAudits");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignal", b =>
         {
             b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
