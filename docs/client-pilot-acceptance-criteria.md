@@ -39,6 +39,9 @@ The pilot is accepted only for execution engineering. It does not certify profit
 - [ ] Order lifecycle history is queryable.
 - [ ] TradingView delivery metrics are queryable.
 - [ ] TradingView health state is queryable after Worker evaluation.
+- [ ] Paid-pilot evidence exporter produces both JSON and Markdown.
+- [ ] Evidence technical decision is PASS for the agreed acceptance event.
+- [ ] Generated report correlation matches the agreed eventId, SignalId and ClientOrderId.
 
 ## E. Risk and operator controls
 
@@ -63,7 +66,7 @@ Complete only if the pilot includes Bybit testnet.
 ```text
 Client:
 Pilot date:
-TradeOps version: v1.3.1.0
+TradeOps version: v1.3.2.0
 Exchange stage: Mock / BybitTestnet
 Approved TradingView template revision:
 Approved eventId rule:

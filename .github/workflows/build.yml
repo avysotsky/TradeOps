@@ -493,6 +493,13 @@ jobs:
           TRADEOPS_TRADINGVIEW_DEMO_API_URL: http://127.0.0.1:5082
           TRADEOPS_TRADINGVIEW_DEMO_GATEWAY_KEY: ci-customer-demo-gateway-key-at-least-32-characters
           TRADEOPS_TRADINGVIEW_DEMO_OPERATOR_API_KEY: ci-customer-demo-operator-key-at-least-32-characters
+          TRADEOPS_TRADINGVIEW_DEMO_EVENT_ID: ci-paid-pilot-evidence-event
+          TRADEOPS_PILOT_API_URL: http://127.0.0.1:5082
+          TRADEOPS_PILOT_EVENT_ID: ci-paid-pilot-evidence-event
+          TRADEOPS_PILOT_OUTPUT_DIR: /tmp/tradeops-pilot-evidence
+          TRADEOPS_PILOT_CLIENT: CI Customer
+          TRADEOPS_PILOT_STAGE: Mock
+          TRADEOPS_PILOT_VERSION: v1.3.2.0
         run: |
           set -euo pipefail
 
@@ -527,6 +534,40 @@ jobs:
           WORKER_PID=$!
 
           dotnet run --project tools/TradeOps.TradingViewDemo --configuration Release --no-build
+
+          rm -rf "$TRADEOPS_PILOT_OUTPUT_DIR"
+          dotnet run --project tools/TradeOps.PilotEvidence --configuration Release --no-build
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('/tmp/tradeops-pilot-evidence')
+          json_path = root / 'pilot-evidence.json'
+          md_path = root / 'pilot-evidence.md'
+
+          assert json_path.exists(), json_path
+          assert md_path.exists(), md_path
+
+          data = json.loads(json_path.read_text())
+          assert data['technicalDecision'] == 'PASS', data
+          assert data['eventId'] == 'ci-paid-pilot-evidence-event', data
+          assert data['client'] == 'CI Customer', data
+          assert data['stage'] == 'Mock', data
+          assert all(item['passed'] for item in data['checks']), data['checks']
+
+          outcomes = {item['outcome'] for item in data['deliveries']}
+          assert {'Accepted', 'Redelivered', 'Conflict'} <= outcomes, outcomes
+
+          correlation = data['correlation']
+          assert correlation['signalId'], correlation
+          assert correlation['clientOrderId'].startswith('trd-'), correlation
+
+          markdown = md_path.read_text()
+          assert '# TradeOps Paid Pilot Evidence' in markdown, markdown
+          assert '## Client sign-off' in markdown, markdown
+          assert 'Technical decision:** PASS' in markdown, markdown
+          PY
 
       - name: Validate client pilot starter kit
         env:
