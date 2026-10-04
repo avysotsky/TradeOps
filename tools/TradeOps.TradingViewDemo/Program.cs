@@ -35,8 +35,9 @@ internal static class Program
 
             await VerifyReadinessAsync(httpClient);
 
-            var eventId =
-                $"customer-demo|BTCUSDT|{Guid.NewGuid():N}";
+            var eventId = ReadOptional(
+                "TRADEOPS_TRADINGVIEW_DEMO_EVENT_ID",
+                $"customer-demo|BTCUSDT|{Guid.NewGuid():N}");
 
             var firstPayload = new
             {

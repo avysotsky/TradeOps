@@ -19,6 +19,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - persistent TradingView delivery audit with event-level correlation, outcomes and processing-latency metrics;
 - one-command Mock customer demo for the complete TradingView execution, idempotency, audit, reconciliation and health path;
 - client integration starter kit for a controlled first paid TradingView pilot, including env template, preflight, alert template, runbook and acceptance checklist;
+- read-only paid-pilot evidence exporter that produces JSON and Markdown handoff reports from persisted TradingView audit/correlation data;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -615,6 +616,15 @@ scripts/client-pilot-preflight.sh
 
 The starter kit keeps Mock as the first acceptance stage, supports an optional BybitTestnet phase only after Mock sign-off, and explicitly excludes strategy profitability/mainnet acceptance.
 
+After the required test event has completed, v1.3.2.0 can generate a client handoff evidence package:
+
+```bash
+export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
+bash scripts/generate-pilot-evidence.sh
+```
+
+The exporter reads only existing monitoring/audit endpoints and writes `pilot-evidence.json` plus `pilot-evidence.md`. It does not place, cancel or reconcile orders. See `docs/paid-pilot-evidence-handoff.md`.
+
 See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md`, `docs/tradingview-delivery-health-alerting.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
@@ -804,7 +814,7 @@ It:
 6. verifies local cancellation, bulk cancellation and persistent emergency-stop behavior;
 7. exercises fills, daily P&L, operational run status and execution metrics;
 8. runs the signed webhook end-to-end demo against a secured Mock API instance;
-9. runs the isolated customer TradingView demo against a dedicated Mock API/Worker database;
+9. runs the isolated customer TradingView demo and generates/validates the paid-pilot evidence package against the same persisted event;
 10. validates the client-pilot starter kit, rendered TradingView sample and merged Compose contract;
 11. validates Docker Compose and the TradingView Nginx gateway configuration;
 12. builds the API/Worker images.

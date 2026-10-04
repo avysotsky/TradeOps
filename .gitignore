@@ -21,6 +21,7 @@ Thumbs.db
 appsettings.Development.json
 secrets.json
 deploy/client-starter/client-pilot.env
+pilot-evidence/
 
 # Local TLS material
 deploy/tradingview-gateway/tls/

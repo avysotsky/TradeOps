@@ -97,7 +97,27 @@ docs/client-pilot-runbook.md
 
 Do not move from Mock to BybitTestnet until the Mock acceptance gate has passed.
 
-## 6. Sign off
+## 6. Generate pilot evidence
+
+For the agreed test `eventId`:
+
+```bash
+export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
+export TRADEOPS_PILOT_CLIENT='Client name'
+export TRADEOPS_PILOT_STAGE='Mock'
+
+bash scripts/generate-pilot-evidence.sh
+```
+
+Expected technical result:
+
+```text
+PILOT EVIDENCE: PASS
+```
+
+The generated JSON/Markdown package is read-only evidence. It does not replace customer sign-off.
+
+## 7. Sign off
 
 Use:
 
