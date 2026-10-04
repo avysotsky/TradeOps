@@ -18,6 +18,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - production-like Nginx TradingView edge deployment with HTTPS, published source-IP allowlisting, client-certificate identity checks and internal credential injection;
 - persistent TradingView delivery audit with event-level correlation, outcomes and processing-latency metrics;
 - one-command Mock customer demo for the complete TradingView execution, idempotency, audit, reconciliation and health path;
+- client integration starter kit for a controlled first paid TradingView pilot, including env template, preflight, alert template, runbook and acceptance checklist;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -603,6 +604,17 @@ bash scripts/tradingview-customer-demo.sh
 
 The demo uses Mock execution only and leaves the stack running for inspection. It proves provider redelivery idempotency, event-id conflict protection, delivery correlation, protected reconciliation, lifecycle completion, metrics and Worker health. See `docs/customer-tradingview-demo.md`.
 
+For a first paid pilot, start with the v1.3.1.0 integration kit:
+
+```text
+deploy/client-starter/
+docs/client-pilot-runbook.md
+docs/client-pilot-acceptance-criteria.md
+scripts/client-pilot-preflight.sh
+```
+
+The starter kit keeps Mock as the first acceptance stage, supports an optional BybitTestnet phase only after Mock sign-off, and explicitly excludes strategy profitability/mainnet acceptance.
+
 See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md`, `docs/tradingview-delivery-health-alerting.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
@@ -793,8 +805,9 @@ It:
 7. exercises fills, daily P&L, operational run status and execution metrics;
 8. runs the signed webhook end-to-end demo against a secured Mock API instance;
 9. runs the isolated customer TradingView demo against a dedicated Mock API/Worker database;
-10. validates Docker Compose and the TradingView Nginx gateway configuration;
-11. builds the API/Worker images.
+10. validates the client-pilot starter kit, rendered TradingView sample and merged Compose contract;
+11. validates Docker Compose and the TradingView Nginx gateway configuration;
+12. builds the API/Worker images.
 
 Real Bybit testnet credentials are intentionally not required by ordinary CI.
 
