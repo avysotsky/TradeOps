@@ -7,10 +7,12 @@ namespace TradeOps.Api.Security;
 public sealed class SignalIngressAuthenticationMiddleware(
     RequestDelegate next,
     IOptions<SignalIngressAuthOptions> authOptions,
-    IOptions<SignalIngressReplayProtectionOptions> replayOptions)
+    IOptions<SignalIngressReplayProtectionOptions> replayOptions,
+    IOptions<SignalIngressSigningOptions> signingOptions)
 {
     private readonly SignalIngressAuthOptions _authOptions = authOptions.Value;
     private readonly SignalIngressReplayProtectionOptions _replayOptions = replayOptions.Value;
+    private readonly SignalIngressSigningOptions _signingOptions = signingOptions.Value;
 
     public async Task InvokeAsync(
         HttpContext context,
@@ -34,14 +36,45 @@ public sealed class SignalIngressAuthenticationMiddleware(
             return;
         }
 
+        ReplayMetadata? replayMetadata = null;
         if (_replayOptions.Enabled)
         {
-            var replayValidation = await ValidateReplayProtectionAsync(
-                context,
-                replayStore);
-
-            if (!replayValidation)
+            replayMetadata = await ValidateReplayMetadataAsync(context);
+            if (replayMetadata is null)
             {
+                return;
+            }
+        }
+
+        if (_signingOptions.Enabled)
+        {
+            if (replayMetadata is null
+                || !await ValidateSignatureAsync(
+                    context,
+                    replayMetadata))
+            {
+                return;
+            }
+        }
+
+        if (replayMetadata is not null)
+        {
+            var expiresAt = replayMetadata.ReceivedAt.AddSeconds(
+                _replayOptions.ReceiptRetentionSeconds);
+
+            var registered = await replayStore.TryRegisterAsync(
+                replayMetadata.RequestId,
+                replayMetadata.RequestTimestamp,
+                replayMetadata.ReceivedAt,
+                expiresAt,
+                context.RequestAborted);
+
+            if (!registered)
+            {
+                await WriteProblemAsync(
+                    context,
+                    StatusCodes.Status409Conflict,
+                    "Signal ingress request ID has already been used.");
                 return;
             }
         }
@@ -49,9 +82,8 @@ public sealed class SignalIngressAuthenticationMiddleware(
         await next(context);
     }
 
-    private async Task<bool> ValidateReplayProtectionAsync(
-        HttpContext context,
-        ISignalIngressReplayStore replayStore)
+    private async Task<ReplayMetadata?> ValidateReplayMetadataAsync(
+        HttpContext context)
     {
         if (!TryGetSingleHeader(
                 context.Request,
@@ -72,7 +104,7 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status400BadRequest,
                 "Signal ingress replay headers are missing or invalid.");
-            return false;
+            return null;
         }
 
         DateTimeOffset requestTimestamp;
@@ -86,7 +118,7 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status400BadRequest,
                 "Signal ingress replay headers are missing or invalid.");
-            return false;
+            return null;
         }
 
         var receivedAt = DateTimeOffset.UtcNow;
@@ -99,25 +131,92 @@ public sealed class SignalIngressAuthenticationMiddleware(
                 context,
                 StatusCodes.Status401Unauthorized,
                 "Signal ingress request timestamp is outside the allowed window.");
+            return null;
+        }
+
+        return new ReplayMetadata(
+            unixTimestamp,
+            requestId,
+            requestTimestamp,
+            receivedAt);
+    }
+
+    private async Task<bool> ValidateSignatureAsync(
+        HttpContext context,
+        ReplayMetadata replayMetadata)
+    {
+        if (!TryGetSingleHeader(
+                context.Request,
+                _signingOptions.SignatureHeaderName,
+                out var suppliedSignature))
+        {
+            context.Response.Headers["WWW-Authenticate"] = "HMAC-SHA256";
+            await WriteProblemAsync(
+                context,
+                StatusCodes.Status401Unauthorized,
+                "Signal ingress signature validation failed.");
             return false;
         }
 
-        var expiresAt = receivedAt.AddSeconds(
-            _replayOptions.ReceiptRetentionSeconds);
-
-        var registered = await replayStore.TryRegisterAsync(
-            requestId,
-            requestTimestamp,
-            receivedAt,
-            expiresAt,
-            context.RequestAborted);
-
-        if (!registered)
+        if (context.Request.ContentLength is > 0
+            && context.Request.ContentLength > _signingOptions.MaxBodyBytes)
         {
             await WriteProblemAsync(
                 context,
-                StatusCodes.Status409Conflict,
-                "Signal ingress request ID has already been used.");
+                StatusCodes.Status413PayloadTooLarge,
+                "Signal ingress request body exceeds the configured signing limit.");
+            return false;
+        }
+
+        byte[] body;
+        try
+        {
+            context.Request.EnableBuffering(
+                bufferThreshold: Math.Min(
+                    _signingOptions.MaxBodyBytes,
+                    30 * 1024),
+                bufferLimit: _signingOptions.MaxBodyBytes);
+
+            using var bodyBuffer = new MemoryStream();
+            await context.Request.Body.CopyToAsync(
+                bodyBuffer,
+                context.RequestAborted);
+
+            body = bodyBuffer.ToArray();
+            context.Request.Body.Position = 0;
+        }
+        catch (IOException)
+        {
+            if (context.Request.Body.CanSeek)
+            {
+                context.Request.Body.Position = 0;
+            }
+
+            await WriteProblemAsync(
+                context,
+                StatusCodes.Status413PayloadTooLarge,
+                "Signal ingress request body exceeds the configured signing limit.");
+            return false;
+        }
+
+        var path = string.Concat(
+            context.Request.PathBase.Value,
+            context.Request.Path.Value);
+
+        if (!SignalIngressHmacVerifier.Verify(
+                _signingOptions.Secret,
+                replayMetadata.UnixTimestamp,
+                replayMetadata.RequestId,
+                context.Request.Method,
+                path,
+                body,
+                suppliedSignature))
+        {
+            context.Response.Headers["WWW-Authenticate"] = "HMAC-SHA256";
+            await WriteProblemAsync(
+                context,
+                StatusCodes.Status401Unauthorized,
+                "Signal ingress signature validation failed.");
             return false;
         }
 
@@ -163,4 +262,10 @@ public sealed class SignalIngressAuthenticationMiddleware(
     private static bool IsSignalSubmission(HttpRequest request) =>
         HttpMethods.IsPost(request.Method)
         && request.Path.Equals(new PathString("/api/signals"));
+
+    private sealed record ReplayMetadata(
+        long UnixTimestamp,
+        Guid RequestId,
+        DateTimeOffset RequestTimestamp,
+        DateTimeOffset ReceivedAt);
 }
