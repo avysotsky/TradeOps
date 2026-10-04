@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Api.Contracts;
+using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -43,7 +44,9 @@ public sealed class RiskController(
     }
 
     [HttpPost("trading-enabled")]
+    [OperatorApiKey]
     [ProducesResponseType<RiskControlSnapshot>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<RiskControlSnapshot>> SetTradingEnabled(
         [FromBody] SetTradingEnabledRequest request,
         CancellationToken cancellationToken)
@@ -55,7 +58,9 @@ public sealed class RiskController(
     }
 
     [HttpPost("emergency-stop")]
+    [OperatorApiKey]
     [ProducesResponseType<EmergencyStopResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<EmergencyStopResponse>> SetEmergencyStop(
         [FromBody] SetEmergencyStopRequest request,
         CancellationToken cancellationToken)

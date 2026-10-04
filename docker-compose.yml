@@ -27,6 +27,8 @@ services:
       Exchange__Bybit__ApiSecret: ${BYBIT_TESTNET_API_SECRET:-}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
+      OperatorApi__Authentication__Enabled: ${TRADEOPS_OPERATOR_AUTH_ENABLED:-false}
+      OperatorApi__Authentication__ApiKey: ${TRADEOPS_OPERATOR_API_KEY:-}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
       Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
       Telegram__ChatId: ${TELEGRAM_CHAT_ID:-}
