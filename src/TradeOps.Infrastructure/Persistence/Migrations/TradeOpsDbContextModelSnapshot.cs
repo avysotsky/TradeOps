@@ -166,6 +166,17 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("RiskEvents");
         });
 
+        modelBuilder.Entity("TradeOps.Infrastructure.Persistence.SignalIngressReplayReceipt", b =>
+        {
+            b.Property<Guid>("RequestId").ValueGeneratedNever().HasColumnType("uuid");
+            b.Property<DateTimeOffset>("ExpiresAt").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset>("ReceivedAt").HasColumnType("timestamp with time zone");
+            b.Property<DateTimeOffset>("RequestTimestamp").HasColumnType("timestamp with time zone");
+            b.HasKey("RequestId");
+            b.HasIndex("ExpiresAt");
+            b.ToTable("SignalIngressReplayReceipts");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignal", b =>
         {
             b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");

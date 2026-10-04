@@ -26,6 +26,9 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
 
     public DbSet<TradingSignalOutcomeEvent> TradingSignalOutcomeEvents => Set<TradingSignalOutcomeEvent>();
 
+    public DbSet<SignalIngressReplayReceipt> SignalIngressReplayReceipts =>
+        Set<SignalIngressReplayReceipt>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);
