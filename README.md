@@ -10,6 +10,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 
 - configuration-driven exchange adapters behind `IExchangeClient`;
 - deterministic `ClientOrderId` generation and idempotent signal retries;
+- optional shared-secret authentication for external signal ingestion, rejected before persistence on authentication failure;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
 - guarded order state transitions and partial-fill handling;
@@ -97,6 +98,9 @@ External signal
       |
       v
 POST /api/signals
+      |
+      v
+Optional shared-secret authentication
       |
       v
 Deterministic ClientOrderId
@@ -375,6 +379,43 @@ GET    /api/metrics/signal-transitions/series
 GET    /api/metrics/signal-transitions/by-symbol
 ```
 
+## Signal ingress authentication
+
+`POST /api/signals` can be protected with a shared API key. Authentication is disabled by default for the local mock demo, but can be enabled without code changes.
+
+Configuration:
+
+```json
+{
+  "SignalIngress": {
+    "Authentication": {
+      "Enabled": true,
+      "HeaderName": "X-TradeOps-Api-Key",
+      "ApiKey": "YOUR_SECRET"
+    }
+  }
+}
+```
+
+For Docker Compose:
+
+```bash
+export TRADEOPS_SIGNAL_AUTH_ENABLED=true
+export TRADEOPS_SIGNAL_API_KEY='YOUR_SECRET'
+docker compose up --build -d
+```
+
+Authenticated signal submission:
+
+```bash
+curl -X POST http://localhost:8080/api/signals \
+  -H 'Content-Type: application/json' \
+  -H 'X-TradeOps-Api-Key: YOUR_SECRET' \
+  -d '{"symbol":"BTCUSDT","side":"Buy","quantity":0.001}'
+```
+
+When authentication is enabled, a missing or incorrect key returns HTTP `401` before request validation, persistence, risk evaluation or exchange execution. The middleware hashes both values and uses a fixed-time comparison; the configured secret is never written to logs or responses. Startup validation fails if authentication is enabled without a header name or API key.
+
 ## Order lifecycle
 
 Supported states:
@@ -515,7 +556,7 @@ GitHub Actions runs on `main` and `TradeOps/**` branches. The default pipeline r
 It:
 
 1. restores and builds the complete .NET 8 solution;
-2. runs the unit/integration test suite;
+2. runs the unit/integration test suite, including authenticated signal-ingress rejection/success coverage;
 3. starts PostgreSQL 16 and the API;
 4. verifies liveness/readiness and the OpenAPI surface;
 5. exercises signal execution, idempotent retry, reconciliation and order history;
@@ -530,6 +571,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - mock mode is the default;
 - the Bybit implementation accepts only the official testnet host in this branch;
 - no API key or secret is stored in the repository;
+- optional external signal-ingress authentication uses configuration/environment secrets only;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
 - real-money/mainnet trading remains out of scope for the current public version.
