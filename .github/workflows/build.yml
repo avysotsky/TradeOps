@@ -528,6 +528,33 @@ jobs:
 
           dotnet run --project tools/TradeOps.TradingViewDemo --configuration Release --no-build
 
+      - name: Validate client pilot starter kit
+        env:
+          PILOT_ENV: /tmp/tradeops-client-pilot.env
+          PILOT_TLS_DIR: /tmp/tradeops-client-pilot-tls
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$PILOT_TLS_DIR"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -subj '/CN=pilot.local' \
+            -keyout "$PILOT_TLS_DIR/privkey.pem" \
+            -out "$PILOT_TLS_DIR/fullchain.pem" >/dev/null 2>&1
+
+          cp deploy/client-starter/client-pilot.env.example "$PILOT_ENV"
+
+          sed -i \
+            -e 's#TRADEOPS_EXCHANGE_PROVIDER=Mock#TRADEOPS_EXCHANGE_PROVIDER=Mock#' \
+            -e 's#CHANGE_ME_RANDOM_GATEWAY_SECRET_32_PLUS#ci-client-pilot-gateway-secret-at-least-32-characters#' \
+            -e 's#CHANGE_ME_RANDOM_OPERATOR_SECRET_32_PLUS#ci-client-pilot-operator-secret-at-least-32-characters#' \
+            -e "s#/ABSOLUTE/PATH/TO/fullchain.pem#$PILOT_TLS_DIR/fullchain.pem#" \
+            -e "s#/ABSOLUTE/PATH/TO/privkey.pem#$PILOT_TLS_DIR/privkey.pem#" \
+            "$PILOT_ENV"
+
+          python3 -m json.tool deploy/client-starter/tradingview-alert-sample.json >/dev/null
+
+          bash scripts/client-pilot-preflight.sh "$PILOT_ENV"
+
       - name: Validate Docker Compose
         run: docker compose config --quiet
 
