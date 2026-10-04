@@ -177,6 +177,27 @@ partial class TradeOpsDbContextModelSnapshot : ModelSnapshot
             b.ToTable("SignalIngressReplayReceipts");
         });
 
+        modelBuilder.Entity("TradeOps.Domain.Entities.SignalIngressRequestAudit", b =>
+        {
+            b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");
+            b.Property<string>("ClientOrderId").HasMaxLength(100).HasColumnType("character varying(100)");
+            b.Property<DateTimeOffset?>("CompletedAt").HasColumnType("timestamp with time zone");
+            b.Property<int?>("HttpStatusCode").HasColumnType("integer");
+            b.Property<string>("Method").IsRequired().HasMaxLength(10).HasColumnType("character varying(10)");
+            b.Property<Guid?>("OrderId").HasColumnType("uuid");
+            b.Property<SignalIngressRequestOutcome>("Outcome").HasConversion<string>().HasMaxLength(30).HasColumnType("character varying(30)");
+            b.Property<string>("Path").IsRequired().HasMaxLength(200).HasColumnType("character varying(200)");
+            b.Property<DateTimeOffset>("ReceivedAt").HasColumnType("timestamp with time zone");
+            b.Property<Guid>("RequestId").HasColumnType("uuid");
+            b.Property<DateTimeOffset>("RequestTimestamp").HasColumnType("timestamp with time zone");
+            b.Property<Guid?>("SignalId").HasColumnType("uuid");
+            b.HasKey("Id");
+            b.HasIndex("ClientOrderId");
+            b.HasIndex("SignalId");
+            b.HasIndex("RequestId", "ReceivedAt");
+            b.ToTable("SignalIngressRequestAudits");
+        });
+
         modelBuilder.Entity("TradeOps.Domain.Entities.TradingSignal", b =>
         {
             b.Property<Guid>("Id").ValueGeneratedNever().HasColumnType("uuid");

@@ -137,7 +137,73 @@ internal static class Program
             }
             Console.WriteLine("   PASS: replay rejected with HTTP 409.");
 
-            Console.WriteLine("4) Read signal audit and deterministic client order ID.");
+            Console.WriteLine("4) Read request-level ingress audit and correlation.");
+            using var ingressAuditResponse = await httpClient.GetAsync(
+                $"/api/signal-ingress/requests/{requestId:D}");
+            RequireStatus(
+                ingressAuditResponse,
+                HttpStatusCode.OK,
+                "Ingress request audit must be available.");
+
+            using var ingressAuditJson = await ReadJsonAsync(
+                ingressAuditResponse);
+            var ingressAttempts = ingressAuditJson.RootElement;
+
+            if (ingressAttempts.GetArrayLength() != 3)
+            {
+                throw new InvalidOperationException(
+                    $"Expected 3 ingress attempts, got {ingressAttempts.GetArrayLength()}.");
+            }
+
+            var firstOutcome = ingressAttempts[0]
+                .GetProperty("outcome")
+                .GetString();
+            var secondOutcome = ingressAttempts[1]
+                .GetProperty("outcome")
+                .GetString();
+            var thirdOutcome = ingressAttempts[2]
+                .GetProperty("outcome")
+                .GetString();
+
+            if (!string.Equals(
+                    firstOutcome,
+                    "SignatureRejected",
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    secondOutcome,
+                    "Accepted",
+                    StringComparison.Ordinal)
+                || !string.Equals(
+                    thirdOutcome,
+                    "ReplayRejected",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Unexpected ingress outcomes: {firstOutcome}, {secondOutcome}, {thirdOutcome}.");
+            }
+
+            var correlatedSignalId = ingressAttempts[1]
+                .GetProperty("signalId")
+                .GetGuid();
+            var correlatedOrderId = ingressAttempts[1]
+                .GetProperty("orderId")
+                .GetGuid();
+            var correlatedClientOrderId = ingressAttempts[1]
+                .GetProperty("clientOrderId")
+                .GetString();
+
+            if (correlatedSignalId != signalId
+                || correlatedOrderId == Guid.Empty
+                || string.IsNullOrWhiteSpace(correlatedClientOrderId))
+            {
+                throw new InvalidOperationException(
+                    "Accepted ingress audit is missing signal/order correlation.");
+            }
+
+            Console.WriteLine(
+                $"   PASS: outcomes={firstOutcome}->{secondOutcome}->{thirdOutcome}; orderId={correlatedOrderId:D}.");
+
+            Console.WriteLine("5) Read signal audit and deterministic client order ID.");
             using var signalAuditResponse = await httpClient.GetAsync(
                 $"/api/signals/{signalId:D}");
             RequireStatus(
@@ -160,7 +226,7 @@ internal static class Program
             }
             Console.WriteLine($"   PASS: signal audit outcome={outcome}; clientOrderId={clientOrderId}.");
 
-            Console.WriteLine("5) Reconcile through the separately protected operator API.");
+            Console.WriteLine("6) Reconcile through the separately protected operator API.");
             using (var reconcileRequest = new HttpRequestMessage(
                        HttpMethod.Post,
                        "/api/system/reconcile"))
@@ -186,7 +252,7 @@ internal static class Program
             }
             Console.WriteLine("   PASS: operator-authenticated reconciliation completed.");
 
-            Console.WriteLine("6) Verify local lifecycle ends in Filled.");
+            Console.WriteLine("7) Verify local lifecycle ends in Filled.");
             using var historyResponse = await httpClient.GetAsync(
                 $"/api/orders/local/{Uri.EscapeDataString(clientOrderId)}/history");
             RequireStatus(
@@ -212,7 +278,7 @@ internal static class Program
             }
             Console.WriteLine("   PASS: lifecycle audit ends in Filled.");
 
-            Console.WriteLine("7) Verify execution metrics are queryable.");
+            Console.WriteLine("8) Verify execution metrics are queryable.");
             using var metricsResponse = await httpClient.GetAsync(
                 "/api/metrics/execution");
             RequireStatus(
