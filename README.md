@@ -15,6 +15,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - optional HMAC-SHA256 webhook signing that binds timestamp, request ID, method, path and exact request-body bytes;
 - persistent webhook-attempt audit linking request ID to signal and local order correlation identifiers;
 - optional TradingView webhook adapter behind a trusted gateway, with deterministic event-id idempotency;
+- production-like Nginx TradingView edge deployment with HTTPS, published source-IP allowlisting, client-certificate identity checks and internal credential injection;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -556,7 +557,18 @@ TradingView
 
 The adapter requires a stable `eventId`. TradeOps derives a deterministic signal ID from it, making provider redelivery idempotent. Reusing the same event ID with conflicting execution fields returns HTTP 409.
 
-See `docs/tradingview-webhook-adapter.md`.
+TradeOps v1.2.0.1 also includes a deployable Nginx edge for this boundary:
+
+```text
+deploy/tradingview-gateway/
+├── nginx.conf.template
+├── docker-compose.tradingview-gateway.yml
+└── README.md
+```
+
+The public endpoint is `https://<host>/webhooks/tradingview`. It accepts only TradingView's published webhook source IPs, requires a presented client certificate whose subject identifies `webhook-server@tradingview.com`, overwrites the internal gateway credential, and proxies only to the internal adapter.
+
+See `docs/tradingview-webhook-adapter.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
 
@@ -759,6 +771,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - optional HMAC-SHA256 signing cryptographically binds replay metadata, HTTP route and exact request body;
 - authenticated replay-protected attempts are persisted as correlation audit records without storing request bodies or secrets;
 - the optional TradingView adapter normalizes provider payloads behind a separate trusted-gateway boundary without changing the signed core ingress;
+- the v1.2.0.1 gateway deployment terminates HTTPS on port 443, filters TradingView source IPs and client-certificate identity, and injects the internal adapter credential;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
