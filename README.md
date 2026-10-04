@@ -14,6 +14,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - optional PostgreSQL-backed timestamp/request-id replay protection for authenticated signal ingress;
 - optional HMAC-SHA256 webhook signing that binds timestamp, request ID, method, path and exact request-body bytes;
 - persistent webhook-attempt audit linking request ID to signal and local order correlation identifiers;
+- optional TradingView webhook adapter behind a trusted gateway, with deterministic event-id idempotency;
 - independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
@@ -378,6 +379,7 @@ GET    /api/signals
 GET    /api/signals/{id}
 GET    /api/signals/{id}/history
 GET    /api/signal-ingress/requests/{requestId}
+POST   /api/integrations/tradingview
 
 GET    /api/orders
 GET    /api/orders/{exchangeOrderId}
@@ -530,6 +532,31 @@ GET /api/signal-ingress/requests/{requestId}
 This preserves the original accepted attempt and later replay attempts as separate rows. The audit stores operational metadata only; request bodies, API keys, HMAC signatures and signing secrets are not persisted.
 
 See `docs/signal-ingress-request-audit.md`.
+
+## TradingView webhook adapter
+
+TradeOps v1.2.0.0 adds an optional provider-specific adapter:
+
+```text
+POST /api/integrations/tradingview
+```
+
+It is disabled by default. The adapter is deliberately separate from the signed `/api/signals` ingress so the core HMAC/replay contract is not weakened for provider compatibility.
+
+Recommended boundary:
+
+```text
+TradingView
+  -> trusted HTTPS gateway / reverse proxy
+  -> internal TradingView gateway credential
+  -> TradeOps adapter
+  -> canonical TradingSignal
+  -> existing risk / execution / persistence / reconciliation
+```
+
+The adapter requires a stable `eventId`. TradeOps derives a deterministic signal ID from it, making provider redelivery idempotent. Reusing the same event ID with conflicting execution fields returns HTTP 409.
+
+See `docs/tradingview-webhook-adapter.md`.
 
 ## Operator API authentication
 
@@ -731,6 +758,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - optional persistent replay protection rejects stale timestamps and repeated request IDs before execution;
 - optional HMAC-SHA256 signing cryptographically binds replay metadata, HTTP route and exact request body;
 - authenticated replay-protected attempts are persisted as correlation audit records without storing request bodies or secrets;
+- the optional TradingView adapter normalizes provider payloads behind a separate trusted-gateway boundary without changing the signed core ingress;
 - mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
