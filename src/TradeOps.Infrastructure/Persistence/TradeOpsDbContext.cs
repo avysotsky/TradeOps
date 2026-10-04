@@ -29,6 +29,9 @@ public sealed class TradeOpsDbContext(DbContextOptions<TradeOpsDbContext> option
     public DbSet<SignalIngressReplayReceipt> SignalIngressReplayReceipts =>
         Set<SignalIngressReplayReceipt>();
 
+    public DbSet<SignalIngressRequestAudit> SignalIngressRequestAudits =>
+        Set<SignalIngressRequestAudit>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(TradeOpsDbContext).Assembly);
