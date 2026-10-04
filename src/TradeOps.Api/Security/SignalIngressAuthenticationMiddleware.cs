@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Options;
 
 namespace TradeOps.Api.Security;
@@ -21,7 +19,7 @@ public sealed class SignalIngressAuthenticationMiddleware(
         if (!context.Request.Headers.TryGetValue(_options.HeaderName, out var suppliedKeys)
             || suppliedKeys.Count != 1
             || string.IsNullOrEmpty(suppliedKeys[0])
-            || !ApiKeysMatch(_options.ApiKey, suppliedKeys[0]!))
+            || !ApiKeyVerifier.Matches(_options.ApiKey, suppliedKeys[0]!))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.ContentType = "application/problem+json";
@@ -45,11 +43,4 @@ public sealed class SignalIngressAuthenticationMiddleware(
         HttpMethods.IsPost(request.Method)
         && request.Path.Equals(new PathString("/api/signals"));
 
-    private static bool ApiKeysMatch(string expected, string supplied)
-    {
-        var expectedHash = SHA256.HashData(Encoding.UTF8.GetBytes(expected));
-        var suppliedHash = SHA256.HashData(Encoding.UTF8.GetBytes(supplied));
-
-        return CryptographicOperations.FixedTimeEquals(expectedHash, suppliedHash);
-    }
 }

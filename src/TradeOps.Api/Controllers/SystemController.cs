@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeOps.Api.Contracts;
+using TradeOps.Api.Security;
 using TradeOps.Application.Interfaces;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Entities;
@@ -15,7 +16,9 @@ public sealed class SystemController(
     IOperationalRunHistoryRepository runHistoryRepository) : ControllerBase
 {
     [HttpPost("reconcile")]
+    [OperatorApiKey]
     [ProducesResponseType<ReconciliationSummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<ReconciliationSummary>> Reconcile(
         CancellationToken cancellationToken)
     {
@@ -24,7 +27,9 @@ public sealed class SystemController(
     }
 
     [HttpPost("reconcile/positions")]
+    [OperatorApiKey]
     [ProducesResponseType<PositionReconciliationSummary>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<PositionReconciliationSummary>> ReconcilePositions(
         CancellationToken cancellationToken)
     {

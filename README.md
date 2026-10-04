@@ -11,6 +11,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - configuration-driven exchange adapters behind `IExchangeClient`;
 - deterministic `ClientOrderId` generation and idempotent signal retries;
 - optional shared-secret authentication for external signal ingestion, rejected before persistence on authentication failure;
+- independent operator API-key protection for mutating control, cancellation and reconciliation actions;
 - PostgreSQL persistence with a unique constraint protecting against duplicate local orders;
 - no blind retry after an ambiguous exchange timeout;
 - guarded order state transitions and partial-fill handling;
@@ -416,6 +417,46 @@ curl -X POST http://localhost:8080/api/signals \
 
 When authentication is enabled, a missing or incorrect key returns HTTP `401` before request validation, persistence, risk evaluation or exchange execution. The middleware hashes both values and uses a fixed-time comparison; the configured secret is never written to logs or responses. Startup validation fails if authentication is enabled without a header name or API key.
 
+## Operator API authentication
+
+Mutating operator actions can be protected with a credential independent from the external signal-ingress key. Authentication is disabled by default for the local mock demo.
+
+Protected routes:
+
+```text
+POST   /api/risk/trading-enabled
+POST   /api/risk/emergency-stop
+DELETE /api/orders/{exchangeOrderId}
+POST   /api/orders/local/{idOrClientOrderId}/cancel
+POST   /api/orders/local/cancel-all
+POST   /api/system/reconcile
+POST   /api/system/reconcile/positions
+```
+
+Configuration:
+
+```json
+{
+  "OperatorApi": {
+    "Authentication": {
+      "Enabled": true,
+      "HeaderName": "X-TradeOps-Operator-Key",
+      "ApiKey": "YOUR_OPERATOR_SECRET"
+    }
+  }
+}
+```
+
+For Docker Compose:
+
+```bash
+export TRADEOPS_OPERATOR_AUTH_ENABLED=true
+export TRADEOPS_OPERATOR_API_KEY='YOUR_OPERATOR_SECRET'
+docker compose up --build -d
+```
+
+Read-only monitoring endpoints remain accessible in this milestone. The operator and signal-ingress credentials are separate: neither credential implicitly authorizes the other boundary.
+
 ## Order lifecycle
 
 Supported states:
@@ -556,7 +597,7 @@ GitHub Actions runs on `main` and `TradeOps/**` branches. The default pipeline r
 It:
 
 1. restores and builds the complete .NET 8 solution;
-2. runs the unit/integration test suite, including authenticated signal-ingress rejection/success coverage;
+2. runs the unit/integration test suite, including signal-ingress and operator API authentication coverage;
 3. starts PostgreSQL 16 and the API;
 4. verifies liveness/readiness and the OpenAPI surface;
 5. exercises signal execution, idempotent retry, reconciliation and order history;
@@ -572,6 +613,7 @@ Real Bybit testnet credentials are intentionally not required by ordinary CI.
 - the Bybit implementation accepts only the official testnet host in this branch;
 - no API key or secret is stored in the repository;
 - optional external signal-ingress authentication uses configuration/environment secrets only;
+- mutating operator actions can use a separate configuration/environment credential;
 - no secret/signing payload is logged;
 - an ambiguous placement outcome is reconciled by deterministic client order ID instead of blindly resubmitting;
 - real-money/mainnet trading remains out of scope for the current public version.
