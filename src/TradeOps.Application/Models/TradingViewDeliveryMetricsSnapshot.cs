@@ -13,4 +13,6 @@ public sealed record TradingViewDeliveryMetricsSnapshot(
     int Conflict,
     int Failed,
     double? AverageLatencyMilliseconds,
-    long? MaxLatencyMilliseconds);
+    long? MaxLatencyMilliseconds,
+    DateTimeOffset? LatestDeliveryAt,
+    DateTimeOffset? LatestSuccessfulAt);

@@ -162,6 +162,7 @@ builder.Services.AddScoped<ISignalTransitionMetricsRepository, EfSignalTransitio
 builder.Services.AddScoped<ISignalIngressReplayStore, EfSignalIngressReplayStore>();
 builder.Services.AddScoped<ISignalIngressRequestAuditRepository, EfSignalIngressRequestAuditRepository>();
 builder.Services.AddScoped<ITradingViewDeliveryAuditRepository, EfTradingViewDeliveryAuditRepository>();
+builder.Services.AddScoped<ITradingViewDeliveryHealthStateRepository, EfTradingViewDeliveryHealthStateRepository>();
 builder.Services.AddSingleton<IClientOrderIdGenerator, ClientOrderIdGenerator>();
 builder.Services.AddSingleton<IOrderStateMachine, OrderStateMachine>();
 builder.Services.AddSingleton(new RiskSettings());

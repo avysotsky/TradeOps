@@ -143,6 +143,23 @@ public sealed class EfTradingViewDeliveryAuditRepository(
                 cancellationToken);
         }
 
+        var latestDeliveryAt = await dbContext
+            .TradingViewDeliveryAudits
+            .AsNoTracking()
+            .MaxAsync(
+                item => (DateTimeOffset?)item.ReceivedAt,
+                cancellationToken);
+
+        var latestSuccessfulAt = await dbContext
+            .TradingViewDeliveryAudits
+            .AsNoTracking()
+            .Where(item =>
+                item.Outcome == TradingViewDeliveryOutcome.Accepted
+                || item.Outcome == TradingViewDeliveryOutcome.Redelivered)
+            .MaxAsync(
+                item => (DateTimeOffset?)item.ReceivedAt,
+                cancellationToken);
+
         return new TradingViewDeliveryMetricsSnapshot(
             DateTimeOffset.UtcNow,
             fromInclusive,
@@ -156,7 +173,9 @@ public sealed class EfTradingViewDeliveryAuditRepository(
             conflict,
             failed,
             averageLatency,
-            maxLatency);
+            maxLatency,
+            latestDeliveryAt,
+            latestSuccessfulAt);
     }
 
     private static string? Normalize(string? value)
