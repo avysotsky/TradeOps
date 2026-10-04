@@ -25,6 +25,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
+- executable .NET signed-webhook client that demonstrates tamper rejection, replay rejection, execution, reconciliation and metrics end to end;
 - CI build, unit tests and PostgreSQL-backed runtime/integration smoke tests.
 
 ## Stack
@@ -203,6 +204,29 @@ Run the deterministic mock demo:
 ```bash
 bash scripts/demo.sh
 ```
+
+For the secured commercial-style flow, enable signal authentication, replay protection, HMAC signing and operator authentication, then run the .NET end-to-end client:
+
+```bash
+export TRADEOPS_SIGNAL_AUTH_ENABLED=true
+export TRADEOPS_SIGNAL_API_KEY='local-demo-signal-api-key'
+export TRADEOPS_SIGNAL_REPLAY_ENABLED=true
+export TRADEOPS_SIGNAL_SIGNING_ENABLED=true
+export TRADEOPS_SIGNAL_SIGNING_SECRET='local-demo-signing-secret-at-least-32-characters'
+export TRADEOPS_OPERATOR_AUTH_ENABLED=true
+export TRADEOPS_OPERATOR_API_KEY='local-demo-operator-api-key'
+
+docker compose up --build -d
+
+export TRADEOPS_DEMO_API_URL='http://localhost:8080'
+export TRADEOPS_DEMO_SIGNAL_API_KEY='local-demo-signal-api-key'
+export TRADEOPS_DEMO_SIGNING_SECRET='local-demo-signing-secret-at-least-32-characters'
+export TRADEOPS_DEMO_OPERATOR_API_KEY='local-demo-operator-api-key'
+
+dotnet run --project tools/TradeOps.SignedWebhookDemo
+```
+
+The final line should be `SIGNED WEBHOOK E2E DEMO: PASS`. See `docs/signed-webhook-e2e-demo.md` for the complete sequence.
 
 Stop the stack:
 
@@ -669,7 +693,8 @@ It:
 5. exercises signal execution, idempotent retry, reconciliation and order history;
 6. verifies local cancellation, bulk cancellation and persistent emergency-stop behavior;
 7. exercises fills, daily P&L, operational run status and execution metrics;
-8. validates Docker Compose and builds the API/Worker images.
+8. runs the signed webhook end-to-end demo against a secured Mock API instance;
+9. validates Docker Compose and builds the API/Worker images.
 
 Real Bybit testnet credentials are intentionally not required by ordinary CI.
 
