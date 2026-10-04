@@ -422,7 +422,7 @@ jobs:
 
       - name: Signed webhook end-to-end demo
         env:
-          ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_ci;Username=postgres;Password=postgres
+          ConnectionStrings__TradeOpsDb: Host=127.0.0.1;Port=5432;Database=tradeops_signed_demo_ci;Username=postgres;Password=postgres
           ASPNETCORE_URLS: http://127.0.0.1:5081
           Exchange__Provider: Mock
           Telegram__Enabled: 'false'
@@ -439,6 +439,13 @@ jobs:
           TRADEOPS_DEMO_OPERATOR_API_KEY: ci-signed-demo-operator-api-key
         run: |
           set -euo pipefail
+
+          POSTGRES_CONTAINER=$(docker ps --filter 'ancestor=postgres:16' --format '{{.ID}}' | head -n 1)
+          test -n "$POSTGRES_CONTAINER"
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'DROP DATABASE IF EXISTS tradeops_signed_demo_ci WITH (FORCE);'
+          docker exec "$POSTGRES_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE tradeops_signed_demo_ci;'
 
           dotnet run --project src/TradeOps.Api --configuration Release --no-build > signed-demo-api.log 2>&1 &
           API_PID=$!
