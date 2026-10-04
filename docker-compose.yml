@@ -27,6 +27,9 @@ services:
       Exchange__Bybit__ApiSecret: ${BYBIT_TESTNET_API_SECRET:-}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
+      SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
+      SignalIngress__ReplayProtection__AllowedClockSkewSeconds: ${TRADEOPS_SIGNAL_REPLAY_CLOCK_SKEW_SECONDS:-300}
+      SignalIngress__ReplayProtection__ReceiptRetentionSeconds: ${TRADEOPS_SIGNAL_REPLAY_RETENTION_SECONDS:-600}
       OperatorApi__Authentication__Enabled: ${TRADEOPS_OPERATOR_AUTH_ENABLED:-false}
       OperatorApi__Authentication__ApiKey: ${TRADEOPS_OPERATOR_API_KEY:-}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
