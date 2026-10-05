@@ -109,6 +109,7 @@ HyperliquidTestnet
 MexcFuturesReadOnly
 DeribitTestnet
 OkxDemo
+BitgetDemo
 ```
 
 ## Execution flow
@@ -676,6 +677,55 @@ Smoke:
 
 ```bash
 bash scripts/okx-demo-smoke.sh
+```
+
+## Bitget Demo
+
+TradeOps v1.9.0.0 adds Bitget UTA v3 futures REST integration for Demo Trading.
+
+Provider:
+
+```text
+BitgetDemo
+```
+
+Bitget Demo uses `https://api.bitget.com`, the same REST host used by normal API traffic. TradeOps therefore enforces Demo Trading in code: every authenticated request from this provider includes:
+
+```text
+paptrading: 1
+```
+
+There is no configuration option that removes that header. Use a Bitget **Demo API Key**, not a production trading key.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=BitgetDemo
+export BITGET_DEMO_API_KEY='YOUR_DEMO_KEY'
+export BITGET_DEMO_API_SECRET='YOUR_DEMO_SECRET'
+export BITGET_DEMO_PASSPHRASE='YOUR_DEMO_PASSPHRASE'
+export BITGET_CATEGORY='USDT-FUTURES'
+export BITGET_ACCOUNT_CURRENCY='USDT'
+export BITGET_MARGIN_MODE='crossed'
+docker compose up --build -d
+```
+
+The REST adapter uses UTA v3 and supports account assets, current futures positions, open orders, order lookup, market/limit placement and cancellation. `clientOid` is deterministic and limited to 32 alphanumeric characters so ambiguous placement can be reconciled without blind resubmission.
+
+Supported categories are deliberately restricted to:
+
+```text
+USDT-FUTURES
+USDC-FUTURES
+COIN-FUTURES
+```
+
+For USDT/USDC futures, Bitget defines `qty` in base coin, matching TradeOps quantity semantics. This initial adapter assumes one-way position mode; it does not infer hedge-mode `posSide` intent from a generic buy/sell signal.
+
+Smoke:
+
+```bash
+bash scripts/bitget-demo-smoke.sh
 ```
 
 ## API
