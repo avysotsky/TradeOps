@@ -233,7 +233,9 @@ internal static class Program
             Console.WriteLine(
                 "6) Verify order lifecycle reaches Filled.");
 
-            using var historyResponse = await httpClient.GetAsync(
+            using var historyResponse = await GetAsOperatorAsync(
+                httpClient,
+                operatorKey,
                 $"/api/orders/local/{Uri.EscapeDataString(first.Order.ClientOrderId)}/history");
 
             RequireStatus(
