@@ -83,11 +83,36 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.IsType<BinanceFuturesExchangeClient>(exchangeClient);
         Assert.Same(exchangeClient, connectionManager);
-        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.IsType<BinanceUserDataStream>(eventStream);
         Assert.Equal("https://testnet.binancefuture.com", options.BaseUrl);
+        Assert.Equal("wss://stream.binancefuture.com", options.PrivateWebSocketBaseUrl);
         Assert.Equal("test-key", options.ApiKey);
         Assert.Equal("test-secret", options.ApiSecret);
         Assert.Equal(8, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_BinanceProductionWebSocketUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BinanceFuturesTestnet",
+                ["Exchange:Binance:ApiKey"] = "test-key",
+                ["Exchange:Binance:ApiSecret"] = "test-secret",
+                ["Exchange:Binance:PrivateWebSocketBaseUrl"] = "wss://fstream.binance.com"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeEventStream>());
+
+        Assert.Contains("restricted to approved non-production Futures websocket hosts", exception.Message);
     }
 
     [Fact]
