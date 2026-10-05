@@ -8,6 +8,8 @@ TradeOps does not provide trading alpha, signal ideas, strategy research or retu
 
 ## Pilot outcome
 
+For a short prospect walkthrough before scoping, use `docs/client-demo-script.md`.
+
 The pilot proves that one agreed client signal flow can move through a controlled execution pipeline with reproducible technical evidence:
 
 ```text
