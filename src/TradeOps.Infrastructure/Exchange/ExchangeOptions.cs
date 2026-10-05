@@ -10,6 +10,7 @@ public static class ExchangeProviders
     public const string DeribitTestnet = "DeribitTestnet";
     public const string OkxDemo = "OkxDemo";
     public const string BitgetDemo = "BitgetDemo";
+    public const string GateFuturesTestnet = "GateFuturesTestnet";
 }
 
 public sealed class ExchangeOptions
