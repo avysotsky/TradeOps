@@ -38,7 +38,9 @@ public sealed class SystemController(
     }
 
     [HttpGet("reconciliation/status")]
+    [OperatorApiKey]
     [ProducesResponseType<OperationalRunStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OperationalRunStatusResponse>> GetReconciliationStatus(
         CancellationToken cancellationToken)

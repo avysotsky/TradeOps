@@ -616,20 +616,21 @@ scripts/client-pilot-preflight.sh
 
 The starter kit keeps Mock as the first acceptance stage, supports an optional BybitTestnet phase only after Mock sign-off, and explicitly excludes strategy profitability/mainnet acceptance.
 
-After the required test event has completed, v1.3.2.0 can generate a client handoff evidence package:
+After the required test event has completed, v1.3.2.1 can generate an operator-authenticated client handoff evidence package:
 
 ```bash
 export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
+export TRADEOPS_OPERATOR_API_KEY='THE_CONFIGURED_OPERATOR_KEY'
 bash scripts/generate-pilot-evidence.sh
 ```
 
-The exporter reads only existing monitoring/audit endpoints and writes `pilot-evidence.json` plus `pilot-evidence.md`. It does not place, cancel or reconcile orders. See `docs/paid-pilot-evidence-handoff.md`.
+The exporter reads existing monitoring/audit endpoints and writes `pilot-evidence.json` plus `pilot-evidence.md`. Sensitive reads used by the evidence path require the operator credential when operator authentication is enabled. The exporter does not place, cancel or reconcile orders. See `docs/paid-pilot-evidence-handoff.md`.
 
 See `docs/tradingview-webhook-adapter.md`, `docs/tradingview-delivery-audit.md`, `docs/tradingview-delivery-health-alerting.md` and `deploy/tradingview-gateway/README.md`.
 
 ## Operator API authentication
 
-Mutating operator actions can be protected with a credential independent from the external signal-ingress key. Authentication is disabled by default for the local mock demo.
+Operator actions and the sensitive paid-pilot evidence read path can be protected with a credential independent from the external signal-ingress key. Authentication is disabled by default for the local mock demo.
 
 Protected routes:
 
@@ -641,6 +642,13 @@ POST   /api/orders/local/{idOrClientOrderId}/cancel
 POST   /api/orders/local/cancel-all
 POST   /api/system/reconcile
 POST   /api/system/reconcile/positions
+GET    /api/integrations/tradingview/operations/deliveries
+GET    /api/integrations/tradingview/operations/metrics
+GET    /api/integrations/tradingview/operations/health
+GET    /api/signals/{id}
+GET    /api/orders/local/{idOrClientOrderId}
+GET    /api/orders/local/{idOrClientOrderId}/history
+GET    /api/system/reconciliation/status
 ```
 
 Configuration:
@@ -665,7 +673,7 @@ export TRADEOPS_OPERATOR_API_KEY='YOUR_OPERATOR_SECRET'
 docker compose up --build -d
 ```
 
-Read-only monitoring endpoints remain accessible in this milestone. The operator and signal-ingress credentials are separate: neither credential implicitly authorizes the other boundary.
+Health/readiness probes and read-only monitoring routes outside the paid-pilot evidence boundary remain accessible in this milestone. The operator and signal-ingress credentials are separate: neither credential implicitly authorizes the other boundary.
 
 ## Order lifecycle
 
