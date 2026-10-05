@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
+using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
 
 namespace TradeOps.Infrastructure.Exchange;
@@ -29,15 +30,31 @@ public static class ExchangeServiceRegistration
             WebSocketPingIntervalSeconds = ReadPositiveInt(configuration[$"{BybitOptions.SectionName}:WebSocketPingIntervalSeconds"], 20)
         };
 
+        var binanceOptions = new BinanceOptions
+        {
+            BaseUrl = configuration[$"{BinanceOptions.SectionName}:BaseUrl"] ?? "https://testnet.binancefuture.com",
+            ApiKey = configuration[$"{BinanceOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{BinanceOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            SettlementCurrency = configuration[$"{BinanceOptions.SectionName}:SettlementCurrency"] ?? "USDT",
+            RecvWindowMilliseconds = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:RecvWindowMilliseconds"], 5_000),
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         services.AddSingleton(exchangeOptions);
         services.AddSingleton(bybitOptions);
+        services.AddSingleton(binanceOptions);
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bybitOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(BinanceFuturesExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(binanceOptions.HttpTimeoutSeconds);
+        });
 
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
+        services.AddSingleton<BinanceFuturesExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -57,8 +74,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.BinanceFuturesTestnet, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<BinanceFuturesExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<BinanceFuturesExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
