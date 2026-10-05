@@ -1,6 +1,6 @@
 # Paid pilot evidence and handoff
 
-TradeOps v1.3.2.0 adds a read-only evidence exporter for completed TradingView pilot events.
+TradeOps v1.3.2.1 uses the read-only evidence exporter for completed TradingView pilot events.
 
 It consumes the existing audit/operations API and creates:
 
@@ -17,6 +17,7 @@ No order is placed, cancelled or reconciled by the exporter.
 ```bash
 export TRADEOPS_PILOT_API_URL='http://localhost:8080'
 export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_TRADINGVIEW_EVENT_ID'
+export TRADEOPS_OPERATOR_API_KEY='THE_CONFIGURED_OPERATOR_KEY'
 ```
 
 Optional report metadata:
@@ -24,7 +25,7 @@ Optional report metadata:
 ```bash
 export TRADEOPS_PILOT_CLIENT='Client name'
 export TRADEOPS_PILOT_STAGE='Mock'
-export TRADEOPS_PILOT_VERSION='v1.3.2.0'
+export TRADEOPS_PILOT_VERSION='v1.3.2.1'
 export TRADEOPS_PILOT_OUTPUT_DIR='pilot-evidence'
 ```
 
@@ -77,6 +78,8 @@ The Markdown report includes a separate client sign-off section because automate
 
 The exporter calls read-only endpoints only.
 
-It does not require or write gateway, operator, exchange or Telegram credentials.
+When operator API authentication is enabled, it sends the configured operator credential using `X-TradeOps-Operator-Key`. A custom header name can be supplied with `TRADEOPS_OPERATOR_API_HEADER`.
+
+The exporter does not place, cancel or reconcile orders and does not require gateway, exchange or Telegram credentials.
 
 Generated evidence may contain symbols, quantities, timestamps and operational identifiers. Treat it as client project material rather than a public artifact unless the client has approved disclosure.
