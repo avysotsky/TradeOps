@@ -19,6 +19,17 @@ public sealed class EfOrderRepository(TradeOpsDbContext dbContext) : IOrderRepos
                 cancellationToken);
     }
 
+    public Task<Order?> GetByExchangeOrderIdAsync(
+        string exchangeOrderId,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.Orders
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                order => order.ExchangeOrderId == exchangeOrderId,
+                cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<Order>> GetReconciliationCandidatesAsync(
         CancellationToken cancellationToken = default)
     {
