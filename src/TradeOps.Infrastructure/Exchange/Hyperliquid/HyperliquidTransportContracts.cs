@@ -97,3 +97,23 @@ internal sealed class HyperliquidOrderStatusDto
     [JsonPropertyName("statusTimestamp")]
     public long StatusTimestamp { get; init; }
 }
+
+internal sealed class HyperliquidMetaDto
+{
+    [JsonPropertyName("universe")]
+    public List<HyperliquidAssetMetaDto> Universe { get; init; } = [];
+}
+
+internal sealed class HyperliquidAssetMetaDto
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("szDecimals")]
+    public int SizeDecimals { get; init; }
+}
+
+internal sealed record HyperliquidAssetInfo(
+    int AssetId,
+    string Name,
+    int SizeDecimals);
