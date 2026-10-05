@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Binance;
+using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
@@ -425,6 +426,89 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.Contains(
             "restricted to the official openapi.okx.com REST host",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsBitgetDemoFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BitgetDemo",
+                ["Exchange:Bitget:ApiKey"] = "demo-key",
+                ["Exchange:Bitget:ApiSecret"] = "demo-secret",
+                ["Exchange:Bitget:Passphrase"] = "demo-passphrase",
+                ["Exchange:Bitget:Category"] = "USDT-FUTURES",
+                ["Exchange:Bitget:MarginMode"] = "crossed",
+                ["Exchange:Bitget:HttpTimeoutSeconds"] = "14"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<BitgetOptions>();
+
+        Assert.IsType<BitgetDemoExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://api.bitget.com", options.BaseUrl);
+        Assert.Equal("demo-key", options.ApiKey);
+        Assert.Equal("USDT-FUTURES", options.Category);
+        Assert.Equal(14, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_BitgetSpotCategoryIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BitgetDemo",
+                ["Exchange:Bitget:Category"] = "SPOT"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "Category must be USDT-FUTURES",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_BitgetNonOfficialBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BitgetDemo",
+                ["Exchange:Bitget:BaseUrl"] = "https://example.invalid"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official api.bitget.com REST host",
             exception.Message);
     }
 
