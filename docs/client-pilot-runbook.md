@@ -1,6 +1,6 @@
 # Client pilot runbook
 
-TradeOps v1.3.2.0 defines a controlled path for the first paid TradingView integration pilot and its evidence handoff.
+TradeOps v1.3.2.1 defines a controlled path for the first paid TradingView integration pilot and its operator-authenticated evidence handoff.
 
 ## Scope
 
@@ -128,21 +128,20 @@ For each agreed acceptance event, generate evidence:
 export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
 export TRADEOPS_PILOT_CLIENT='Client name'
 export TRADEOPS_PILOT_STAGE='Mock'
+export TRADEOPS_OPERATOR_API_KEY='THE_CONFIGURED_OPERATOR_KEY'
 
 bash scripts/generate-pilot-evidence.sh
 ```
 
 Acceptance gate: `PILOT EVIDENCE: PASS`.
 
-Review the generated Markdown with the client. Automated technical PASS does not replace client acceptance.
+The evidence exporter authenticates the sensitive signal/order/reconciliation and TradingView operations reads with the operator credential. Review the generated Markdown with the client. Automated technical PASS does not replace client acceptance.
 
 ## Phase 6 — handoff
 
 Deliver:
 
 - generated `pilot-evidence.json` and `pilot-evidence.md`;
-
-
 - approved TradingView alert template;
 - approved event-ID rule;
 - deployment env-variable inventory without secret values;
