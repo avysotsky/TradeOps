@@ -41,6 +41,12 @@ services:
       Exchange__Okx__Passphrase: ${OKX_DEMO_PASSPHRASE:-}
       Exchange__Okx__AccountCurrency: ${OKX_ACCOUNT_CURRENCY:-USDT}
       Exchange__Okx__TradeMode: ${OKX_TRADE_MODE:-cross}
+      Exchange__Bitget__ApiKey: ${BITGET_DEMO_API_KEY:-}
+      Exchange__Bitget__ApiSecret: ${BITGET_DEMO_API_SECRET:-}
+      Exchange__Bitget__Passphrase: ${BITGET_DEMO_PASSPHRASE:-}
+      Exchange__Bitget__Category: ${BITGET_CATEGORY:-USDT-FUTURES}
+      Exchange__Bitget__AccountCurrency: ${BITGET_ACCOUNT_CURRENCY:-USDT}
+      Exchange__Bitget__MarginMode: ${BITGET_MARGIN_MODE:-crossed}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -88,6 +94,12 @@ services:
       Exchange__Okx__Passphrase: ${OKX_DEMO_PASSPHRASE:-}
       Exchange__Okx__AccountCurrency: ${OKX_ACCOUNT_CURRENCY:-USDT}
       Exchange__Okx__TradeMode: ${OKX_TRADE_MODE:-cross}
+      Exchange__Bitget__ApiKey: ${BITGET_DEMO_API_KEY:-}
+      Exchange__Bitget__ApiSecret: ${BITGET_DEMO_API_SECRET:-}
+      Exchange__Bitget__Passphrase: ${BITGET_DEMO_PASSPHRASE:-}
+      Exchange__Bitget__Category: ${BITGET_CATEGORY:-USDT-FUTURES}
+      Exchange__Bitget__AccountCurrency: ${BITGET_ACCOUNT_CURRENCY:-USDT}
+      Exchange__Bitget__MarginMode: ${BITGET_MARGIN_MODE:-crossed}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
