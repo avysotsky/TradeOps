@@ -7,6 +7,7 @@ using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
+using TradeOps.Infrastructure.Exchange.Okx;
 using Xunit;
 
 namespace TradeOps.UnitTests;
@@ -365,6 +366,65 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.Contains(
             "restricted to the official testnet API endpoint",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsOkxDemoFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "OkxDemo",
+                ["Exchange:Okx:ApiKey"] = "demo-key",
+                ["Exchange:Okx:ApiSecret"] = "demo-secret",
+                ["Exchange:Okx:Passphrase"] = "demo-passphrase",
+                ["Exchange:Okx:AccountCurrency"] = "USDT",
+                ["Exchange:Okx:TradeMode"] = "cross",
+                ["Exchange:Okx:HttpTimeoutSeconds"] = "13"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<OkxOptions>();
+
+        Assert.IsType<OkxDemoExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://openapi.okx.com", options.BaseUrl);
+        Assert.Equal("demo-key", options.ApiKey);
+        Assert.Equal("cross", options.TradeMode);
+        Assert.Equal(13, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_OkxNonOfficialBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "OkxDemo",
+                ["Exchange:Okx:BaseUrl"] = "https://example.invalid"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official openapi.okx.com REST host",
             exception.Message);
     }
 
