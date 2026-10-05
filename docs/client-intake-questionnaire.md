@@ -280,6 +280,7 @@ Complete this section after reviewing the answers.
 
 **Next action:**
 
+- [ ] Prepare `docs/paid-pilot-scope-template.md`
 - [ ] Send commercial terms
 - [ ] Run technical discovery
 - [ ] Reject / redirect as outside current scope
