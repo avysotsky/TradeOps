@@ -21,11 +21,29 @@ public interface IExchangeClient
         string exchangeOrderId,
         CancellationToken cancellationToken = default);
 
+    Task CancelOrderAsync(
+        string exchangeOrderId,
+        string? symbol,
+        CancellationToken cancellationToken = default) =>
+        CancelOrderAsync(exchangeOrderId, cancellationToken);
+
     Task<Order?> GetOrderAsync(
         string exchangeOrderId,
         CancellationToken cancellationToken = default);
 
+    Task<Order?> GetOrderAsync(
+        string exchangeOrderId,
+        string? symbol,
+        CancellationToken cancellationToken = default) =>
+        GetOrderAsync(exchangeOrderId, cancellationToken);
+
     Task<Order?> GetOrderByClientOrderIdAsync(
         string clientOrderId,
         CancellationToken cancellationToken = default);
+
+    Task<Order?> GetOrderByClientOrderIdAsync(
+        string clientOrderId,
+        string? symbol,
+        CancellationToken cancellationToken = default) =>
+        GetOrderByClientOrderIdAsync(clientOrderId, cancellationToken);
 }
