@@ -5,6 +5,7 @@ using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
+using TradeOps.Infrastructure.Exchange.Mexc;
 using Xunit;
 
 namespace TradeOps.UnitTests;
@@ -219,6 +220,93 @@ public sealed class ExchangeServiceRegistrationTests
             () => provider.GetRequiredService<IExchangeClient>());
 
         Assert.Contains("restricted to the official testnet API host", exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsMexcFuturesReadOnlyFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "MexcFuturesReadOnly",
+                ["Exchange:Mexc:ApiKey"] = "read-key",
+                ["Exchange:Mexc:ApiSecret"] = "read-secret",
+                ["Exchange:Mexc:HttpTimeoutSeconds"] = "11"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<MexcOptions>();
+
+        Assert.IsType<MexcFuturesReadOnlyExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://contract.mexc.com", options.BaseUrl);
+        Assert.Equal("read-key", options.ApiKey);
+        Assert.Equal("read-secret", options.ApiSecret);
+        Assert.Equal(11, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_MexcNonOfficialBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "MexcFuturesReadOnly",
+                ["Exchange:Mexc:BaseUrl"] = "https://contract-testnet.mexc.com"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official contract.mexc.com API host",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task MexcFuturesReadOnly_RejectsTradingMutationsLocally()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "MexcFuturesReadOnly",
+                ["Exchange:Mexc:ApiKey"] = "read-key",
+                ["Exchange:Mexc:ApiSecret"] = "read-secret"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => exchangeClient.PlaceOrderAsync(
+                new TradeOps.Application.Models.PlaceOrderRequest(
+                    "client-1",
+                    "BTCUSDT",
+                    TradeOps.Domain.Enums.OrderSide.Buy,
+                    TradeOps.Domain.Enums.OrderType.Market,
+                    0.001m)));
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => exchangeClient.CancelOrderAsync("123456", "BTCUSDT"));
     }
 
     [Fact]
