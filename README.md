@@ -4,7 +4,7 @@ C#/.NET trading execution and automation backend focused on reliable order handl
 
 TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Non-mock venue integrations are restricted to test environments: **Bybit testnet**, **Binance USD-M Futures testnet**, and **Hyperliquid testnet read-only**.
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Execution-capable venue integrations are restricted to **Bybit testnet**, **Binance USD-M Futures testnet**, and **Hyperliquid testnet**. MEXC Futures is **live-host read-only** because no separate Contract API sandbox/testnet is documented.
 
 ## What this demo proves
 
@@ -30,7 +30,8 @@ TradeOps is built for the case where a client already has trading rules, signals
 - restart recovery and persisted operational run status through background workers;
 - Bybit testnet REST integration plus authenticated private WebSocket order/execution events;
 - Binance USD-M Futures testnet REST integration plus private user-data stream with mainnet host rejection;
-- Hyperliquid testnet read-only account, position and order-state integration with mainnet host rejection;
+- Hyperliquid testnet signed execution plus order/fill WebSocket integration with mainnet host rejection;
+- MEXC Futures live-host read-only account, position and order-state integration with trading mutations disabled;
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
@@ -45,7 +46,7 @@ ASP.NET Core
 Worker Service
 EF Core 8
 PostgreSQL 16
-HttpClient / Bybit V5 REST / Binance USD-M Futures REST / Hyperliquid Info API
+HttpClient / Bybit V5 REST / Binance USD-M Futures REST / Hyperliquid API / MEXC Contract API
 Docker / Docker Compose
 GitHub Actions
 ```
@@ -67,7 +68,7 @@ Responsibilities:
 
 - **Domain** — entities, enums and order state rules.
 - **Application** — execution use cases and exchange-independent contracts.
-- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter, Hyperliquid testnet adapter and Telegram adapter.
+- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter, Hyperliquid testnet adapter, MEXC Futures read-only adapter and Telegram adapter.
 - **Api** — signal input, exchange/account monitoring, order lookup/cancellation and manual reconciliation endpoints.
 - **Worker** — restart recovery, reconnect and periodic reconciliation.
 
@@ -105,6 +106,7 @@ Mock
 BybitTestnet
 BinanceFuturesTestnet
 HyperliquidTestnet
+MexcFuturesReadOnly
 ```
 
 ## Execution flow
@@ -531,6 +533,72 @@ The stream is configured with:
 The Worker already reconnects event streams with exponential backoff when Hyperliquid disconnects. The mainnet websocket endpoint is rejected.
 
 The adapter accepts only the official `https://api.hyperliquid-testnet.xyz` REST host and `wss://api.hyperliquid-testnet.xyz/ws` websocket endpoint. Mainnet endpoints are rejected.
+
+## MEXC Futures read-only
+
+TradeOps v1.6.0.0 adds a deliberately read-only MEXC Futures adapter.
+
+MEXC's official Contract API documentation currently publishes the live API host:
+
+```text
+https://contract.mexc.com
+```
+
+and does not publish a separate Contract API sandbox/testnet. The documented place-order and cancel-order endpoints are also marked as under maintenance. For those reasons TradeOps does **not** expose MEXC order placement or cancellation in this milestone.
+
+Provider:
+
+```text
+MexcFuturesReadOnly
+```
+
+The adapter supports:
+
+```text
+GetAccountAsync
+GetPositionsAsync
+GetOpenOrdersAsync
+GetOrderAsync
+GetOrderByClientOrderIdAsync (symbol required)
+```
+
+It intentionally rejects:
+
+```text
+PlaceOrderAsync
+CancelOrderAsync
+```
+
+Use a MEXC API key with only the minimum read permissions required by the endpoints: account read and trade-information read. Do not grant transaction-modify permission for this adapter.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=MexcFuturesReadOnly
+export MEXC_FUTURES_API_KEY='YOUR_READ_ONLY_KEY'
+export MEXC_FUTURES_API_SECRET='YOUR_READ_ONLY_SECRET'
+docker compose up --build -d
+```
+
+Read-only smoke:
+
+```bash
+bash scripts/mexc-futures-readonly-smoke.sh
+```
+
+The smoke script reads account state, positions and open orders only.
+
+MEXC contract quantities are expressed in contract volume. TradeOps converts them to base-asset quantity using the public `contractSize` metadata. Position mark price is taken from MEXC `fairPrice`.
+
+Private GET requests use the documented MEXC Contract API signing scheme:
+
+```text
+ApiKey + Request-Time + sorted/url-encoded request parameters
+-> HMAC-SHA256(secret)
+-> lowercase hexadecimal Signature header
+```
+
+The adapter is restricted to the official `https://contract.mexc.com` host. This restriction does **not** make the host a test environment; it remains a live exchange endpoint, which is why mutation methods stay disabled.
 
 ## API
 
