@@ -6,6 +6,7 @@ public static class ExchangeProviders
     public const string BybitTestnet = "BybitTestnet";
     public const string BinanceFuturesTestnet = "BinanceFuturesTestnet";
     public const string HyperliquidTestnet = "HyperliquidTestnet";
+    public const string MexcFuturesReadOnly = "MexcFuturesReadOnly";
 }
 
 public sealed class ExchangeOptions
