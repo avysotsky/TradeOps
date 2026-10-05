@@ -605,7 +605,7 @@ bash scripts/tradingview-customer-demo.sh
 
 The demo uses Mock execution only and leaves the stack running for inspection. It proves provider redelivery idempotency, event-id conflict protection, delivery correlation, protected reconciliation, lifecycle completion, metrics and Worker health. See `docs/customer-tradingview-demo.md`.
 
-For a first paid pilot, start with the v1.3.1.0 integration kit:
+For a first paid pilot, start with the client-facing offer in `docs/paid-pilot-offer.md`, then use the integration kit:
 
 ```text
 deploy/client-starter/
