@@ -110,6 +110,7 @@ MexcFuturesReadOnly
 DeribitTestnet
 OkxDemo
 BitgetDemo
+GateFuturesTestnet
 ```
 
 ## Execution flow
@@ -726,6 +727,51 @@ Smoke:
 
 ```bash
 bash scripts/bitget-demo-smoke.sh
+```
+
+## Gate Futures TestNet
+
+TradeOps v1.10.0.0 adds Gate perpetual-futures REST execution against Gate's separate Futures TestNet:
+
+```text
+https://api-testnet.gateapi.io/api/v4
+```
+
+Provider:
+
+```text
+GateFuturesTestnet
+```
+
+Gate documents Futures TestNet as a separate environment requiring separate TestNet API keys. The production hosts are rejected by this adapter.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=GateFuturesTestnet
+export GATE_FUTURES_TESTNET_API_KEY='YOUR_TESTNET_KEY'
+export GATE_FUTURES_TESTNET_API_SECRET='YOUR_TESTNET_SECRET'
+export GATE_FUTURES_SETTLE='usdt'
+docker compose up --build -d
+```
+
+The adapter supports futures account state, positions, open orders, single-order lookup, market/limit placement and cancellation. Request signing uses Gate APIv4's SHA-512 payload hash plus HMAC-SHA512 signature.
+
+For this adapter:
+
+```text
+Symbol   = native Gate contract, e.g. BTC_USDT
+Quantity = Gate contract size
+```
+
+A TradeOps `ClientOrderId` is converted to a deterministic Gate custom `text` identifier using the required `t-` prefix. This identifier is used to reconcile ambiguous placement without blind resubmission.
+
+TradeOps `Market` maps to Gate `price=0` + `tif=ioc`; `Limit` maps to `gtc`.
+
+Smoke:
+
+```bash
+bash scripts/gate-futures-testnet-smoke.sh
 ```
 
 ## API
