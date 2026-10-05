@@ -6,6 +6,8 @@ public sealed class HyperliquidOptions
 
     public string BaseUrl { get; init; } = "https://api.hyperliquid-testnet.xyz";
 
+    public string WebSocketUrl { get; init; } = "wss://api.hyperliquid-testnet.xyz/ws";
+
     public string UserAddress { get; init; } = string.Empty;
 
     public string PrivateKey { get; init; } = string.Empty;
