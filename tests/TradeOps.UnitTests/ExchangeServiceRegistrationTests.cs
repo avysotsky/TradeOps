@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange;
+using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using Xunit;
 
@@ -55,6 +56,62 @@ public sealed class ExchangeServiceRegistrationTests
         Assert.Equal("test-key", options.ApiKey);
         Assert.Equal("test-secret", options.ApiSecret);
         Assert.Equal(7, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsBinanceFuturesTestnetFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BinanceFuturesTestnet",
+                ["Exchange:Binance:ApiKey"] = "test-key",
+                ["Exchange:Binance:ApiSecret"] = "test-secret",
+                ["Exchange:Binance:HttpTimeoutSeconds"] = "8"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<BinanceOptions>();
+
+        Assert.IsType<BinanceFuturesExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://testnet.binancefuture.com", options.BaseUrl);
+        Assert.Equal("test-key", options.ApiKey);
+        Assert.Equal("test-secret", options.ApiSecret);
+        Assert.Equal(8, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_BinanceProductionBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "BinanceFuturesTestnet",
+                ["Exchange:Binance:BaseUrl"] = "https://fapi.binance.com",
+                ["Exchange:Binance:ApiKey"] = "test-key",
+                ["Exchange:Binance:ApiSecret"] = "test-secret"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains("restricted to approved non-production", exception.Message);
     }
 
     [Fact]

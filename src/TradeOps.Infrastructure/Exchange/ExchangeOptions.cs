@@ -4,6 +4,7 @@ public static class ExchangeProviders
 {
     public const string Mock = "Mock";
     public const string BybitTestnet = "BybitTestnet";
+    public const string BinanceFuturesTestnet = "BinanceFuturesTestnet";
 }
 
 public sealed class ExchangeOptions
