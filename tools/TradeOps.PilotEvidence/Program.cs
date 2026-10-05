@@ -19,13 +19,25 @@ internal static class Program
             var outputDir = Optional("TRADEOPS_PILOT_OUTPUT_DIR", "pilot-evidence");
             var client = Optional("TRADEOPS_PILOT_CLIENT", "Not specified");
             var stage = Optional("TRADEOPS_PILOT_STAGE", "Mock");
-            var version = Optional("TRADEOPS_PILOT_VERSION", "v1.3.2.0");
+            var version = Optional("TRADEOPS_PILOT_VERSION", "v1.3.2.1");
 
             using var http = new HttpClient
             {
                 BaseAddress = new Uri(apiUrl, UriKind.Absolute),
                 Timeout = TimeSpan.FromSeconds(15)
             };
+
+            var operatorKey = Environment.GetEnvironmentVariable(
+                "TRADEOPS_OPERATOR_API_KEY");
+            if (!string.IsNullOrWhiteSpace(operatorKey))
+            {
+                var operatorHeader = Optional(
+                    "TRADEOPS_OPERATOR_API_HEADER",
+                    "X-TradeOps-Operator-Key");
+                http.DefaultRequestHeaders.Add(
+                    operatorHeader,
+                    operatorKey.Trim());
+            }
 
             await RequireOk(http, "/health/ready", "TradeOps API is not ready.");
 
