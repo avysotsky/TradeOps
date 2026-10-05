@@ -79,3 +79,9 @@ internal sealed class BinanceOrderDto
     [JsonPropertyName("updateTime")]
     public long UpdateTime { get; init; }
 }
+
+internal sealed class BinanceListenKeyDto
+{
+    [JsonPropertyName("listenKey")]
+    public string ListenKey { get; init; } = string.Empty;
+}
