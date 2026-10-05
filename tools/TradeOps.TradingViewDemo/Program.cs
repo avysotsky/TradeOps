@@ -159,7 +159,9 @@ internal static class Program
             Console.WriteLine(
                 "4) Read provider delivery audit.");
 
-            using var deliveriesResponse = await httpClient.GetAsync(
+            using var deliveriesResponse = await GetAsOperatorAsync(
+                httpClient,
+                operatorKey,
                 $"/api/integrations/tradingview/operations/deliveries?eventId={Uri.EscapeDataString(eventId)}&limit=10");
             RequireStatus(
                 deliveriesResponse,
@@ -258,7 +260,9 @@ internal static class Program
             Console.WriteLine(
                 "7) Read TradingView delivery metrics.");
 
-            using var metricsResponse = await httpClient.GetAsync(
+            using var metricsResponse = await GetAsOperatorAsync(
+                httpClient,
+                operatorKey,
                 "/api/integrations/tradingview/operations/metrics");
 
             RequireStatus(
@@ -287,6 +291,7 @@ internal static class Program
 
             var health = await WaitForHealthyAsync(
                 httpClient,
+                operatorKey,
                 TimeSpan.FromSeconds(40));
 
             Console.WriteLine(
@@ -326,6 +331,20 @@ internal static class Program
         return await httpClient.SendAsync(request);
     }
 
+    private static async Task<HttpResponseMessage> GetAsOperatorAsync(
+        HttpClient httpClient,
+        string operatorKey,
+        string path)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            path);
+        request.Headers.Add(
+            OperatorHeader,
+            operatorKey);
+        return await httpClient.SendAsync(request);
+    }
+
     private static async Task VerifyReadinessAsync(
         HttpClient httpClient)
     {
@@ -341,6 +360,7 @@ internal static class Program
     private static async Task<TradingViewHealth>
         WaitForHealthyAsync(
             HttpClient httpClient,
+            string operatorKey,
             TimeSpan timeout)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
@@ -348,7 +368,9 @@ internal static class Program
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            using var response = await httpClient.GetAsync(
+            using var response = await GetAsOperatorAsync(
+                httpClient,
+                operatorKey,
                 "/api/integrations/tradingview/operations/health");
 
             if (response.StatusCode == HttpStatusCode.OK)
