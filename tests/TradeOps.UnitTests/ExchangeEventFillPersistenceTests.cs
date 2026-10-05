@@ -49,6 +49,36 @@ public sealed class ExchangeEventFillPersistenceTests
     }
 
     [Fact]
+    public async Task ProcessExecutionUpdateAsync_WithoutClientOrderId_ResolvesByExchangeOrderId()
+    {
+        var order = CreateOrder();
+        var orderRepository = new FakeOrderRepository(order);
+        var fillRepository = new FakeFillRepository();
+        var processor = new ExchangeEventProcessor(
+            orderRepository,
+            fillRepository,
+            new OrderStateMachine(),
+            NullLogger<ExchangeEventProcessor>.Instance);
+
+        await processor.ProcessExecutionUpdateAsync(
+            new ExchangeExecutionUpdate(
+                order.ExchangeOrderId!,
+                string.Empty,
+                "hl:1760000002000:BTC:55555",
+                order.Symbol,
+                order.Side,
+                0.001m,
+                65000m,
+                0.00001m,
+                "USDC",
+                DateTimeOffset.Parse("2026-10-05T18:00:00Z")));
+
+        var fill = Assert.Single(fillRepository.Fills);
+        Assert.Equal(order.Id, fill.OrderId);
+        Assert.Equal("hl:1760000002000:BTC:55555", fill.ExchangeFillId);
+    }
+
+    [Fact]
     public async Task ProcessExecutionUpdateAsync_IdentityMismatch_DoesNotPersistFill()
     {
         var order = CreateOrder();
@@ -120,6 +150,17 @@ public sealed class ExchangeEventFillPersistenceTests
             Task.FromResult<Order?>(string.Equals(order.ClientOrderId, clientOrderId, StringComparison.Ordinal)
                 ? order
                 : null);
+
+        public Task<Order?> GetByExchangeOrderIdAsync(
+            string exchangeOrderId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<Order?>(
+                string.Equals(
+                    order.ExchangeOrderId,
+                    exchangeOrderId,
+                    StringComparison.Ordinal)
+                    ? order
+                    : null);
 
         public Task<IReadOnlyCollection<Order>> GetReconciliationCandidatesAsync(
             CancellationToken cancellationToken = default) =>
