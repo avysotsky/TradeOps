@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange.Binance;
+using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
@@ -20,6 +21,18 @@ public static class ExchangeServiceRegistration
         provider = string.IsNullOrWhiteSpace(provider) ? ExchangeProviders.Mock : provider;
 
         var exchangeOptions = new ExchangeOptions { Provider = provider };
+        var bitgetOptions = new BitgetOptions
+        {
+            BaseUrl = configuration[$"{BitgetOptions.SectionName}:BaseUrl"] ?? "https://api.bitget.com",
+            ApiKey = configuration[$"{BitgetOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{BitgetOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            Passphrase = configuration[$"{BitgetOptions.SectionName}:Passphrase"] ?? string.Empty,
+            Category = configuration[$"{BitgetOptions.SectionName}:Category"] ?? "USDT-FUTURES",
+            AccountCurrency = configuration[$"{BitgetOptions.SectionName}:AccountCurrency"] ?? "USDT",
+            MarginMode = configuration[$"{BitgetOptions.SectionName}:MarginMode"] ?? "crossed",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{BitgetOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var bybitOptions = new BybitOptions
         {
             BaseUrl = configuration[$"{BybitOptions.SectionName}:BaseUrl"] ?? "https://api-testnet.bybit.com",
@@ -87,12 +100,17 @@ public static class ExchangeServiceRegistration
         };
 
         services.AddSingleton(exchangeOptions);
+        services.AddSingleton(bitgetOptions);
         services.AddSingleton(bybitOptions);
         services.AddSingleton(binanceOptions);
         services.AddSingleton(hyperliquidOptions);
         services.AddSingleton(mexcOptions);
         services.AddSingleton(deribitOptions);
         services.AddSingleton(okxOptions);
+        services.AddHttpClient(BitgetDemoExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(bitgetOptions.HttpTimeoutSeconds);
+        });
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bybitOptions.HttpTimeoutSeconds);
@@ -118,6 +136,7 @@ public static class ExchangeServiceRegistration
             client.Timeout = TimeSpan.FromSeconds(okxOptions.HttpTimeoutSeconds);
         });
 
+        services.AddSingleton<BitgetDemoExchangeClient>();
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
         services.AddSingleton<BinanceFuturesExchangeClient>();
@@ -186,8 +205,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.BitgetDemo, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<BitgetDemoExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<BitgetDemoExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
