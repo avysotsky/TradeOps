@@ -33,11 +33,13 @@ public static class ExchangeServiceRegistration
         var binanceOptions = new BinanceOptions
         {
             BaseUrl = configuration[$"{BinanceOptions.SectionName}:BaseUrl"] ?? "https://testnet.binancefuture.com",
+            PrivateWebSocketBaseUrl = configuration[$"{BinanceOptions.SectionName}:PrivateWebSocketBaseUrl"] ?? "wss://stream.binancefuture.com",
             ApiKey = configuration[$"{BinanceOptions.SectionName}:ApiKey"] ?? string.Empty,
             ApiSecret = configuration[$"{BinanceOptions.SectionName}:ApiSecret"] ?? string.Empty,
             SettlementCurrency = configuration[$"{BinanceOptions.SectionName}:SettlementCurrency"] ?? "USDT",
             RecvWindowMilliseconds = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:RecvWindowMilliseconds"], 5_000),
-            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:HttpTimeoutSeconds"], 10)
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:HttpTimeoutSeconds"], 10),
+            ListenKeyKeepaliveMinutes = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:ListenKeyKeepaliveMinutes"], 30)
         };
 
         services.AddSingleton(exchangeOptions);
@@ -55,6 +57,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
         services.AddSingleton<BinanceFuturesExchangeClient>();
+        services.AddSingleton<BinanceUserDataStream>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -78,7 +81,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<BinanceFuturesExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<BinanceFuturesExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<BinanceUserDataStream>());
             return services;
         }
 
