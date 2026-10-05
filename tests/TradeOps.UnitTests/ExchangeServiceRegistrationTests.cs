@@ -4,6 +4,7 @@ using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using Xunit;
 
 namespace TradeOps.UnitTests;
@@ -137,6 +138,59 @@ public sealed class ExchangeServiceRegistrationTests
             () => provider.GetRequiredService<IExchangeClient>());
 
         Assert.Contains("restricted to approved non-production", exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsHyperliquidTestnetReadOnlyFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "HyperliquidTestnet",
+                ["Exchange:Hyperliquid:UserAddress"] = "0x1111111111111111111111111111111111111111",
+                ["Exchange:Hyperliquid:HttpTimeoutSeconds"] = "9"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<HyperliquidOptions>();
+
+        Assert.IsType<HyperliquidExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://api.hyperliquid-testnet.xyz", options.BaseUrl);
+        Assert.Equal("0x1111111111111111111111111111111111111111", options.UserAddress);
+        Assert.Equal(9, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_HyperliquidMainnetBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "HyperliquidTestnet",
+                ["Exchange:Hyperliquid:BaseUrl"] = "https://api.hyperliquid.xyz",
+                ["Exchange:Hyperliquid:UserAddress"] = "0x1111111111111111111111111111111111111111"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains("restricted to the official testnet API host", exception.Message);
     }
 
     [Fact]
