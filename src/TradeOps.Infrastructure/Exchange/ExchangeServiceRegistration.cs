@@ -47,6 +47,8 @@ public static class ExchangeServiceRegistration
         {
             BaseUrl = configuration[$"{HyperliquidOptions.SectionName}:BaseUrl"] ?? "https://api.hyperliquid-testnet.xyz",
             UserAddress = configuration[$"{HyperliquidOptions.SectionName}:UserAddress"] ?? string.Empty,
+            PrivateKey = configuration[$"{HyperliquidOptions.SectionName}:PrivateKey"] ?? string.Empty,
+            MarketSlippagePercent = ReadPositiveDecimal(configuration[$"{HyperliquidOptions.SectionName}:MarketSlippagePercent"], 5m),
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{HyperliquidOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
@@ -113,4 +115,14 @@ public static class ExchangeServiceRegistration
 
     private static int ReadPositiveInt(string? value, int fallback) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
+
+    private static decimal ReadPositiveDecimal(string? value, decimal fallback) =>
+        decimal.TryParse(
+            value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+        && parsed > 0m
+            ? parsed
+            : fallback;
 }
