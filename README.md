@@ -436,41 +436,68 @@ Production Binance websocket hosts are rejected. The stream credentials are neve
 
 ## Hyperliquid testnet
 
-TradeOps v1.5.0.0 adds a deliberately read-only Hyperliquid testnet adapter.
+TradeOps v1.5.x supports Hyperliquid testnet account/order reads and signed perpetual execution.
 
-Hyperliquid's public `/info` endpoint allows TradeOps to validate account and order-state mapping before introducing exchange-action signing. The adapter uses only:
+Read-side integration uses the public `/info` endpoint:
 
 ```text
 clearinghouseState
 frontendOpenOrders
 orderStatus
+meta
+allMids
 ```
+
+Signed execution uses the testnet `/exchange` endpoint with the Hyperliquid L1 signing scheme:
+
+```text
+ordered MessagePack action
+-> nonce + null vault marker
+-> Keccak-256 action hash
+-> testnet phantom Agent
+-> EIP-712 signature
+-> /exchange
+```
+
+The C# signer is covered by official Hyperliquid Python SDK signature vectors, including an order with a deterministic client order id.
 
 Configuration:
 
 ```bash
 export TRADEOPS_EXCHANGE_PROVIDER=HyperliquidTestnet
-export HYPERLIQUID_TESTNET_USER_ADDRESS='0xYOUR_TESTNET_ACCOUNT_ADDRESS'
+export HYPERLIQUID_TESTNET_USER_ADDRESS='0xYOUR_MASTER_OR_SUBACCOUNT_ADDRESS'
+export HYPERLIQUID_TESTNET_PRIVATE_KEY='0xYOUR_DEDICATED_TESTNET_API_WALLET_PRIVATE_KEY'
+export HYPERLIQUID_MARKET_SLIPPAGE_PERCENT=5
 docker compose up --build -d
 ```
 
-Read-only smoke:
+Use a dedicated Hyperliquid API/agent wallet for automated signing. `UserAddress` remains the actual account address whose state is queried; the signing key may belong to an approved API wallet.
+
+Never commit the private key.
+
+Read-only smoke remains available:
 
 ```bash
 bash scripts/hyperliquid-testnet-readonly-smoke.sh
 ```
 
-This stage supports:
+Supported exchange contract:
 
 ```text
 GetAccountAsync
 GetPositionsAsync
 GetOpenOrdersAsync
 GetOrderAsync
-GetOrderByClientOrderIdAsync (for valid Hyperliquid cloid values)
+GetOrderByClientOrderIdAsync
+PlaceOrderAsync
+CancelOrderAsync
 ```
 
-`PlaceOrderAsync` and `CancelOrderAsync` intentionally throw `NotSupportedException` in this milestone. Hyperliquid action signing and testnet execution are implemented separately so read-only response mapping can be validated first.
+For standard perpetuals, TradeOps resolves `asset` from the index in `meta.universe` and enforces `szDecimals`. Builder-deployed HIP-3 perps are intentionally excluded from this milestone because their asset-id encoding is different.
+
+Hyperliquid has no native market-order primitive in this API path. TradeOps maps a TradeOps `Market` order to an aggressive IOC limit around the current mid price using the configured slippage percentage. A TradeOps `Limit` order maps to GTC.
+
+TradeOps converts its arbitrary `ClientOrderId` into a deterministic 128-bit Hyperliquid `cloid`. This allows ambiguous placement recovery through `orderStatus` without blindly submitting the order again.
 
 The adapter accepts only the official `https://api.hyperliquid-testnet.xyz` host. Mainnet `https://api.hyperliquid.xyz` is rejected.
 
