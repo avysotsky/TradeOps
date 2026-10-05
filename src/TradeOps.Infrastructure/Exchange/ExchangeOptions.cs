@@ -8,6 +8,7 @@ public static class ExchangeProviders
     public const string HyperliquidTestnet = "HyperliquidTestnet";
     public const string MexcFuturesReadOnly = "MexcFuturesReadOnly";
     public const string DeribitTestnet = "DeribitTestnet";
+    public const string OkxDemo = "OkxDemo";
 }
 
 public sealed class ExchangeOptions

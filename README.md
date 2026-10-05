@@ -108,6 +108,7 @@ BinanceFuturesTestnet
 HyperliquidTestnet
 MexcFuturesReadOnly
 DeribitTestnet
+OkxDemo
 ```
 
 ## Execution flow
@@ -636,6 +637,46 @@ bash scripts/deribit-testnet-smoke.sh
 For this adapter, `Symbol` must be a native Deribit instrument name such as `BTC-PERPETUAL` or a dated future. `Quantity` is expressed in Deribit contract units and is sent through the API `contracts` parameter. TradeOps does not silently reinterpret `BTCUSDT` as a Deribit instrument.
 
 The adapter accepts only the official testnet host. `https://www.deribit.com/api/v2` is rejected.
+
+## OKX Demo
+
+TradeOps v1.8.0.0 adds OKX derivatives REST integration for the official Demo Trading environment.
+
+Provider:
+
+```text
+OkxDemo
+```
+
+OKX Demo uses the same REST hostname as production, so the safety boundary is enforced in the request code: every authenticated request from this provider always includes:
+
+```text
+x-simulated-trading: 1
+```
+
+There is no configuration switch that disables this header.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=OkxDemo
+export OKX_DEMO_API_KEY='YOUR_DEMO_KEY'
+export OKX_DEMO_API_SECRET='YOUR_DEMO_SECRET'
+export OKX_DEMO_PASSPHRASE='YOUR_DEMO_PASSPHRASE'
+export OKX_ACCOUNT_CURRENCY='USDT'
+export OKX_TRADE_MODE='cross'
+docker compose up --build -d
+```
+
+The adapter supports balance, positions, pending/recent order lookup, deterministic client-order correlation, market/limit placement and cancellation. Request signing uses the documented OKX HMAC-SHA256/Base64 pre-hash scheme.
+
+`Symbol` must be a native OKX derivatives instrument ID such as `BTC-USDT-SWAP` or a dated futures instrument. `Quantity` maps directly to OKX `sz`. The initial adapter assumes the account is configured for net-position operation; long/short position-mode specific order fields are intentionally not inferred.
+
+Smoke:
+
+```bash
+bash scripts/okx-demo-smoke.sh
+```
 
 ## API
 
