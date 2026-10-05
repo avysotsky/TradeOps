@@ -52,6 +52,8 @@ Bybit mainnet and real-money execution are not part of this offer.
 
 ## Client inputs required
 
+Before accepting the pilot, complete `docs/client-intake-questionnaire.md` and classify the request as FIT, FIT WITH SMALL ADAPTATION, SEPARATE SCOPE REQUIRED or NOT A CURRENT FIT.
+
 Before implementation, the client supplies or approves:
 
 - TradingView indicator/strategy/alert source;
