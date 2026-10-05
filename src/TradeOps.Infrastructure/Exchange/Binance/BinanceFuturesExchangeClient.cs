@@ -360,7 +360,10 @@ public sealed class BinanceFuturesExchangeClient : IExchangeClient, IExchangeCon
 
             if (!response.IsSuccessStatusCode)
             {
-                _isConnected = false;
+                if ((int)response.StatusCode >= 500)
+                {
+                    _isConnected = false;
+                }
 
                 BinanceErrorDto? error = null;
                 try
