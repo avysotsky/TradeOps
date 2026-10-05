@@ -4,6 +4,7 @@ using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
 using Xunit;
@@ -307,6 +308,64 @@ public sealed class ExchangeServiceRegistrationTests
 
         await Assert.ThrowsAsync<NotSupportedException>(
             () => exchangeClient.CancelOrderAsync("123456", "BTCUSDT"));
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsDeribitTestnetFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "DeribitTestnet",
+                ["Exchange:Deribit:ClientId"] = "test-client",
+                ["Exchange:Deribit:ClientSecret"] = "test-secret",
+                ["Exchange:Deribit:AccountCurrency"] = "ETH",
+                ["Exchange:Deribit:HttpTimeoutSeconds"] = "12"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<DeribitOptions>();
+
+        Assert.IsType<DeribitTestnetExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://test.deribit.com/api/v2", options.BaseUrl);
+        Assert.Equal("test-client", options.ClientId);
+        Assert.Equal("test-secret", options.ClientSecret);
+        Assert.Equal("ETH", options.AccountCurrency);
+        Assert.Equal(12, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_DeribitProductionBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "DeribitTestnet",
+                ["Exchange:Deribit:BaseUrl"] = "https://www.deribit.com/api/v2"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official testnet API endpoint",
+            exception.Message);
     }
 
     [Fact]
