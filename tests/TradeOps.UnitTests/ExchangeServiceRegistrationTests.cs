@@ -24,9 +24,11 @@ public sealed class ExchangeServiceRegistrationTests
 
         var exchangeClient = provider.GetRequiredService<IExchangeClient>();
         var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
 
         Assert.IsType<MockExchangeClient>(exchangeClient);
         Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
     }
 
     [Fact]
@@ -164,10 +166,36 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.IsType<HyperliquidExchangeClient>(exchangeClient);
         Assert.Same(exchangeClient, connectionManager);
-        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.IsType<HyperliquidUserDataStream>(eventStream);
         Assert.Equal("https://api.hyperliquid-testnet.xyz", options.BaseUrl);
+        Assert.Equal("wss://api.hyperliquid-testnet.xyz/ws", options.WebSocketUrl);
         Assert.Equal("0x1111111111111111111111111111111111111111", options.UserAddress);
         Assert.Equal(9, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_HyperliquidMainnetWebSocketUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "HyperliquidTestnet",
+                ["Exchange:Hyperliquid:UserAddress"] = "0x1111111111111111111111111111111111111111",
+                ["Exchange:Hyperliquid:WebSocketUrl"] = "wss://api.hyperliquid.xyz/ws"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeEventStream>());
+
+        Assert.Contains(
+            "restricted to the official testnet endpoint",
+            exception.Message);
     }
 
     [Fact]

@@ -15,16 +15,26 @@ public sealed class ExchangeEventProcessor(
         ExchangeOrderUpdate update,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(update.ClientOrderId))
+        var localOrder = !string.IsNullOrWhiteSpace(update.ClientOrderId)
+            ? await orderRepository.GetByClientOrderIdAsync(
+                update.ClientOrderId,
+                cancellationToken)
+            : null;
+
+        if (localOrder is null
+            && !string.IsNullOrWhiteSpace(update.ExchangeOrderId))
         {
-            logger.LogDebug("Ignoring exchange order update {ExchangeOrderId} without ClientOrderId.", update.ExchangeOrderId);
-            return;
+            localOrder = await orderRepository.GetByExchangeOrderIdAsync(
+                update.ExchangeOrderId,
+                cancellationToken);
         }
 
-        var localOrder = await orderRepository.GetByClientOrderIdAsync(update.ClientOrderId, cancellationToken);
         if (localOrder is null)
         {
-            logger.LogWarning("Received exchange order update for unknown ClientOrderId {ClientOrderId}.", update.ClientOrderId);
+            logger.LogWarning(
+                "Received exchange order update for unknown ClientOrderId {ClientOrderId} / ExchangeOrderId {ExchangeOrderId}.",
+                update.ClientOrderId,
+                update.ExchangeOrderId);
             return;
         }
 
@@ -76,11 +86,10 @@ public sealed class ExchangeEventProcessor(
         ExchangeExecutionUpdate update,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(update.ExecutionId)
-            || string.IsNullOrWhiteSpace(update.ClientOrderId))
+        if (string.IsNullOrWhiteSpace(update.ExecutionId))
         {
             logger.LogWarning(
-                "Ignoring execution update without ExecutionId/ClientOrderId. ExchangeOrderId={ExchangeOrderId}.",
+                "Ignoring execution update without ExecutionId. ExchangeOrderId={ExchangeOrderId}.",
                 update.ExchangeOrderId);
             return;
         }
@@ -95,13 +104,27 @@ public sealed class ExchangeEventProcessor(
             return;
         }
 
-        var localOrder = await orderRepository.GetByClientOrderIdAsync(update.ClientOrderId, cancellationToken);
+        var localOrder = !string.IsNullOrWhiteSpace(update.ClientOrderId)
+            ? await orderRepository.GetByClientOrderIdAsync(
+                update.ClientOrderId,
+                cancellationToken)
+            : null;
+
+        if (localOrder is null
+            && !string.IsNullOrWhiteSpace(update.ExchangeOrderId))
+        {
+            localOrder = await orderRepository.GetByExchangeOrderIdAsync(
+                update.ExchangeOrderId,
+                cancellationToken);
+        }
+
         if (localOrder is null)
         {
             logger.LogWarning(
-                "Received execution {ExecutionId} for unknown ClientOrderId {ClientOrderId}.",
+                "Received execution {ExecutionId} for unknown ClientOrderId {ClientOrderId} / ExchangeOrderId {ExchangeOrderId}.",
                 update.ExecutionId,
-                update.ClientOrderId);
+                update.ClientOrderId,
+                update.ExchangeOrderId);
             return;
         }
 
@@ -116,7 +139,7 @@ public sealed class ExchangeEventProcessor(
             logger.LogWarning(
                 "Ignoring identity-mismatched execution {ExecutionId} for {ClientOrderId}.",
                 update.ExecutionId,
-                update.ClientOrderId);
+                localOrder.ClientOrderId);
             return;
         }
 

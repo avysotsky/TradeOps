@@ -46,6 +46,7 @@ public static class ExchangeServiceRegistration
         var hyperliquidOptions = new HyperliquidOptions
         {
             BaseUrl = configuration[$"{HyperliquidOptions.SectionName}:BaseUrl"] ?? "https://api.hyperliquid-testnet.xyz",
+            WebSocketUrl = configuration[$"{HyperliquidOptions.SectionName}:WebSocketUrl"] ?? "wss://api.hyperliquid-testnet.xyz/ws",
             UserAddress = configuration[$"{HyperliquidOptions.SectionName}:UserAddress"] ?? string.Empty,
             PrivateKey = configuration[$"{HyperliquidOptions.SectionName}:PrivateKey"] ?? string.Empty,
             MarketSlippagePercent = ReadPositiveDecimal(configuration[$"{HyperliquidOptions.SectionName}:MarketSlippagePercent"], 5m),
@@ -74,6 +75,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<BinanceFuturesExchangeClient>();
         services.AddSingleton<BinanceUserDataStream>();
         services.AddSingleton<HyperliquidExchangeClient>();
+        services.AddSingleton<HyperliquidUserDataStream>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -105,7 +107,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<HyperliquidUserDataStream>());
             return services;
         }
 
