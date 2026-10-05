@@ -78,6 +78,7 @@ public sealed class OrderCancellationService(
             {
                 resolved = await exchangeClient.GetOrderByClientOrderIdAsync(
                     order.ClientOrderId,
+                    order.Symbol,
                     cancellationToken);
             }
             catch (Exception exception) when (
@@ -134,7 +135,10 @@ public sealed class OrderCancellationService(
 
         try
         {
-            await exchangeClient.CancelOrderAsync(exchangeOrderId, cancellationToken);
+            await exchangeClient.CancelOrderAsync(
+                exchangeOrderId,
+                order.Symbol,
+                cancellationToken);
         }
         catch (Exception exception) when (
             exception is not OperationCanceledException
@@ -220,6 +224,7 @@ public sealed class OrderCancellationService(
             {
                 var byExchangeId = await exchangeClient.GetOrderAsync(
                     order.ExchangeOrderId,
+                    order.Symbol,
                     cancellationToken);
 
                 if (byExchangeId is not null)
@@ -230,6 +235,7 @@ public sealed class OrderCancellationService(
 
             return await exchangeClient.GetOrderByClientOrderIdAsync(
                 order.ClientOrderId,
+                order.Symbol,
                 cancellationToken);
         }
         catch (Exception exception) when (

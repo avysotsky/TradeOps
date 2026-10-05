@@ -32,8 +32,14 @@ public sealed class OrderReconciliationService(
             foreach (var localOrder in localOrders)
             {
                 var exchangeOrder = !string.IsNullOrWhiteSpace(localOrder.ExchangeOrderId)
-                    ? await exchangeClient.GetOrderAsync(localOrder.ExchangeOrderId, cancellationToken)
-                    : await exchangeClient.GetOrderByClientOrderIdAsync(localOrder.ClientOrderId, cancellationToken);
+                    ? await exchangeClient.GetOrderAsync(
+                        localOrder.ExchangeOrderId,
+                        localOrder.Symbol,
+                        cancellationToken)
+                    : await exchangeClient.GetOrderByClientOrderIdAsync(
+                        localOrder.ClientOrderId,
+                        localOrder.Symbol,
+                        cancellationToken);
 
                 if (exchangeOrder is null)
                 {

@@ -23,6 +23,7 @@ public sealed class OrderCancellationServiceTests
         Assert.NotNull(result.Order);
         Assert.Equal(OrderStatus.Cancelled, result.Order!.Status);
         Assert.Equal(1, fixture.Exchange.CancelCalls);
+        Assert.Equal("BTCUSDT", fixture.Exchange.LastSymbol);
         Assert.Equal(1, fixture.Orders.UpdateCalls);
         Assert.Single(fixture.Alerts.Alerts);
     }
@@ -154,6 +155,7 @@ public sealed class OrderCancellationServiceTests
     private sealed class TestExchangeClient(Order? remoteOrder) : IExchangeClient
     {
         public int CancelCalls { get; private set; }
+        public string? LastSymbol { get; private set; }
         public bool ThrowAfterCancelling { get; set; }
 
         public Task<AccountInfo> GetAccountAsync(CancellationToken cancellationToken = default) =>
@@ -171,6 +173,33 @@ public sealed class OrderCancellationServiceTests
             PlaceOrderRequest request,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task CancelOrderAsync(
+            string exchangeOrderId,
+            string? symbol,
+            CancellationToken cancellationToken = default)
+        {
+            LastSymbol = symbol;
+            return CancelOrderAsync(exchangeOrderId, cancellationToken);
+        }
+
+        public Task<Order?> GetOrderAsync(
+            string exchangeOrderId,
+            string? symbol,
+            CancellationToken cancellationToken = default)
+        {
+            LastSymbol = symbol;
+            return GetOrderAsync(exchangeOrderId, cancellationToken);
+        }
+
+        public Task<Order?> GetOrderByClientOrderIdAsync(
+            string clientOrderId,
+            string? symbol,
+            CancellationToken cancellationToken = default)
+        {
+            LastSymbol = symbol;
+            return GetOrderByClientOrderIdAsync(clientOrderId, cancellationToken);
+        }
 
         public Task CancelOrderAsync(
             string exchangeOrderId,
