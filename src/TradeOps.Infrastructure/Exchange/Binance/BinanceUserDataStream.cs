@@ -134,9 +134,8 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
         while (!cancellationToken.IsCancellationRequested)
         {
             await Task.Delay(interval, cancellationToken);
-            await SendListenKeyRequestAsync(
+            _ = await SendListenKeyRequestAsync(
                 HttpMethod.Put,
-                listenKey,
                 cancellationToken);
 
             _logger.LogDebug(
@@ -149,7 +148,6 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
     {
         var json = await SendListenKeyRequestAsync(
             HttpMethod.Post,
-            listenKey: null,
             cancellationToken);
 
         var response = JsonSerializer.Deserialize<BinanceListenKeyDto>(json)
@@ -167,14 +165,9 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
 
     private async Task<string> SendListenKeyRequestAsync(
         HttpMethod method,
-        string? listenKey,
         CancellationToken cancellationToken)
     {
         var url = $"{_options.BaseUrl.TrimEnd('/')}/fapi/v1/listenKey";
-        if (!string.IsNullOrWhiteSpace(listenKey))
-        {
-            url += $"?listenKey={Uri.EscapeDataString(listenKey)}";
-        }
 
         using var request = new HttpRequestMessage(method, url);
         request.Headers.TryAddWithoutValidation("X-MBX-APIKEY", _options.ApiKey);
@@ -199,9 +192,9 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            _ = listenKey;
             _ = await SendListenKeyRequestAsync(
                 HttpMethod.Delete,
-                listenKey,
                 timeout.Token);
         }
         catch (Exception exception)
