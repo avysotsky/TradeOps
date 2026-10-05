@@ -90,7 +90,11 @@ public sealed class OperatorApiAuthenticationApiIntegrationTests
                 new RequestCase(HttpMethod.Post, "/api/system/reconcile/positions", null),
                 new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/deliveries", null),
                 new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/metrics", null),
-                new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/health", null)
+                new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/health", null),
+                new RequestCase(HttpMethod.Get, "/api/signals/92929292-9292-4292-9292-929292929292", null),
+                new RequestCase(HttpMethod.Get, "/api/orders/local/missing-local-order", null),
+                new RequestCase(HttpMethod.Get, "/api/orders/local/missing-local-order/history", null),
+                new RequestCase(HttpMethod.Get, "/api/system/reconciliation/status", null)
             };
 
             foreach (var requestCase in protectedRequests)
