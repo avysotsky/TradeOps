@@ -8,5 +8,9 @@ public sealed class HyperliquidOptions
 
     public string UserAddress { get; init; } = string.Empty;
 
+    public string PrivateKey { get; init; } = string.Empty;
+
+    public decimal MarketSlippagePercent { get; init; } = 5m;
+
     public int HttpTimeoutSeconds { get; init; } = 10;
 }
