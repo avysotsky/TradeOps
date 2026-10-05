@@ -1,6 +1,6 @@
 # Client Integration Starter Kit
 
-TradeOps v1.3.1.0 packages the files needed to move from the customer demo into a controlled first paid TradingView pilot.
+TradeOps v1.3.2.2 packages the files needed to move from the customer demo into a controlled first paid TradingView pilot and operator-authenticated evidence handoff.
 
 This kit is deployment/onboarding material. It does not change the execution engine and it does not enable mainnet trading.
 
@@ -72,7 +72,7 @@ This enables:
 
 - the production-like TradingView HTTPS gateway;
 - the TradingView adapter;
-- independently authenticated mutating operator actions;
+- independently authenticated operator actions and protected paid-pilot evidence reads;
 - TradingView delivery health evaluation.
 
 The base API port must still be restricted from untrusted networks by the host firewall/security group. Public TradingView traffic should enter through HTTPS port 443 on the gateway.
@@ -105,6 +105,7 @@ For the agreed test `eventId`:
 export TRADEOPS_PILOT_EVENT_ID='THE_APPROVED_EVENT_ID'
 export TRADEOPS_PILOT_CLIENT='Client name'
 export TRADEOPS_PILOT_STAGE='Mock'
+export TRADEOPS_OPERATOR_API_KEY='THE_CONFIGURED_OPERATOR_KEY'
 
 bash scripts/generate-pilot-evidence.sh
 ```
@@ -115,7 +116,7 @@ Expected technical result:
 PILOT EVIDENCE: PASS
 ```
 
-The generated JSON/Markdown package is read-only evidence. It does not replace customer sign-off.
+The generated JSON/Markdown package is read-only evidence. Sensitive evidence reads use the operator credential when operator authentication is enabled. It does not replace customer sign-off.
 
 ## 7. Sign off
 
