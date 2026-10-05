@@ -28,6 +28,8 @@ Out of scope:
 
 ## Phase 0 — customer intake
 
+Complete `docs/client-intake-questionnaire.md` first. Do not start implementation until the request is classified as FIT or FIT WITH SMALL ADAPTATION.
+
 Record and agree these items before configuration:
 
 | Item | Required decision |
