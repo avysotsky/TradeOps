@@ -15,7 +15,7 @@ public sealed class OperatorApiAuthenticationApiIntegrationTests
     private const string SignalKey = "signal-integration-secret";
 
     [Fact]
-    public async Task ProtectedActions_RequireIndependentOperatorCredential_WhileReadOnlyRoutesRemainOpen()
+    public async Task ProtectedActions_AndTradingViewOperations_RequireOperatorCredential()
     {
         var adminConnectionString = Environment.GetEnvironmentVariable("TRADEOPS_TEST_POSTGRES_ADMIN");
         var isGitHubActions = string.Equals(
@@ -87,7 +87,10 @@ public sealed class OperatorApiAuthenticationApiIntegrationTests
                 new RequestCase(HttpMethod.Post, "/api/orders/local/missing-local-order/cancel", null),
                 new RequestCase(HttpMethod.Post, "/api/orders/local/cancel-all", null),
                 new RequestCase(HttpMethod.Post, "/api/system/reconcile", null),
-                new RequestCase(HttpMethod.Post, "/api/system/reconcile/positions", null)
+                new RequestCase(HttpMethod.Post, "/api/system/reconcile/positions", null),
+                new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/deliveries", null),
+                new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/metrics", null),
+                new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/health", null)
             };
 
             foreach (var requestCase in protectedRequests)
@@ -121,6 +124,15 @@ public sealed class OperatorApiAuthenticationApiIntegrationTests
                        OperatorKey))
             {
                 Assert.Equal(HttpStatusCode.OK, validOperatorKey.StatusCode);
+            }
+
+            using (var validTradingViewRead = await SendAsync(
+                       client,
+                       new RequestCase(HttpMethod.Get, "/api/integrations/tradingview/operations/metrics", null),
+                       OperatorHeader,
+                       OperatorKey))
+            {
+                Assert.Equal(HttpStatusCode.OK, validTradingViewRead.StatusCode);
             }
 
             var signalPayload = new
