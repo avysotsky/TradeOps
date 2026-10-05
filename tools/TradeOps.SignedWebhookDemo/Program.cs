@@ -204,7 +204,9 @@ internal static class Program
                 $"   PASS: outcomes={firstOutcome}->{secondOutcome}->{thirdOutcome}; orderId={correlatedOrderId:D}.");
 
             Console.WriteLine("5) Read signal audit and deterministic client order ID.");
-            using var signalAuditResponse = await httpClient.GetAsync(
+            using var signalAuditResponse = await GetAsOperatorAsync(
+                httpClient,
+                operatorApiKey,
                 $"/api/signals/{signalId:D}");
             RequireStatus(
                 signalAuditResponse,
@@ -253,7 +255,9 @@ internal static class Program
             Console.WriteLine("   PASS: operator-authenticated reconciliation completed.");
 
             Console.WriteLine("7) Verify local lifecycle ends in Filled.");
-            using var historyResponse = await httpClient.GetAsync(
+            using var historyResponse = await GetAsOperatorAsync(
+                httpClient,
+                operatorApiKey,
                 $"/api/orders/local/{Uri.EscapeDataString(clientOrderId)}/history");
             RequireStatus(
                 historyResponse,
@@ -310,6 +314,20 @@ internal static class Program
                 $"SIGNED WEBHOOK E2E DEMO: FAIL - {exception.GetType().Name}: {exception.Message}");
             return 1;
         }
+    }
+
+    private static async Task<HttpResponseMessage> GetAsOperatorAsync(
+        HttpClient httpClient,
+        string operatorApiKey,
+        string path)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            path);
+        request.Headers.Add(
+            OperatorApiKeyHeader,
+            operatorApiKey);
+        return await httpClient.SendAsync(request);
     }
 
     private static async Task VerifyReadinessAsync(HttpClient httpClient)
