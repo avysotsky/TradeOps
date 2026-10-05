@@ -6,6 +6,7 @@ using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
+using TradeOps.Infrastructure.Exchange.Okx;
 
 namespace TradeOps.Infrastructure.Exchange;
 
@@ -64,6 +65,17 @@ public static class ExchangeServiceRegistration
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{DeribitOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
+        var okxOptions = new OkxOptions
+        {
+            BaseUrl = configuration[$"{OkxOptions.SectionName}:BaseUrl"] ?? "https://openapi.okx.com",
+            ApiKey = configuration[$"{OkxOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{OkxOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            Passphrase = configuration[$"{OkxOptions.SectionName}:Passphrase"] ?? string.Empty,
+            AccountCurrency = configuration[$"{OkxOptions.SectionName}:AccountCurrency"] ?? "USDT",
+            TradeMode = configuration[$"{OkxOptions.SectionName}:TradeMode"] ?? "cross",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{OkxOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var mexcOptions = new MexcOptions
         {
             BaseUrl = configuration[$"{MexcOptions.SectionName}:BaseUrl"] ?? "https://contract.mexc.com",
@@ -80,6 +92,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton(hyperliquidOptions);
         services.AddSingleton(mexcOptions);
         services.AddSingleton(deribitOptions);
+        services.AddSingleton(okxOptions);
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bybitOptions.HttpTimeoutSeconds);
@@ -100,6 +113,10 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(deribitOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(OkxDemoExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(okxOptions.HttpTimeoutSeconds);
+        });
 
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
@@ -109,6 +126,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<HyperliquidUserDataStream>();
         services.AddSingleton<MexcFuturesReadOnlyExchangeClient>();
         services.AddSingleton<DeribitTestnetExchangeClient>();
+        services.AddSingleton<OkxDemoExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -160,8 +178,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.OkxDemo, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<OkxDemoExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<OkxDemoExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
