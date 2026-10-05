@@ -28,6 +28,8 @@ services:
       Exchange__Binance__ApiKey: ${BINANCE_FUTURES_TESTNET_API_KEY:-}
       Exchange__Binance__ApiSecret: ${BINANCE_FUTURES_TESTNET_API_SECRET:-}
       Exchange__Hyperliquid__UserAddress: ${HYPERLIQUID_TESTNET_USER_ADDRESS:-}
+      Exchange__Hyperliquid__PrivateKey: ${HYPERLIQUID_TESTNET_PRIVATE_KEY:-}
+      Exchange__Hyperliquid__MarketSlippagePercent: ${HYPERLIQUID_MARKET_SLIPPAGE_PERCENT:-5}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -63,6 +65,8 @@ services:
       Exchange__Binance__ApiKey: ${BINANCE_FUTURES_TESTNET_API_KEY:-}
       Exchange__Binance__ApiSecret: ${BINANCE_FUTURES_TESTNET_API_SECRET:-}
       Exchange__Hyperliquid__UserAddress: ${HYPERLIQUID_TESTNET_USER_ADDRESS:-}
+      Exchange__Hyperliquid__PrivateKey: ${HYPERLIQUID_TESTNET_PRIVATE_KEY:-}
+      Exchange__Hyperliquid__MarketSlippagePercent: ${HYPERLIQUID_MARKET_SLIPPAGE_PERCENT:-5}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
