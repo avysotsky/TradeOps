@@ -47,6 +47,9 @@ services:
       Exchange__Bitget__Category: ${BITGET_CATEGORY:-USDT-FUTURES}
       Exchange__Bitget__AccountCurrency: ${BITGET_ACCOUNT_CURRENCY:-USDT}
       Exchange__Bitget__MarginMode: ${BITGET_MARGIN_MODE:-crossed}
+      Exchange__Gate__ApiKey: ${GATE_FUTURES_TESTNET_API_KEY:-}
+      Exchange__Gate__ApiSecret: ${GATE_FUTURES_TESTNET_API_SECRET:-}
+      Exchange__Gate__Settle: ${GATE_FUTURES_SETTLE:-usdt}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -100,6 +103,9 @@ services:
       Exchange__Bitget__Category: ${BITGET_CATEGORY:-USDT-FUTURES}
       Exchange__Bitget__AccountCurrency: ${BITGET_ACCOUNT_CURRENCY:-USDT}
       Exchange__Bitget__MarginMode: ${BITGET_MARGIN_MODE:-crossed}
+      Exchange__Gate__ApiKey: ${GATE_FUTURES_TESTNET_API_KEY:-}
+      Exchange__Gate__ApiSecret: ${GATE_FUTURES_TESTNET_API_SECRET:-}
+      Exchange__Gate__Settle: ${GATE_FUTURES_SETTLE:-usdt}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
