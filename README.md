@@ -405,7 +405,31 @@ CancelOrderAsync
 
 Binance order lookup and cancellation require symbol context. TradeOps passes the persisted local order symbol through reconciliation and cancellation paths. For direct exchange API routes, provide `?symbol=BTCUSDT` when querying or cancelling a Binance order.
 
-This milestone intentionally uses REST reconciliation only. Binance private user-data WebSocket/order-event handling is reserved for the next milestone so REST and streaming transports are validated separately.
+TradeOps v1.4.2.x also consumes the Binance USD-M Futures user-data stream through `IExchangeEventStream`. The Worker:
+
+```text
+creates/renews listenKey
+-> connects to approved testnet/demo websocket host
+-> receives ORDER_TRADE_UPDATE
+-> maps order + execution updates
+-> persists lifecycle/fills through ExchangeEventProcessor
+-> reconnects through the existing Worker backoff loop on expiry/disconnect
+```
+
+Default stream settings:
+
+```json
+{
+  "Exchange": {
+    "Binance": {
+      "PrivateWebSocketBaseUrl": "wss://stream.binancefuture.com",
+      "ListenKeyKeepaliveMinutes": 30
+    }
+  }
+}
+```
+
+Production Binance websocket hosts are rejected. The stream credentials are never embedded in the websocket URL; the temporary listen key is created through the Binance USER_STREAM lifecycle endpoint and closed on shutdown when possible.
 
 ## API
 
