@@ -33,6 +33,9 @@ services:
       Exchange__Hyperliquid__MarketSlippagePercent: ${HYPERLIQUID_MARKET_SLIPPAGE_PERCENT:-5}
       Exchange__Mexc__ApiKey: ${MEXC_FUTURES_API_KEY:-}
       Exchange__Mexc__ApiSecret: ${MEXC_FUTURES_API_SECRET:-}
+      Exchange__Deribit__ClientId: ${DERIBIT_TESTNET_CLIENT_ID:-}
+      Exchange__Deribit__ClientSecret: ${DERIBIT_TESTNET_CLIENT_SECRET:-}
+      Exchange__Deribit__AccountCurrency: ${DERIBIT_ACCOUNT_CURRENCY:-BTC}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -72,6 +75,9 @@ services:
       Exchange__Hyperliquid__MarketSlippagePercent: ${HYPERLIQUID_MARKET_SLIPPAGE_PERCENT:-5}
       Exchange__Mexc__ApiKey: ${MEXC_FUTURES_API_KEY:-}
       Exchange__Mexc__ApiSecret: ${MEXC_FUTURES_API_SECRET:-}
+      Exchange__Deribit__ClientId: ${DERIBIT_TESTNET_CLIENT_ID:-}
+      Exchange__Deribit__ClientSecret: ${DERIBIT_TESTNET_CLIENT_SECRET:-}
+      Exchange__Deribit__AccountCurrency: ${DERIBIT_ACCOUNT_CURRENCY:-BTC}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}

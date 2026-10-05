@@ -7,6 +7,7 @@ public static class ExchangeProviders
     public const string BinanceFuturesTestnet = "BinanceFuturesTestnet";
     public const string HyperliquidTestnet = "HyperliquidTestnet";
     public const string MexcFuturesReadOnly = "MexcFuturesReadOnly";
+    public const string DeribitTestnet = "DeribitTestnet";
 }
 
 public sealed class ExchangeOptions
