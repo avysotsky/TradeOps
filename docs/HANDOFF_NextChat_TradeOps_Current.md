@@ -1,4 +1,4 @@
-# TradeOps handoff — current state after paid-pilot offer
+# TradeOps handoff — current state
 
 ## Source of truth
 
@@ -9,105 +9,138 @@ Default branch: `main`
 Current main merge commit:
 
 ```text
-f61480323b4dcb2c54ebaa164838cfbfb071ed85
+b107bed05eb90ef0c481e5dd18ed258c01b10dd0
 ```
 
 Do not reimplement earlier milestones.
 
-## Latest completed work
+## Stable product baseline
 
-### v1.3.2.1 — Paid Pilot Read API Protection
+The current reusable core is intentionally feature-frozen unless a real client requirement or reproducible defect justifies code changes.
 
-PR #18 added operator-auth protection to the sensitive read path used by the paid-pilot evidence exporter.
-
-Protected evidence reads include:
+Supported execution stages:
 
 ```text
-GET /api/integrations/tradingview/operations/deliveries
-GET /api/integrations/tradingview/operations/metrics
-GET /api/integrations/tradingview/operations/health
-GET /api/signals/{id}
-GET /api/orders/local/{idOrClientOrderId}
-GET /api/orders/local/{idOrClientOrderId}/history
-GET /api/system/reconciliation/status
+Mock
+BybitTestnet
 ```
 
-The PilotEvidence, TradingViewDemo and SignedWebhookDemo tools were updated to use the operator credential for those reads.
+Current product boundary:
 
-### v1.3.2.2 — Client Pilot Docs Alignment
+- execution/integration engineering;
+- no strategy/alpha generation;
+- no profitability guarantees;
+- no Bybit mainnet / real-money execution;
+- no second exchange;
+- no HFT / ultra-low-latency claims.
 
-PR #19 was docs-only. It aligned the acceptance criteria and client starter kit with the authenticated evidence flow.
+## Security / evidence baseline
 
-### Client-facing Paid Pilot Offer
+v1.3.2.1 protects the sensitive paid-pilot evidence read path with the independent operator credential.
 
-PR #20 added:
+The evidence exporter remains read-only and supports an authenticated evidence handoff.
+
+## Client-facing commercial path
+
+The repository now contains a complete pre-sale and delivery sequence:
 
 ```text
 docs/paid-pilot-offer.md
+-> docs/client-demo-script.md
+-> docs/client-intake-questionnaire.md
+-> docs/paid-pilot-scope-template.md
+-> docs/client-pilot-runbook.md
+-> docs/client-pilot-acceptance-criteria.md
+-> docs/paid-pilot-evidence-handoff.md
 ```
 
-and linked it from the README.
+### Paid Pilot Offer
 
-The offer explains:
+Defines:
 - who the pilot is for;
-- the technical outcome;
-- included scope;
+- included engineering scope;
 - optional Bybit Testnet stage;
-- required client inputs;
-- acceptance criteria;
-- handoff deliverables;
-- explicit exclusions;
-- security and commercial boundaries.
+- inputs;
+- deliverables;
+- exclusions;
+- security/commercial boundary.
 
-Pricing is intentionally not stored in the repository.
+### Client Demo Script
 
-## Current commercial capability
+Defines a 10–15 minute prospect demo focused on:
+- stable event identity;
+- idempotent redelivery;
+- conflict rejection;
+- signal/order correlation;
+- reconciliation;
+- evidence;
+- security boundaries;
+- clear product exclusions.
 
-TradeOps can now be presented as a paid execution/integration pilot for a client who already has trading rules or TradingView signals.
+### Client Intake Questionnaire
 
-The delivery path is:
+Classifies the prospect as:
 
 ```text
-client intake
--> client-facing pilot offer
--> starter kit / preflight
--> TradingView HTTPS gateway
--> authenticated + idempotent delivery
--> Mock execution
--> optional Bybit Testnet
--> persisted audit/correlation
--> lifecycle + reconciliation
--> metrics / health
--> authenticated evidence package
--> acceptance + handoff
+FIT
+FIT WITH SMALL ADAPTATION
+SEPARATE SCOPE REQUIRED
+NOT A CURRENT FIT
 ```
 
-## Product boundary
+The questionnaire must be completed before implementation.
 
-TradeOps is execution/integration engineering.
+### Paid Pilot Scope Template
 
-It does not provide:
-- alpha;
-- strategy design;
-- profitable signals;
-- return guarantees;
-- Bybit mainnet / real-money execution;
-- a second exchange;
-- HFT / ultra-low-latency guarantees.
+Records the agreed:
+- signal contract;
+- symbols/action semantics;
+- quantity semantics;
+- eventId rule;
+- deployment responsibility;
+- included work;
+- bounded adaptations;
+- optional testnet stage;
+- acceptance;
+- deliverables;
+- exclusions and change-control boundary.
+
+## Delivery path
+
+For a qualified client:
+
+```text
+qualify
+-> agree scope
+-> preflight
+-> Mock acceptance
+-> optional Bybit Testnet
+-> audit / lifecycle / reconciliation
+-> metrics / health
+-> authenticated evidence
+-> client sign-off
+-> handoff
+```
 
 ## Development rule
 
-Do not add speculative backend features just to continue development.
+Do not add speculative backend features to make the repository look larger.
 
-Core development should resume only for:
-1. a concrete paid-pilot/client requirement;
-2. a reproducible reliability/security defect;
-3. a small delivery friction discovered while using the current pilot path.
+Resume core development only for:
 
-Commercial/client-onboarding material can continue without changing the execution engine.
+1. a concrete client/pilot requirement;
+2. a reproducible security/reliability defect;
+3. a bounded delivery friction discovered while running the existing pilot.
 
-## Recommended next small task
+Do not absorb separate-scope requests into the standard pilot.
 
-Create a reusable client intake questionnaire/form derived from Phase 0 of `docs/client-pilot-runbook.md`.
+## Recommended next work
 
-It should collect only the information needed to decide whether the client fits the current TradeOps pilot and to configure the existing system. Do not add product features while creating it.
+The next work is commercial, not backend:
+
+1. choose the actual pilot price/rate outside the public repository;
+2. use the current offer + demo + intake package against real prospects;
+3. evaluate new market requests against the intake classification;
+4. only create a new code milestone when a real requirement reaches FIT WITH SMALL ADAPTATION or exposes a reproducible defect.
+
+Before continuing in a new chat, read this file and inspect the current `main` HEAD and latest CI/PR state.
