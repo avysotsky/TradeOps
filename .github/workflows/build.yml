@@ -494,6 +494,7 @@ jobs:
           TRADEOPS_TRADINGVIEW_DEMO_GATEWAY_KEY: ci-customer-demo-gateway-key-at-least-32-characters
           TRADEOPS_TRADINGVIEW_DEMO_OPERATOR_API_KEY: ci-customer-demo-operator-key-at-least-32-characters
           TRADEOPS_TRADINGVIEW_DEMO_EVENT_ID: ci-paid-pilot-evidence-event
+          TRADEOPS_OPERATOR_API_KEY: ci-customer-demo-operator-key-at-least-32-characters
           TRADEOPS_PILOT_API_URL: http://127.0.0.1:5082
           TRADEOPS_PILOT_EVENT_ID: ci-paid-pilot-evidence-event
           TRADEOPS_PILOT_OUTPUT_DIR: /tmp/tradeops-pilot-evidence
