@@ -121,7 +121,9 @@ public sealed class SignalsController(
     }
 
     [HttpGet("{id:guid}")]
+    [OperatorApiKey]
     [ProducesResponseType<TradingSignalAuditResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TradingSignalAuditResponse>> GetById(
         Guid id,
