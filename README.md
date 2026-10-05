@@ -4,7 +4,7 @@ C#/.NET trading execution and automation backend focused on reliable order handl
 
 TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Non-mock venue integrations are explicitly restricted to **Bybit testnet** and **Binance USD-M Futures testnet**.
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Non-mock venue integrations are restricted to test environments: **Bybit testnet**, **Binance USD-M Futures testnet**, and **Hyperliquid testnet read-only**.
 
 ## What this demo proves
 
@@ -29,7 +29,8 @@ TradeOps is built for the case where a client already has trading rules, signals
 - persistent trading controls, emergency stop and bulk cancellation;
 - restart recovery and persisted operational run status through background workers;
 - Bybit testnet REST integration plus authenticated private WebSocket order/execution events;
-- Binance USD-M Futures testnet REST integration with mainnet host rejection;
+- Binance USD-M Futures testnet REST integration plus private user-data stream with mainnet host rejection;
+- Hyperliquid testnet read-only account, position and order-state integration with mainnet host rejection;
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
@@ -44,7 +45,7 @@ ASP.NET Core
 Worker Service
 EF Core 8
 PostgreSQL 16
-HttpClient / Bybit V5 REST / Binance USD-M Futures REST
+HttpClient / Bybit V5 REST / Binance USD-M Futures REST / Hyperliquid Info API
 Docker / Docker Compose
 GitHub Actions
 ```
@@ -66,7 +67,7 @@ Responsibilities:
 
 - **Domain** — entities, enums and order state rules.
 - **Application** — execution use cases and exchange-independent contracts.
-- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter and Telegram adapter.
+- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter, Hyperliquid testnet adapter and Telegram adapter.
 - **Api** — signal input, exchange/account monitoring, order lookup/cancellation and manual reconciliation endpoints.
 - **Worker** — restart recovery, reconnect and periodic reconciliation.
 
@@ -78,12 +79,13 @@ Application
     v
 IExchangeClient
     |
-    +----------------------+---------------------------+
-    |                      |                           |
-    v                      v                           v
-MockExchangeClient   BybitExchangeClient   BinanceFuturesExchangeClient
-    |                      |                           |
- demo / CI              Bybit testnet          Binance Futures testnet
+    +----------------------+---------------------------+--------------------------+
+    |                      |                           |                          |
+    v                      v                           v                          v
+MockExchangeClient   BybitExchangeClient   BinanceFuturesExchangeClient   HyperliquidExchangeClient
+    |                      |                           |                          |
+ demo / CI              Bybit testnet          Binance Futures testnet      Hyperliquid testnet
+                                                                              read-only
 ```
 
 The selected adapter is controlled by configuration:
@@ -102,6 +104,7 @@ Supported providers in the current public version:
 Mock
 BybitTestnet
 BinanceFuturesTestnet
+HyperliquidTestnet
 ```
 
 ## Execution flow
@@ -430,6 +433,46 @@ Default stream settings:
 ```
 
 Production Binance websocket hosts are rejected. The stream credentials are never embedded in the websocket URL; the temporary listen key is created through the Binance USER_STREAM lifecycle endpoint and closed on shutdown when possible.
+
+## Hyperliquid testnet
+
+TradeOps v1.5.0.0 adds a deliberately read-only Hyperliquid testnet adapter.
+
+Hyperliquid's public `/info` endpoint allows TradeOps to validate account and order-state mapping before introducing exchange-action signing. The adapter uses only:
+
+```text
+clearinghouseState
+frontendOpenOrders
+orderStatus
+```
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=HyperliquidTestnet
+export HYPERLIQUID_TESTNET_USER_ADDRESS='0xYOUR_TESTNET_ACCOUNT_ADDRESS'
+docker compose up --build -d
+```
+
+Read-only smoke:
+
+```bash
+bash scripts/hyperliquid-testnet-readonly-smoke.sh
+```
+
+This stage supports:
+
+```text
+GetAccountAsync
+GetPositionsAsync
+GetOpenOrdersAsync
+GetOrderAsync
+GetOrderByClientOrderIdAsync (for valid Hyperliquid cloid values)
+```
+
+`PlaceOrderAsync` and `CancelOrderAsync` intentionally throw `NotSupportedException` in this milestone. Hyperliquid action signing and testnet execution are implemented separately so read-only response mapping can be validated first.
+
+The adapter accepts only the official `https://api.hyperliquid-testnet.xyz` host. Mainnet `https://api.hyperliquid.xyz` is rejected.
 
 ## API
 
