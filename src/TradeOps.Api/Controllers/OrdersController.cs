@@ -178,9 +178,13 @@ public sealed class OrdersController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Order>> GetByExchangeOrderId(
         string exchangeOrderId,
+        [FromQuery] string? symbol,
         CancellationToken cancellationToken)
     {
-        var order = await exchangeClient.GetOrderAsync(exchangeOrderId, cancellationToken);
+        var order = await exchangeClient.GetOrderAsync(
+            exchangeOrderId,
+            symbol,
+            cancellationToken);
         return order is null ? NotFound() : Ok(order);
     }
 
@@ -189,10 +193,12 @@ public sealed class OrdersController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<Order>> GetByClientOrderId(
         string clientOrderId,
+        [FromQuery] string? symbol,
         CancellationToken cancellationToken)
     {
         var order = await exchangeClient.GetOrderByClientOrderIdAsync(
             clientOrderId,
+            symbol,
             cancellationToken);
 
         return order is null ? NotFound() : Ok(order);
@@ -206,9 +212,13 @@ public sealed class OrdersController(
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Cancel(
         string exchangeOrderId,
+        [FromQuery] string? symbol,
         CancellationToken cancellationToken)
     {
-        var order = await exchangeClient.GetOrderAsync(exchangeOrderId, cancellationToken);
+        var order = await exchangeClient.GetOrderAsync(
+            exchangeOrderId,
+            symbol,
+            cancellationToken);
         if (order is null)
         {
             return NotFound();
@@ -224,7 +234,10 @@ public sealed class OrdersController(
             });
         }
 
-        await exchangeClient.CancelOrderAsync(exchangeOrderId, cancellationToken);
+        await exchangeClient.CancelOrderAsync(
+            exchangeOrderId,
+            symbol,
+            cancellationToken);
         return Accepted();
     }
 }
