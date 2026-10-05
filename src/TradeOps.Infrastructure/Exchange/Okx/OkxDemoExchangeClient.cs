@@ -79,7 +79,7 @@ public sealed class OkxDemoExchangeClient
             ?? throw new InvalidOperationException(
                 "OKX balance response did not contain account data.");
 
-        if (!account.Value.TryGetProperty(
+        if (!account.TryGetProperty(
                 "details",
                 out var details)
             || details.ValueKind != JsonValueKind.Array)
@@ -254,11 +254,11 @@ public sealed class OkxDemoExchangeClient
                     "OKX place-order response did not contain acknowledgement.");
 
             EnsureItemSucceeded(
-                ack.Value,
+                ack,
                 "place order");
 
             var orderId = ReadString(
-                ack.Value,
+                ack,
                 "ordId");
 
             return new OrderResult(
@@ -366,7 +366,7 @@ public sealed class OkxDemoExchangeClient
                 "OKX cancel response did not contain acknowledgement.");
 
         EnsureItemSucceeded(
-            ack.Value,
+            ack,
             "cancel order");
     }
 
