@@ -499,7 +499,38 @@ Hyperliquid has no native market-order primitive in this API path. TradeOps maps
 
 TradeOps converts its arbitrary `ClientOrderId` into a deterministic 128-bit Hyperliquid `cloid`. This allows ambiguous placement recovery through `orderStatus` without blindly submitting the order again.
 
-The adapter accepts only the official `https://api.hyperliquid-testnet.xyz` host. Mainnet `https://api.hyperliquid.xyz` is rejected.
+TradeOps v1.5.2.x also consumes the official Hyperliquid testnet websocket:
+
+```text
+wss://api.hyperliquid-testnet.xyz/ws
+```
+
+The Worker subscribes to:
+
+```text
+orderUpdates
+userFills
+```
+
+and forwards normalized order/fill events through the existing `IExchangeEventStream -> ExchangeEventProcessor` pipeline.
+
+Hyperliquid `userFills` does not include the client order id. TradeOps therefore resolves websocket events by local `ClientOrderId` when available and falls back to persisted `ExchangeOrderId` / Hyperliquid `oid`. Fill IDs use the globally unique combination of fill time, coin and Hyperliquid trade id.
+
+The stream is configured with:
+
+```json
+{
+  "Exchange": {
+    "Hyperliquid": {
+      "WebSocketUrl": "wss://api.hyperliquid-testnet.xyz/ws"
+    }
+  }
+}
+```
+
+The Worker already reconnects event streams with exponential backoff when Hyperliquid disconnects. The mainnet websocket endpoint is rejected.
+
+The adapter accepts only the official `https://api.hyperliquid-testnet.xyz` REST host and `wss://api.hyperliquid-testnet.xyz/ws` websocket endpoint. Mainnet endpoints are rejected.
 
 ## API
 
