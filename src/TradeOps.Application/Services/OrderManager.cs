@@ -159,6 +159,7 @@ public sealed class OrderManager(
 
             var exchangeOrder = await exchangeClient.GetOrderByClientOrderIdAsync(
                 clientOrderId,
+                signal.Symbol,
                 cancellationToken);
 
             if (exchangeOrder is not null)
