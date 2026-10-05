@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
 
@@ -54,6 +55,15 @@ public static class ExchangeServiceRegistration
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{HyperliquidOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
+        var deribitOptions = new DeribitOptions
+        {
+            BaseUrl = configuration[$"{DeribitOptions.SectionName}:BaseUrl"] ?? "https://test.deribit.com/api/v2",
+            ClientId = configuration[$"{DeribitOptions.SectionName}:ClientId"] ?? string.Empty,
+            ClientSecret = configuration[$"{DeribitOptions.SectionName}:ClientSecret"] ?? string.Empty,
+            AccountCurrency = configuration[$"{DeribitOptions.SectionName}:AccountCurrency"] ?? "BTC",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{DeribitOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var mexcOptions = new MexcOptions
         {
             BaseUrl = configuration[$"{MexcOptions.SectionName}:BaseUrl"] ?? "https://contract.mexc.com",
@@ -69,6 +79,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton(binanceOptions);
         services.AddSingleton(hyperliquidOptions);
         services.AddSingleton(mexcOptions);
+        services.AddSingleton(deribitOptions);
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bybitOptions.HttpTimeoutSeconds);
@@ -85,6 +96,10 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(mexcOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(DeribitTestnetExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(deribitOptions.HttpTimeoutSeconds);
+        });
 
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
@@ -93,6 +108,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<HyperliquidExchangeClient>();
         services.AddSingleton<HyperliquidUserDataStream>();
         services.AddSingleton<MexcFuturesReadOnlyExchangeClient>();
+        services.AddSingleton<DeribitTestnetExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -136,8 +152,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.DeribitTestnet, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<DeribitTestnetExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<DeribitTestnetExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
