@@ -4,7 +4,7 @@ C#/.NET trading execution and automation backend focused on reliable order handl
 
 TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. The only real venue integration currently present is explicitly restricted to **Bybit testnet**.
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Non-mock venue integrations are explicitly restricted to **Bybit testnet** and **Binance USD-M Futures testnet**.
 
 ## What this demo proves
 
@@ -29,6 +29,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - persistent trading controls, emergency stop and bulk cancellation;
 - restart recovery and persisted operational run status through background workers;
 - Bybit testnet REST integration plus authenticated private WebSocket order/execution events;
+- Binance USD-M Futures testnet REST integration with mainnet host rejection;
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
@@ -43,7 +44,7 @@ ASP.NET Core
 Worker Service
 EF Core 8
 PostgreSQL 16
-HttpClient / Bybit V5 REST
+HttpClient / Bybit V5 REST / Binance USD-M Futures REST
 Docker / Docker Compose
 GitHub Actions
 ```
@@ -65,7 +66,7 @@ Responsibilities:
 
 - **Domain** — entities, enums and order state rules.
 - **Application** — execution use cases and exchange-independent contracts.
-- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter and Telegram adapter.
+- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter and Telegram adapter.
 - **Api** — signal input, exchange/account monitoring, order lookup/cancellation and manual reconciliation endpoints.
 - **Worker** — restart recovery, reconnect and periodic reconciliation.
 
@@ -77,12 +78,12 @@ Application
     v
 IExchangeClient
     |
-    +--------------------+
-    |                    |
-    v                    v
-MockExchangeClient   BybitExchangeClient
-    |                    |
- demo / CI            Bybit testnet
+    +----------------------+---------------------------+
+    |                      |                           |
+    v                      v                           v
+MockExchangeClient   BybitExchangeClient   BinanceFuturesExchangeClient
+    |                      |                           |
+ demo / CI              Bybit testnet          Binance Futures testnet
 ```
 
 The selected adapter is controlled by configuration:
@@ -100,6 +101,7 @@ Supported providers in the current public version:
 ```text
 Mock
 BybitTestnet
+BinanceFuturesTestnet
 ```
 
 ## Execution flow
@@ -365,6 +367,45 @@ CancelOrderAsync
 Connection readiness/recovery is handled separately through the exchange connection manager and background Worker. Bybit private WebSocket order/execution events are consumed through `IExchangeEventStream`.
 
 Bybit order acknowledgements are asynchronous. A successful create/cancel HTTP acknowledgement is therefore not treated as proof of a fill or final cancellation; subsequent lookup/reconciliation confirms state.
+
+## Binance USD-M Futures testnet
+
+TradeOps v1.4.1.0 adds a REST adapter for Binance USD-M Futures testnet.
+
+The adapter is restricted in code to approved non-production Binance Futures hosts. Production `fapi.binance.com` is rejected.
+
+For Docker Compose:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=BinanceFuturesTestnet
+export BINANCE_FUTURES_TESTNET_API_KEY='YOUR_TESTNET_KEY'
+export BINANCE_FUTURES_TESTNET_API_SECRET='YOUR_TESTNET_SECRET'
+docker compose up --build -d
+```
+
+Run the read-only authentication/integration smoke test:
+
+```bash
+bash scripts/binance-futures-testnet-readonly-smoke.sh
+```
+
+The smoke test calls account, positions and open-orders endpoints only; it does not place an order.
+
+The REST adapter implements:
+
+```text
+GetAccountAsync
+GetPositionsAsync
+GetOpenOrdersAsync
+GetOrderAsync
+GetOrderByClientOrderIdAsync
+PlaceOrderAsync
+CancelOrderAsync
+```
+
+Binance order lookup and cancellation require symbol context. TradeOps passes the persisted local order symbol through reconciliation and cancellation paths. For direct exchange API routes, provide `?symbol=BTCUSDT` when querying or cancelling a Binance order.
+
+This milestone intentionally uses REST reconciliation only. Binance private user-data WebSocket/order-event handling is reserved for the next milestone so REST and streaming transports are validated separately.
 
 ## API
 
