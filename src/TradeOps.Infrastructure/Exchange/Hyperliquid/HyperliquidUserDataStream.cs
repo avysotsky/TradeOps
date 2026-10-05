@@ -7,12 +7,22 @@ using TradeOps.Application.Models;
 
 namespace TradeOps.Infrastructure.Exchange.Hyperliquid;
 
-public sealed class HyperliquidUserDataStream(
-    HyperliquidOptions options,
-    ILogger<HyperliquidUserDataStream> logger) : IExchangeEventStream
+public sealed class HyperliquidUserDataStream : IExchangeEventStream
 {
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
+
+    private readonly HyperliquidOptions _options;
+    private readonly ILogger<HyperliquidUserDataStream> _logger;
+
+    public HyperliquidUserDataStream(
+        HyperliquidOptions options,
+        ILogger<HyperliquidUserDataStream> logger)
+    {
+        _options = options;
+        _logger = logger;
+        ValidateConfiguration();
+    }
 
     public bool IsEnabled => true;
 
@@ -21,13 +31,11 @@ public sealed class HyperliquidUserDataStream(
         Func<ExchangeExecutionUpdate, CancellationToken, Task> onExecutionUpdate,
         CancellationToken cancellationToken = default)
     {
-        ValidateConfiguration();
-
         using var socket = new ClientWebSocket();
         socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
 
         await socket.ConnectAsync(
-            new Uri(options.WebSocketUrl),
+            new Uri(_options.WebSocketUrl),
             cancellationToken);
 
         await SendSubscriptionAsync(
@@ -40,9 +48,9 @@ public sealed class HyperliquidUserDataStream(
             "userFills",
             cancellationToken);
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Connected to Hyperliquid testnet websocket and subscribed to orderUpdates/userFills for {UserAddress}.",
-            options.UserAddress);
+            _options.UserAddress);
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -81,7 +89,7 @@ public sealed class HyperliquidUserDataStream(
                 subscription = new
                 {
                     type,
-                    user = options.UserAddress
+                    user = _options.UserAddress
                 }
             },
             cancellationToken);
@@ -140,7 +148,7 @@ public sealed class HyperliquidUserDataStream(
     private void ValidateConfiguration()
     {
         if (!Uri.TryCreate(
-                options.WebSocketUrl,
+                _options.WebSocketUrl,
                 UriKind.Absolute,
                 out var uri)
             || !string.Equals(
@@ -160,7 +168,7 @@ public sealed class HyperliquidUserDataStream(
                 "Hyperliquid websocket is restricted to the official testnet endpoint.");
         }
 
-        var address = options.UserAddress?.Trim();
+        var address = _options.UserAddress?.Trim();
 
         if (string.IsNullOrWhiteSpace(address)
             || address.Length != 42
