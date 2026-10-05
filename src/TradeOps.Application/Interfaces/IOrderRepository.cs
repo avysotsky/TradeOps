@@ -10,7 +10,8 @@ public interface IOrderRepository
 
     Task<Order?> GetByExchangeOrderIdAsync(
         string exchangeOrderId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Order?>(null);
 
     Task<IReadOnlyCollection<Order>> GetReconciliationCandidatesAsync(
         CancellationToken cancellationToken = default);
