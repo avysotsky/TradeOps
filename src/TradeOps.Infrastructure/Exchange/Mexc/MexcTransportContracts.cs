@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace TradeOps.Infrastructure.Exchange.Mexc;
@@ -86,10 +87,10 @@ internal sealed class MexcOrderDto
     public string ExternalOrderId { get; init; } = string.Empty;
 
     [JsonPropertyName("createTime")]
-    public long CreateTime { get; init; }
+    public JsonElement CreateTime { get; init; }
 
     [JsonPropertyName("updateTime")]
-    public long UpdateTime { get; init; }
+    public JsonElement UpdateTime { get; init; }
 }
 
 internal sealed class MexcContractDto
