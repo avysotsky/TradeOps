@@ -83,7 +83,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<MockExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<MockExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<HyperliquidUserDataStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
             return services;
         }
 
@@ -107,7 +107,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<HyperliquidUserDataStream>());
             return services;
         }
 
