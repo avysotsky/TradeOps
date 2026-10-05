@@ -36,6 +36,11 @@ services:
       Exchange__Deribit__ClientId: ${DERIBIT_TESTNET_CLIENT_ID:-}
       Exchange__Deribit__ClientSecret: ${DERIBIT_TESTNET_CLIENT_SECRET:-}
       Exchange__Deribit__AccountCurrency: ${DERIBIT_ACCOUNT_CURRENCY:-BTC}
+      Exchange__Okx__ApiKey: ${OKX_DEMO_API_KEY:-}
+      Exchange__Okx__ApiSecret: ${OKX_DEMO_API_SECRET:-}
+      Exchange__Okx__Passphrase: ${OKX_DEMO_PASSPHRASE:-}
+      Exchange__Okx__AccountCurrency: ${OKX_ACCOUNT_CURRENCY:-USDT}
+      Exchange__Okx__TradeMode: ${OKX_TRADE_MODE:-cross}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -78,6 +83,11 @@ services:
       Exchange__Deribit__ClientId: ${DERIBIT_TESTNET_CLIENT_ID:-}
       Exchange__Deribit__ClientSecret: ${DERIBIT_TESTNET_CLIENT_SECRET:-}
       Exchange__Deribit__AccountCurrency: ${DERIBIT_ACCOUNT_CURRENCY:-BTC}
+      Exchange__Okx__ApiKey: ${OKX_DEMO_API_KEY:-}
+      Exchange__Okx__ApiSecret: ${OKX_DEMO_API_SECRET:-}
+      Exchange__Okx__Passphrase: ${OKX_DEMO_PASSPHRASE:-}
+      Exchange__Okx__AccountCurrency: ${OKX_ACCOUNT_CURRENCY:-USDT}
+      Exchange__Okx__TradeMode: ${OKX_TRADE_MODE:-cross}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
