@@ -444,6 +444,13 @@ public sealed class HyperliquidExchangeClient : IExchangeClient, IExchangeConnec
                 "Hyperliquid order price must be positive.");
         }
 
+        // Hyperliquid explicitly allows integer prices regardless of
+        // significant-figure count.
+        if (decimal.Truncate(price) == price)
+        {
+            return price;
+        }
+
         var magnitude = (int)Math.Floor(
             Math.Log10((double)Math.Abs(price)));
 
