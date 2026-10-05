@@ -82,7 +82,9 @@ public sealed class OrdersController(
     }
 
     [HttpGet("local/{idOrClientOrderId}")]
+    [OperatorApiKey]
     [ProducesResponseType<LocalOrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<LocalOrderResponse>> GetLocalOrder(
         string idOrClientOrderId,
@@ -98,7 +100,9 @@ public sealed class OrdersController(
     }
 
     [HttpGet("local/{idOrClientOrderId}/history")]
+    [OperatorApiKey]
     [ProducesResponseType<IReadOnlyCollection<OrderLifecycleEventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyCollection<OrderLifecycleEventResponse>>> GetLocalOrderHistory(
         string idOrClientOrderId,
