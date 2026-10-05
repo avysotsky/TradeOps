@@ -107,6 +107,7 @@ BybitTestnet
 BinanceFuturesTestnet
 HyperliquidTestnet
 MexcFuturesReadOnly
+DeribitTestnet
 ```
 
 ## Execution flow
@@ -599,6 +600,42 @@ ApiKey + Request-Time + sorted/url-encoded request parameters
 ```
 
 The adapter is restricted to the official `https://contract.mexc.com` host. This restriction does **not** make the host a test environment; it remains a live exchange endpoint, which is why mutation methods stay disabled.
+
+## Deribit testnet
+
+TradeOps v1.7.0.0 adds Deribit futures/perpetual REST execution against the dedicated Deribit test environment:
+
+```text
+https://test.deribit.com/api/v2
+```
+
+Provider:
+
+```text
+DeribitTestnet
+```
+
+The adapter supports account summary, futures positions, open orders, order lookup by exchange order id or Deribit label, buy/sell order placement and cancellation. Authentication uses `public/auth` with `client_credentials` and caches the OAuth access token before expiry.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=DeribitTestnet
+export DERIBIT_TESTNET_CLIENT_ID='YOUR_TESTNET_CLIENT_ID'
+export DERIBIT_TESTNET_CLIENT_SECRET='YOUR_TESTNET_CLIENT_SECRET'
+export DERIBIT_ACCOUNT_CURRENCY='BTC'
+docker compose up --build -d
+```
+
+Smoke:
+
+```bash
+bash scripts/deribit-testnet-smoke.sh
+```
+
+For this adapter, `Symbol` must be a native Deribit instrument name such as `BTC-PERPETUAL` or a dated future. `Quantity` is expressed in Deribit contract units and is sent through the API `contracts` parameter. TradeOps does not silently reinterpret `BTCUSDT` as a Deribit instrument.
+
+The adapter accepts only the official testnet host. `https://www.deribit.com/api/v2` is rejected.
 
 ## API
 
