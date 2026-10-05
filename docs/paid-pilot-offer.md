@@ -136,6 +136,8 @@ Secrets are not part of the generated evidence package.
 
 The paid pilot is an execution/integration engineering engagement.
 
+After qualification, record the agreed engineering boundary in `docs/paid-pilot-scope-template.md`.
+
 Commercial terms, fixed price or hourly billing, hosting responsibility and any post-pilot support period are agreed separately for each client.
 
 The purpose of the pilot is to reduce integration risk and produce verifiable engineering evidence before any broader deployment decision.
