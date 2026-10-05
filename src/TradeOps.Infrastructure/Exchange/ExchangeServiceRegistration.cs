@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Hyperliquid;
 
 namespace TradeOps.Infrastructure.Exchange;
 
@@ -42,9 +43,17 @@ public static class ExchangeServiceRegistration
             ListenKeyKeepaliveMinutes = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:ListenKeyKeepaliveMinutes"], 30)
         };
 
+        var hyperliquidOptions = new HyperliquidOptions
+        {
+            BaseUrl = configuration[$"{HyperliquidOptions.SectionName}:BaseUrl"] ?? "https://api.hyperliquid-testnet.xyz",
+            UserAddress = configuration[$"{HyperliquidOptions.SectionName}:UserAddress"] ?? string.Empty,
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{HyperliquidOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         services.AddSingleton(exchangeOptions);
         services.AddSingleton(bybitOptions);
         services.AddSingleton(binanceOptions);
+        services.AddSingleton(hyperliquidOptions);
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bybitOptions.HttpTimeoutSeconds);
@@ -53,11 +62,16 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(binanceOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(HyperliquidExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(hyperliquidOptions.HttpTimeoutSeconds);
+        });
 
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
         services.AddSingleton<BinanceFuturesExchangeClient>();
         services.AddSingleton<BinanceUserDataStream>();
+        services.AddSingleton<HyperliquidExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -85,8 +99,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.HyperliquidTestnet, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<HyperliquidExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
