@@ -90,7 +90,7 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
         }
         finally
         {
-            await TryCloseListenKeyAsync(listenKey);
+            await TryCloseListenKeyAsync();
         }
     }
 
@@ -187,12 +187,11 @@ public sealed class BinanceUserDataStream : IExchangeEventStream
         return json;
     }
 
-    private async Task TryCloseListenKeyAsync(string listenKey)
+    private async Task TryCloseListenKeyAsync()
     {
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            _ = listenKey;
             _ = await SendListenKeyRequestAsync(
                 HttpMethod.Delete,
                 timeout.Token);
