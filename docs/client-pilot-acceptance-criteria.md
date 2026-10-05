@@ -45,7 +45,7 @@ The pilot is accepted only for execution engineering. It does not certify profit
 
 ## E. Risk and operator controls
 
-- [ ] Mutating operator actions require the independent operator credential.
+- [ ] Mutating operator actions and the protected paid-pilot evidence reads require the independent operator credential.
 - [ ] Customer understands that RiskEngine may reject a signal.
 - [ ] Customer understands that health monitoring is observational and does not automatically emergency-stop trading.
 - [ ] Emergency-stop/cancellation procedure and authorized operator are documented.
@@ -66,7 +66,7 @@ Complete only if the pilot includes Bybit testnet.
 ```text
 Client:
 Pilot date:
-TradeOps version: v1.3.2.0
+TradeOps version: v1.3.2.1
 Exchange stage: Mock / BybitTestnet
 Approved TradingView template revision:
 Approved eventId rule:
