@@ -697,6 +697,54 @@ public sealed class ExchangeServiceRegistrationTests
     }
 
     [Fact]
+    public void AddTradeOpsExchange_KrakenNonOfficialBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KrakenFuturesReadOnly",
+                ["Exchange:Kraken:BaseUrl"] = "https://demo-futures.kraken.com/derivatives/api/v3"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official live Futures REST endpoint",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_KuCoinNonOfficialBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KuCoinFuturesReadOnly",
+                ["Exchange:KuCoin:BaseUrl"] = "https://openapi-sandbox.kucoin.com"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official live Futures API host",
+            exception.Message);
+    }
+
+    [Fact]
     public void AddTradeOpsExchange_RejectsUnsupportedProvider()
     {
         var services = new ServiceCollection();
