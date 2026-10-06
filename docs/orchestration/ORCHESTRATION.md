@@ -12,9 +12,10 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main product integration: eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
-latest integrated workstream: WS-04 — Event-driven Backtester (PR #52)
-previous integrated workstreams: WS-02 PR #51, WS-01 PR #50, WS-03 PR #49
+main product integration: ef1690203929a5c0c4adafd3fd0f33d55b088170
+latest integrated slice: VS-01 — Research-to-Rebalance Client Demo (PR #54)
+WS-01 manual Paper smoke harness integrated via PR #53
+previous integrated workstreams: WS-04 PR #52, WS-02 PR #51, WS-01 PR #50, WS-03 PR #49
 ```
 
 DocFlow repository:
@@ -68,10 +69,11 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 
 | ID | Workstream | Branch | State | Can run now |
 |---|---|---|---|---|
-| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | WAITING_EXTERNAL | manual smoke harness only until a real Paper account is available |
+| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | WAITING_EXTERNAL | harness integrated; real Paper account required for authenticated validation |
 | WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | INTEGRATED | no further contract changes without orchestration |
 | WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further contract changes without orchestration |
 | WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | INTEGRATED | bounded v1 complete; no generic expansion without orchestration |
+| VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -112,10 +114,11 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 4. DONE — WS-02 semantic alignment and earnings/event-time contract integrated (PR #51).
 5. DONE — historical event/provenance and SetTargetWeight boundaries frozen for downstream replay.
 6. DONE — WS-04 bounded event-driven backtester integrated (PR #52).
-7. NEXT — assemble client-ready vertical slice: earnings event -> explicit client rule/policy -> SetTargetWeight -> historical backtest -> rebalance output.
-8. Prepare the IBKR Paper manual smoke harness; execute real authenticated smoke only when a real Paper account becomes available.
-9. After Paper validation, build RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
-10. End-to-end client demo: earnings/research -> backtest -> target weight -> rebalance -> IBKR Paper.
+7. DONE — VS-01 client-ready research -> backtest -> rebalance vertical slice integrated (PR #54).
+8. DONE — WS-01 opt-in manual IBKR Paper read-path harness integrated (PR #53).
+9. WAIT — execute real authenticated IBKR Paper smoke only when a real Paper account becomes available.
+10. NEXT — package the integrated vertical slice with reproducible public historical research/market inputs and a runnable demo surface.
+11. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -203,8 +206,9 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  client-ready vertical slice — connect integrated earnings, policy, backtest and rebalance flow
-WAIT WS-01 real Paper validation — external IBKR Paper account unavailable; prepare harness only
+P0  next client-ready slice — reproducible public historical inputs + runnable demo surface
+DONE VS-01 Research-to-Rebalance Client Demo — PR #54
+WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
 DONE WS-04 Event-driven Backtester — PR #52
 DONE WS-02 Earnings Intelligence boundary — PR #51
 DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
