@@ -327,7 +327,8 @@ public sealed class ExchangeServiceRegistrationTests
                 ["Exchange:Deribit:ClientId"] = "test-client",
                 ["Exchange:Deribit:ClientSecret"] = "test-secret",
                 ["Exchange:Deribit:AccountCurrency"] = "ETH",
-                ["Exchange:Deribit:HttpTimeoutSeconds"] = "12"
+                ["Exchange:Deribit:HttpTimeoutSeconds"] = "12",
+                ["Exchange:Deribit:WebSocketPingIntervalSeconds"] = "17"
             });
 
         services.AddLogging();
@@ -342,12 +343,14 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.IsType<DeribitTestnetExchangeClient>(exchangeClient);
         Assert.Same(exchangeClient, connectionManager);
-        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.IsType<DeribitPrivateWebSocketStream>(eventStream);
         Assert.Equal("https://test.deribit.com/api/v2", options.BaseUrl);
+        Assert.Equal("wss://test.deribit.com/ws/api/v2", options.WebSocketUrl);
         Assert.Equal("test-client", options.ClientId);
         Assert.Equal("test-secret", options.ClientSecret);
         Assert.Equal("ETH", options.AccountCurrency);
         Assert.Equal(12, options.HttpTimeoutSeconds);
+        Assert.Equal(17, options.WebSocketPingIntervalSeconds);
     }
 
     [Fact]
