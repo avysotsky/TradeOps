@@ -74,6 +74,7 @@ public sealed class ExchangeCapabilityCatalogTests
         {
             ExchangeProviders.BinanceFuturesTestnet,
             ExchangeProviders.BybitTestnet,
+            ExchangeProviders.DeribitTestnet,
             ExchangeProviders.HyperliquidTestnet
         }
         .OrderBy(value => value, StringComparer.Ordinal)
