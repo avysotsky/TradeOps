@@ -1,6 +1,6 @@
 # WS-03 — Signal / Portfolio Target Engine
 
-State: READY_FOR_INTEGRATION
+State: INTEGRATED
 
 Repository:
 
@@ -18,6 +18,15 @@ Base:
 
 ```text
 main @ e4466fecab999d83b7b9f9b5353514125b793251
+```
+
+Integrated:
+
+```text
+PR #49
+worker HEAD: 3e5796bf815f64c9d9bc6adbb4391239fd3ca157
+merge commit: 3f7aa84565fbd77f202821f72c36160c001774f3
+worker CI: 37510799848 — success
 ```
 
 ## Goal
@@ -41,7 +50,7 @@ SetTargetWeight
 
 ## RebalancePlan v1 scope
 
-The first WS-03 contract is pure application-layer calculation:
+The integrated WS-03 contract is pure application-layer calculation:
 
 ```text
 validated ResearchDecision
@@ -64,9 +73,9 @@ Initial scope:
 - no live execution;
 - no broker SDK dependency.
 
-## Architecture audit
+## Architecture boundary
 
-Existing TradeOps execution is currently centered on:
+Existing TradeOps execution remains:
 
 ```text
 TradingSignal
@@ -77,102 +86,79 @@ TradingSignal
 -> OrderStateMachine
 ```
 
-The existing RiskEngine is quantity/symbol based and exchange-position aware.
-The existing OrderManager accepts TradingSignal and creates executable PlaceOrderRequest only after risk approval.
-The existing PositionService is currently symbol based.
+`RebalanceOrderIntent` is not an executable order. It explicitly remains behind the downstream TradeOps risk/emergency-stop boundary.
 
-Therefore WS-03 does not bypass or directly reuse those execution models as its calculation core.
-RebalanceOrderIntent remains a broker-neutral pre-risk intent and must later be adapted through the TradeOps risk/execution boundary.
-Final adapter integration remains dependent on WS-01.
+WS-03 does not modify `RiskEngine`, `OrderManager`, or any broker adapter.
 
-## Current status
+## Integrated contract
+
+Added:
 
 ```text
-State: READY_FOR_INTEGRATION
-Current implementation HEAD: f26207627f484bbab2900952e8afcde30fb2575e
-
-Completed:
-- Added PortfolioSnapshot / PortfolioPosition.
-- Added TargetPosition.
-- Added RebalanceConstraints.
-- Added RebalanceConstraintViolation.
-- Added RebalancePlan / RebalancePlanStatus.
-- Added broker-neutral RebalanceOrderIntent with explicit downstream risk-approval boundary.
-- Added pure deterministic PortfolioRebalancePlanner for SetTargetWeight.
-- Added explicit CurrentNotional and DeltaNotional to RebalancePlan.
-- Implemented long-only and max-target-weight validation.
-- Implemented available-cash and optional minimum-cash-reserve validation.
-- Implemented minimum-trade-notional suppression.
-- Implemented independent near-zero quantity suppression through QuantityTolerance.
-- Implemented expired-decision validation.
-- Implemented DecisionNotYetAvailable validation when GeneratedAt is after PortfolioSnapshot.AsOf.
-- Implemented optional MaximumDecisionAge / DecisionStale validation.
-- Implemented unsupported action and unsupported asset-class blocking.
-- Implemented missing/invalid reference-price blocking.
-- Implemented currency-mismatch blocking because v1 does not perform FX conversion.
-- Invalid ResearchDecision now produces a deterministic Blocked plan instead of broker/execution activity.
-- Added explicit 1.8% -> 4.0% / NAV $100,000 calculation coverage:
-  current notional $1,800 -> target $4,000 -> delta +$2,200.
-
-Shared contracts changed:
-- Frozen ResearchDecision v1: unchanged.
-- Frozen InstrumentReference v1: unchanged.
-- Frozen ResearchDecisionValidationResult v1: unchanged.
-- Frozen ResearchDecisionAction v1: unchanged.
-- WS-03 proposed public contract evolved before integration:
-  PortfolioSnapshot,
-  PortfolioPosition,
-  TargetPosition,
-  RebalanceConstraints,
-  RebalanceConstraintViolation,
-  RebalancePlan,
-  RebalancePlanStatus,
-  RebalanceOrderIntent.
-
-Tests:
-- PortfolioRebalancePlannerTests cover:
-  exact 1.8% -> 4.0% example,
-  new buy,
-  sell-down,
-  target zero / exit,
-  exact no-op,
-  QuantityTolerance suppression,
-  minimum-trade suppression,
-  insufficient cash,
-  cash reserve,
-  max weight,
-  negative target,
-  expired decision,
-  future-generated decision,
-  stale decision,
-  missing price,
-  invalid ResearchDecision,
-  unsupported asset class,
-  unsupported action.
-- Existing repository test suite remains green.
-
-CI:
-- build run #583
-- run id: 37510423419
-- validated implementation SHA: f26207627f484bbab2900952e8afcde30fb2575e
-- conclusion: success
-- Restore: success
-- Build: success
-- Unit tests: success
-- API + PostgreSQL smoke: success
-- Signed webhook demo: success
-- Customer TradingView demo: success
-- deployment/config validation: success
-- Docker image build: success
-
-Blockers:
-- None for RebalancePlan v1 calculation semantics.
-- Final execution/risk bridge depends on WS-01 broker adapter/output semantics and an orchestrator-approved integration design.
-- Existing RiskEngine cannot yet consume RebalanceOrderIntent directly without a dedicated bridge; WS-03 intentionally does not modify that shared execution path in this milestone.
-
-Next integration action:
-- Development Orchestrator reviews RebalancePlan v1 / RebalanceOrderIntent for contract freeze.
-- Orchestrator checks overlap against WS-01 and current main.
-- Merge only through orchestrated integration.
-- Once RebalancePlan v1 is frozen, WS-04 may reuse the same planner semantics for historical replay.
+PortfolioSnapshot
+PortfolioPosition
+TargetPosition
+RebalanceConstraints
+RebalanceConstraintViolation
+RebalancePlan
+RebalancePlanStatus
+RebalanceOrderIntent
+PortfolioRebalancePlanner
 ```
+
+Implemented:
+
+- target/current/delta quantity and notional calculation;
+- long-only validation;
+- max-target-weight validation;
+- available-cash and minimum-cash-reserve validation;
+- minimum-trade-notional suppression;
+- quantity-tolerance suppression;
+- decision expiry / future-availability / staleness validation;
+- missing/invalid reference-price blocking;
+- currency-mismatch blocking because v1 does not perform FX conversion;
+- deterministic blocked plans for invalid research decisions;
+- explicit 1.8% -> 4.0% / NAV $100,000 test case.
+
+## Shared contracts changed
+
+Frozen shared contracts were not changed:
+
+```text
+InstrumentReference v1
+ResearchDecision v1
+ResearchDecisionAction v1
+ResearchDecisionValidationResult v1
+```
+
+The WS-03 rebalance contracts above are now the integrated v1 portfolio-planning boundary and should not be changed by another worker without orchestrator approval.
+
+## Tests / CI
+
+Worker HEAD:
+
+```text
+3e5796bf815f64c9d9bc6adbb4391239fd3ca157
+```
+
+GitHub Actions:
+
+```text
+run id: 37510799848
+conclusion: success
+```
+
+Coverage includes target/delta calculation, new buy, sell-down, target zero, no-op, tolerance/minimum-trade suppression, cash constraints, max weight, expiry/staleness, price validation, invalid decision, unsupported asset class and unsupported action.
+
+## Blockers
+
+None for RebalancePlan v1 semantics.
+
+The production execution bridge from `RebalanceOrderIntent` into existing TradeOps risk/order lifecycle is not implemented yet. That integration depends on the orchestrator-approved bridge design and WS-01 broker capabilities.
+
+## Next integration action
+
+1. Treat `RebalancePlan` / `RebalanceOrderIntent` v1 semantics as frozen for downstream work.
+2. WS-04 may reuse this exact planner boundary for historical replay.
+3. Do not add a second backtest-only portfolio-decision model.
+4. Build the execution/risk bridge only after WS-01's broker boundary is integrated and reviewed.
