@@ -316,8 +316,20 @@ public sealed class EventDrivenBacktesterTests
                 .Quantity);
 
         Assert.Equal(
-            first,
-            second);
+            first.Fills.ToArray(),
+            second.Fills.ToArray());
+        Assert.Equal(
+            first.EquityCurve.ToArray(),
+            second.EquityCurve.ToArray());
+        Assert.Equal(
+            first.Metrics,
+            second.Metrics);
+        Assert.Equal(
+            first.FinalPortfolio.Cash,
+            second.FinalPortfolio.Cash);
+        Assert.Equal(
+            first.FinalPortfolio.NetAssetValue,
+            second.FinalPortfolio.NetAssetValue);
         Assert.Equal(
             1,
             first.Metrics.EventCount);
