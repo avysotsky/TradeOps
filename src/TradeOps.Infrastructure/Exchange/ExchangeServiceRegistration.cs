@@ -96,10 +96,12 @@ public static class ExchangeServiceRegistration
         var deribitOptions = new DeribitOptions
         {
             BaseUrl = configuration[$"{DeribitOptions.SectionName}:BaseUrl"] ?? "https://test.deribit.com/api/v2",
+            WebSocketUrl = configuration[$"{DeribitOptions.SectionName}:WebSocketUrl"] ?? "wss://test.deribit.com/ws/api/v2",
             ClientId = configuration[$"{DeribitOptions.SectionName}:ClientId"] ?? string.Empty,
             ClientSecret = configuration[$"{DeribitOptions.SectionName}:ClientSecret"] ?? string.Empty,
             AccountCurrency = configuration[$"{DeribitOptions.SectionName}:AccountCurrency"] ?? "BTC",
-            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{DeribitOptions.SectionName}:HttpTimeoutSeconds"], 10)
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{DeribitOptions.SectionName}:HttpTimeoutSeconds"], 10),
+            WebSocketPingIntervalSeconds = ReadPositiveInt(configuration[$"{DeribitOptions.SectionName}:WebSocketPingIntervalSeconds"], 20)
         };
 
         var okxOptions = new OkxOptions
@@ -213,6 +215,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<KrakenFuturesReadOnlyExchangeClient>();
         services.AddSingleton<KuCoinFuturesReadOnlyExchangeClient>();
         services.AddSingleton<DeribitTestnetExchangeClient>();
+        services.AddSingleton<DeribitPrivateWebSocketStream>();
         services.AddSingleton<CoinbaseIntxSandboxExchangeClient>();
         services.AddSingleton<OkxDemoExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
@@ -262,7 +265,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<DeribitTestnetExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<DeribitTestnetExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<DeribitPrivateWebSocketStream>());
             return services;
         }
 

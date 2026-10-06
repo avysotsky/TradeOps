@@ -86,8 +86,8 @@ public sealed class ExchangeCapabilityCatalog(
             "Testnet",
             usesLiveTradingHost: false,
             execution: true,
-            privateStream: false,
-            "REST");
+            privateStream: true,
+            "REST + WebSocket");
 
         yield return Profile(
             ExchangeProviders.OkxDemo,
