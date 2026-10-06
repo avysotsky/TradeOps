@@ -11,28 +11,32 @@ SEC EDGAR filing metadata + structured XBRL facts
 -> deterministic accession/period normalization
 -> SecFilingEarningsFacts
 -> EarningsEvent v1 / EarningsSnapshot v1
--> deterministic research rule
--> ResearchDecision v1
--> portfolio/risk translation
--> execution
+-> deterministic earnings assessment
+-> explicit target-weight policy
+-> ResearchDecision v1 (SetTargetWeight)
+-> PortfolioRebalancePlanner
+-> RebalancePlan
+-> execution/risk boundary
 ```
 
 TradeOps does not crawl SEC, parse arbitrary HTML/transcripts, run an LLM over documents, persist a raw research corpus, or place orders directly from raw filing text.
 
-## EarningsEvent v1
+## EarningsEvent / EarningsSnapshot v1
 
-`EarningsEvent` is the consumer-side event contract usable by both a live research pipeline and historical replay.
+`EarningsEvent` is the consumer-side event contract usable by live research and historical replay.
 
-It contains:
+It carries:
 
-- broker-neutral instrument identity through `InstrumentReference`;
+- broker-neutral `InstrumentReference`;
 - stable `EventId`;
-- `PublishedAt`: the earliest timestamp at which this research event is allowed to be consumed;
-- `FiscalPeriod`;
-- `EarningsSnapshot`;
-- `ResearchSourceProvenance`.
+- consumer-eligibility `PublishedAt`;
+- fiscal period;
+- normalized earnings snapshot;
+- source provenance.
 
-For SEC v1, source identity is:
+The snapshot contains revenue, diluted EPS, net income, gross margin, operating margin and optional guidance direction/ranges.
+
+For SEC v1:
 
 ```text
 Provider = SEC
@@ -40,161 +44,144 @@ SourceDocumentId = accession number
 IssuerId = CIK:<CIK>
 ```
 
-## EarningsSnapshot v1
+## SEC normalization and historical correctness
 
-The first snapshot contains:
+The external acquisition service supplies filing metadata and structured facts. TradeOps deterministically selects only facts matching:
 
-- revenue;
-- diluted EPS;
-- net income;
-- gross margin;
-- operating margin;
-- optional guidance direction;
-- optional guidance revenue range;
-- optional guidance diluted-EPS range.
+- `us-gaap`;
+- exact accession;
+- exact form;
+- exact fiscal-period interval;
+- expected unit;
+- consolidated/non-dimensional context.
 
-Guidance is optional because standardized SEC XBRL does not guarantee issuer guidance. A later release/transcript provider can populate the same normalized field only after deterministic extraction/classification.
+Facts from a later accession are not eligible for an earlier event. Ambiguous exact facts fail closed.
 
-## SEC acceptance vs public availability
+## SEC acceptance vs PublishedAt
 
-These timestamps have different meanings and must not be collapsed.
+`AcceptedAt` is retained as the provider/source timestamp. It is not automatically treated as exact market availability.
 
-`AcceptedAt` is the SEC/EDGAR acceptance timestamp for the submission. It is retained as `ResearchSourceProvenance.SourceTimestamp`.
-
-It is **not** treated as proof that the filing content was already publicly retrievable at that exact instant.
-
-The SEC states that filings are often available on sec.gov 1–3 minutes after the EDGAR system timestamp, that lag can increase, and that SEC has no timestamp indicating exactly when filing content first becomes available on sec.gov.
-
-Therefore the v1 availability rule is conservative:
+The v1 rule is conservative:
 
 ```text
-if acquisition service has a verified PubliclyAvailableAt:
+if verified PubliclyAvailableAt exists:
     PublishedAt = PubliclyAvailableAt
 else:
     PublishedAt = first observed RetrievedAt
 ```
 
-Required invariant:
+Required invariants:
 
 ```text
-AcceptedAt / SourceTimestamp <= PublishedAt <= RetrievedAt
+SourceTimestamp <= PublishedAt <= RetrievedAt
 ResearchDecision.GeneratedAt >= PublishedAt
 ```
 
-A `PubliclyAvailableAt` supplied by the external acquisition service must be evidence-backed and cannot precede SEC acceptance or be later than the observation that retrieved the source.
+An after-hours event therefore cannot be consumed before its actual/evidence-backed availability boundary. Market-session eligibility is handled later by the planner/backtester/execution path.
 
-For ordinary polling, using first successful retrieval as `PublishedAt` is deliberately conservative and prevents a backtest from acting during an unknown dissemination lag.
+## Deterministic earnings assessment
 
-An after-hours filing therefore becomes eligible only at `PublishedAt`; market-session logic later decides the first tradable bar/order opportunity.
+`DeterministicEarningsDecisionRule.Assess` stays in the research layer.
 
-SEC reference:
+It compares a current event with a prior comparable event using configurable thresholds for:
 
-```text
-https://www.sec.gov/files/about/webmaster-faq.htm
-Developers -> EDGAR lag/timestamps
-```
+- revenue growth;
+- diluted-EPS growth;
+- operating-margin delta.
 
-## SEC structured-data MVP
-
-The live acquisition service remains outside TradeOps.
-
-Its minimum responsibilities are:
-
-1. discover the filing and obtain CIK, accession, form and SEC acceptance timestamp;
-2. retrieve SEC structured XBRL facts;
-3. record first successful retrieval and, when independently established, verified public-availability time;
-4. preserve source URI/raw-source evidence outside TradeOps;
-5. emit `SecStructuredFiling`.
-
-TradeOps then performs deterministic normalization.
-
-The normalizer selects only facts matching:
-
-- `us-gaap` namespace;
-- exact filing accession;
-- exact filing form;
-- exact fiscal-period start/end;
-- expected unit;
-- no dimensional member.
-
-This guards historical replay against later filings that repeat, revise or restate an older fiscal period: a fact from another accession is not eligible for the earlier event.
-
-The v1 concept priority is intentionally small:
+The result is:
 
 ```text
-Revenue:
-  RevenueFromContractWithCustomerExcludingAssessedTax
-  SalesRevenueNet
-  Revenues
-
-Diluted EPS:
-  EarningsPerShareDiluted
-
-Net income:
-  NetIncomeLoss
-  ProfitLoss
-
-Gross profit:
-  GrossProfit
-
-Operating income:
-  OperatingIncomeLoss
+EarningsAssessment.Positive
+EarningsAssessment.Neutral
+EarningsAssessment.Negative
 ```
 
-If more than one exact fact exists for a selected concept/accession/period/context, normalization fails instead of choosing silently.
+with score, comparable-signal count, KPI deltas and confidence.
 
-## Provenance
+This assessment is not itself an executable trading instruction.
 
-Every normalized event carries:
+## Explicit target-weight policy
 
-- provider;
-- source URI;
-- source timestamp;
-- retrieval timestamp;
-- extraction method;
-- source document identifier;
-- issuer identifier.
-
-For SEC:
+The portfolio-facing mapping is supplied explicitly through:
 
 ```text
-provider = SEC
-sourceTimestamp = EDGAR AcceptedAt
-sourceDocumentId = accession number
-issuerId = CIK:<CIK>
-extractionMethod = sec-filing-xbrl-v1
+EarningsTargetWeightPolicy(
+    PositiveTargetWeight,
+    NeutralTargetWeight,
+    NegativeTargetWeight)
 ```
 
-`PublishedAt` belongs to the event because it is the consumer eligibility boundary; it may be later than the provider's acceptance/source timestamp.
+The rule does not contain hidden position sizing.
 
-## Deterministic research rule
+For long-only WS-03 compatibility each configured target must satisfy:
 
-`DeterministicEarningsDecisionRule` compares a current event with a prior comparable event for the same symbol.
+```text
+0 <= TargetWeight <= 1
+```
 
-The default demo signals are:
+A demo may choose, for example:
 
-- revenue growth versus the configured threshold;
-- diluted EPS growth versus the configured threshold;
-- operating-margin change versus the configured threshold.
+```text
+Positive -> 0.04
+Neutral  -> 0.02
+Negative -> 0.00
+```
 
-The result is a broker-neutral `ResearchDecision v1` with `Buy`, `Sell`, or `NoAction`. It is not an executable order. WS-03 remains responsible for deterministic portfolio/rebalance translation before execution.
+but those values are caller configuration, not an alpha claim or a production recommendation.
 
-The rule is a reproducible integration fixture, not a profitability claim or production alpha model. An LLM may later extract or classify facts, but it must not bypass normalized facts/rules and emit executable orders directly.
+## ResearchDecision v1 output
 
-## SEC-anchored fixtures
+After assessment and policy mapping, the final TradeOps decision is always:
 
-Tests use filing metadata and GAAP values anchored to real SEC filings for:
+```text
+Action = ResearchDecisionAction.SetTargetWeight
+TargetWeight = weight selected by the explicit policy
+```
 
-- Apple Q3 FY2026 — accession `0000320193-26-000020`, period ended 2026-06-27;
-- Microsoft Q3 FY2026 — accession `0001193125-26-191507`, period ended 2026-03-31;
-- NVIDIA Q2 FY2027 — accession `0001045810-26-000075`, period ended 2026-07-26.
+The frozen `ResearchDecision v1` is validated before return.
 
-Fixture monetary values are represented in SEC-style base units (USD and USD/shares), not display-table millions.
+The deterministic DecisionId incorporates:
 
-The fixture acceptance timestamp is source metadata. Test event creation intentionally defaults `PublishedAt` to a later simulated first-retrieval timestamp unless a verified `PubliclyAvailableAt` is explicitly supplied.
+- event identity;
+- strategy identity;
+- research thresholds;
+- target-weight policy.
+
+Changing the research rule or portfolio mapping therefore changes decision identity rather than silently reusing the same ID.
+
+## WS-03 compatibility
+
+The integrated downstream path is:
+
+```text
+ResearchDecision(SetTargetWeight)
+-> PortfolioRebalancePlanner
+-> RebalancePlan
+-> RebalanceOrderIntent
+```
+
+WS-02 tests execute that path directly and require a non-blocked `RebalancePlan` for the positive demo scenario.
+
+`RebalanceOrderIntent` remains pre-risk and is not a direct broker order.
+
+## LLM boundary
+
+A future LLM may extract or classify source facts, but it must not directly create executable BUY/SELL orders.
+
+The required shape remains:
+
+```text
+raw filing/transcript
+-> normalized facts
+-> deterministic assessment
+-> explicit policy
+-> ResearchDecision(SetTargetWeight)
+-> portfolio/risk/execution
+```
 
 ## Separate repository decision
 
-Live SEC acquisition, HTTP policy/rate limiting, caching, filing discovery, raw payload persistence/evidence, public-availability observation and future transcript/LLM extraction belong in a separate Earnings Research service/repository.
+Live SEC acquisition, polling, HTTP policy/rate limiting, caching, filing discovery, raw payload evidence and future transcript/LLM extraction belong in a separate Earnings Research service/repository.
 
-TradeOps owns only the consumer-side contract, deterministic normalization, availability/provenance guards and translation into frozen `ResearchDecision v1`.
+TradeOps owns the consumer-side contract, deterministic normalization, availability/provenance guards and translation into frozen `ResearchDecision v1`.
