@@ -17,15 +17,15 @@ main
 Current `main` merge commit:
 
 ```text
-e9695adc0c50f8ffd9b409c98587b8d4f347ab56
+6cb17fc75b3d84de0fe49fbf2b0779f24f3e226c
 ```
 
 Latest completed milestone:
 
 ```text
-TradeOps v2.4.0.0 — Deribit Private Event Stream
-PR #42
-CI #529: success
+TradeOps v2.5.0.0 — OKX Demo Private Event Stream
+PR #44
+CI #541: success
 ```
 
 There is no unfinished implementation branch to resume. Start from `main`.
@@ -131,7 +131,7 @@ CoinbaseIntxSandbox
 | HyperliquidTestnet | Hyperliquid | Testnet | yes | yes | no |
 | MexcFuturesReadOnly | MEXC Futures | LiveReadOnly | no | no | yes |
 | DeribitTestnet | Deribit | Testnet | yes | yes | no |
-| OkxDemo | OKX | Demo | yes | no | yes, protected by simulated-trading header |
+| OkxDemo | OKX | Demo | yes | yes | yes, REST protected by simulated-trading header; WebSocket uses demo host |
 | BitgetDemo | Bitget | Demo | yes | no | yes, protected by demo header |
 | GateFuturesTestnet | Gate Futures | Testnet | yes | no | no |
 | KrakenFuturesReadOnly | Kraken Futures | LiveReadOnly | no | no | yes |
@@ -298,6 +298,26 @@ x-simulated-trading: 1
 
 Execution is demo-only.
 
+Private WebSocket:
+
+```text
+wss://wspap.okx.com/ws/v5/private
+```
+
+The portless endpoint is the default. Legacy `:8443` is temporarily accepted during OKX's 2026 port migration, but production `ws.okx.com` is rejected.
+
+Private-stream flow:
+
+- WebSocket login with API key / passphrase and HMAC-SHA256 signature over `timestamp + GET + /users/self/verify`;
+- subscribe to the `orders` channel for `SWAP` and `FUTURES`;
+- normalize order updates into `ExchangeOrderUpdate`;
+- derive incremental executions from `tradeId`, `fillSz`, `fillPx`, `fillFee`, and `fillFeeCcy`;
+- use `okx:{instId}:{tradeId}` as execution identity because OKX trade IDs are instrument-scoped;
+- normalize OKX fee signs to the TradeOps accounting convention: fee paid positive, rebate negative;
+- application-level `ping` heartbeat keeps idle private connections alive.
+
+The VIP4-only dedicated `fills` channel is intentionally not required; the generally available `orders` channel carries the fill data needed by TradeOps.
+
 ### Bitget
 
 Provider:
@@ -444,7 +464,7 @@ Contract tests verify:
 
 - every declared ExchangeProviders constant has exactly one capability profile;
 - LiveReadOnly providers cannot advertise mutations;
-- only Bybit/Binance/Hyperliquid/Deribit currently advertise private event streams;
+- only Bybit/Binance/Hyperliquid/Deribit/OKX currently advertise private event streams;
 - execution is never advertised for LiveReadOnly environments;
 - every provider resolves through DI;
 - actual IExchangeEventStream wiring matches capability metadata.
@@ -521,6 +541,62 @@ CI:
 #529 pull_request: success
 ```
 
+## v2.5.0.0 OKX Demo private-event milestone
+
+PR #44 added authenticated OKX Demo private execution events while preserving the existing Demo-only execution boundary.
+
+Added:
+
+```text
+src/TradeOps.Infrastructure/Exchange/Okx/OkxPrivateWebSocketStream.cs
+src/TradeOps.Infrastructure/Exchange/Okx/OkxWebSocketMessageParser.cs
+tests/TradeOps.UnitTests/OkxWebSocketMessageParserTests.cs
+```
+
+Updated:
+
+```text
+src/TradeOps.Infrastructure/Exchange/Okx/OkxOptions.cs
+src/TradeOps.Infrastructure/Exchange/ExchangeServiceRegistration.cs
+src/TradeOps.Infrastructure/Exchange/ExchangeCapabilityCatalog.cs
+tests/TradeOps.UnitTests/OkxAdapterTests.cs
+tests/TradeOps.UnitTests/ExchangeCapabilityCatalogTests.cs
+tests/TradeOps.UnitTests/ExchangeServiceRegistrationTests.cs
+README.md
+```
+
+The stream:
+
+- connects only to the official Global OKX Demo private WebSocket host;
+- uses the portless 443 endpoint by default ahead of the announced 8443 retirement;
+- authenticates with the documented WebSocket login signature;
+- subscribes to derivative `orders` for `SWAP` and `FUTURES`;
+- normalizes order lifecycle and incremental fills;
+- does not depend on the VIP4-only `fills` channel;
+- converts OKX fee/rebate sign convention into TradeOps accounting semantics;
+- uses instrument-scoped execution identity for duplicate protection;
+- sends application-level `ping` heartbeats;
+- fails closed on production/private-WebSocket host configuration.
+
+PR #44 head:
+
+```text
+74ce768ca28e05be2d7bd98748817fed2e931c50
+```
+
+Merge commit:
+
+```text
+6cb17fc75b3d84de0fe49fbf2b0779f24f3e226c
+```
+
+CI:
+
+```text
+#540 push: success
+#541 pull_request: success
+```
+
 ## Recent venue PR history
 
 ```text
@@ -537,6 +613,7 @@ CI:
 #39 Coinbase INTX Sandbox REST
 #40 Exchange Capability Contracts
 #42 Deribit Private Event Stream
+#44 OKX Demo Private Event Stream
 ```
 
 All are merged.
@@ -556,12 +633,13 @@ The highest-value next step is exchange-event parity, not another venue.
 Recommended order:
 
 1. Continue private event streams / streaming adapters for execution-capable venues that are still REST-only:
-   - OKX Demo;
    - Bitget Demo;
    - Gate Futures TestNet;
    - Coinbase INTX Sandbox (likely FIX/drop-copy rather than a simple REST poller).
 
-   Deribit Testnet private order/trade streaming is complete in v2.4.0.0.
+   Completed:
+   - Deribit Testnet private order/trade streaming in v2.4.0.0;
+   - OKX Demo private derivative order/fill streaming in v2.5.0.0.
 
 2. Extend the capability contract only when a real distinction is needed, for example:
    - order event stream;
@@ -611,8 +689,8 @@ Start with:
 
 ```text
 Продолжаем TradeOps с docs/HANDOFF_NextChat_TradeOps_Current.md.
-Текущий main: e9695adc0c50f8ffd9b409c98587b8d4f347ab56.
-Продолжай со следующего технического milestone после v2.4.0.0 Deribit Private Event Stream.
+Текущий main: 6cb17fc75b3d84de0fe49fbf2b0779f24f3e226c.
+Продолжай со следующего технического milestone после v2.5.0.0 OKX Demo Private Event Stream.
 ```
 
 Before editing code:
