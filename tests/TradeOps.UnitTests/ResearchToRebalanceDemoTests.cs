@@ -134,8 +134,17 @@ public sealed class ResearchToRebalanceDemoTests
             sut.Run(request);
 
         Assert.Equal(
-            first.LatestDecision,
-            second.LatestDecision);
+            first.LatestDecision.DecisionId,
+            second.LatestDecision.DecisionId);
+        Assert.Equal(
+            first.LatestDecision.Action,
+            second.LatestDecision.Action);
+        Assert.Equal(
+            first.LatestDecision.TargetWeight,
+            second.LatestDecision.TargetWeight);
+        Assert.Equal(
+            first.LatestDecision.GeneratedAt,
+            second.LatestDecision.GeneratedAt);
         Assert.Equal(
             first.LatestAssessment,
             second.LatestAssessment);
@@ -149,8 +158,20 @@ public sealed class ResearchToRebalanceDemoTests
             first.Backtest.Metrics,
             second.Backtest.Metrics);
         Assert.Equal(
-            first.CurrentRebalancePlan,
-            second.CurrentRebalancePlan);
+            first.CurrentRebalancePlan.Status,
+            second.CurrentRebalancePlan.Status);
+        Assert.Equal(
+            first.CurrentRebalancePlan.TargetPosition,
+            second.CurrentRebalancePlan.TargetPosition);
+        Assert.Equal(
+            first.CurrentRebalancePlan.CurrentQuantity,
+            second.CurrentRebalancePlan.CurrentQuantity);
+        Assert.Equal(
+            first.CurrentRebalancePlan.DeltaQuantity,
+            second.CurrentRebalancePlan.DeltaQuantity);
+        Assert.Equal(
+            first.CurrentRebalancePlan.OrderIntent,
+            second.CurrentRebalancePlan.OrderIntent);
     }
 
     private static ResearchToRebalanceDemoRequest
