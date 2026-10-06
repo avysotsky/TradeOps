@@ -92,6 +92,9 @@ public sealed class EventDrivenBacktester
             bars,
             instrument);
 
+        ValidateDailyBarSeries(
+            bars);
+
         var schedules =
             BuildSchedules(
                 items,
@@ -476,10 +479,10 @@ public sealed class EventDrivenBacktester
     {
         foreach (var item in items)
         {
-            if (!IsSameInstrument(
+            if (!BacktestInstrumentIdentity.IsSameInstrument(
                     item.Decision.Instrument,
                     instrument) ||
-                !IsSameInstrument(
+                !BacktestInstrumentIdentity.IsSameInstrument(
                     item.EarningsEvent.Instrument,
                     instrument))
             {
@@ -490,7 +493,7 @@ public sealed class EventDrivenBacktester
 
         foreach (var bar in bars)
         {
-            if (!IsSameInstrument(
+            if (!BacktestInstrumentIdentity.IsSameInstrument(
                     bar.Instrument,
                     instrument))
             {
@@ -507,6 +510,20 @@ public sealed class EventDrivenBacktester
         ArgumentNullException.ThrowIfNull(
             bar.Instrument);
 
+        if (bar.Instrument.AssetClass !=
+            AssetClass.Stock)
+        {
+            throw new NotSupportedException(
+                "WS-04 bounded v1 accepts daily stock bars only.");
+        }
+
+        if (bar.Period !=
+            MarketDataBarPeriod.Daily)
+        {
+            throw new NotSupportedException(
+                "WS-04 bounded v1 accepts MarketDataBarPeriod.Daily only.");
+        }
+
         if (bar.OpenTime == default ||
             bar.CloseTime == default ||
             bar.CloseTime <=
@@ -515,6 +532,13 @@ public sealed class EventDrivenBacktester
             throw new ArgumentException(
                 "Market-data bar requires a valid increasing open/close interval.",
                 nameof(bar));
+        }
+
+        if (bar.OpenTime.UtcDateTime.Date !=
+            bar.CloseTime.UtcDateTime.Date)
+        {
+            throw new NotSupportedException(
+                "WS-04 bounded v1 daily bar open and close must belong to the same UTC trading date.");
         }
 
         if (bar.Open <= 0m ||
@@ -544,6 +568,27 @@ public sealed class EventDrivenBacktester
         }
     }
 
+    private static void ValidateDailyBarSeries(
+        IReadOnlyList<MarketDataBar> bars)
+    {
+        var duplicateTradingDate =
+            bars
+                .GroupBy(
+                    bar =>
+                        bar.OpenTime
+                            .UtcDateTime
+                            .Date)
+                .FirstOrDefault(
+                    group =>
+                        group.Count() > 1);
+
+        if (duplicateTradingDate is not null)
+        {
+            throw new NotSupportedException(
+                $"WS-04 bounded v1 accepts at most one daily market bar per trading date. Duplicate date: {duplicateTradingDate.Key:yyyy-MM-dd}.");
+        }
+    }
+
     private static void ValidateExecutionCosts(
         BacktestExecutionCosts costs)
     {
@@ -565,23 +610,6 @@ public sealed class EventDrivenBacktester
                 "Slippage basis points must be non-negative and less than 10,000.");
         }
     }
-
-    private static bool IsSameInstrument(
-        InstrumentReference left,
-        InstrumentReference right) =>
-        left.AssetClass == right.AssetClass &&
-        string.Equals(
-            left.Symbol.Trim(),
-            right.Symbol.Trim(),
-            StringComparison.OrdinalIgnoreCase) &&
-        (
-            string.IsNullOrWhiteSpace(left.Currency) ||
-            string.IsNullOrWhiteSpace(right.Currency) ||
-            string.Equals(
-                left.Currency.Trim(),
-                right.Currency.Trim(),
-                StringComparison.OrdinalIgnoreCase)
-        );
 
     private sealed record ScheduledReplay(
         BacktestReplayItem Item,

@@ -339,6 +339,250 @@ public sealed class EventDrivenBacktesterTests
             0m);
     }
 
+    [Fact]
+    public void Replay_same_symbol_currency_but_different_venue_ids_are_not_same_instrument()
+    {
+        var publishedAt =
+            Utc(
+                2026,
+                1,
+                2,
+                13,
+                0);
+
+        var decisionInstrument =
+            new InstrumentReference(
+                "AAPL",
+                AssetClass.Stock,
+                "USD",
+                VenueInstrumentId: "111",
+                Exchange: "NASDAQ");
+
+        var barInstrument =
+            decisionInstrument with
+            {
+                VenueInstrumentId = "222"
+            };
+
+        var item =
+            CreateReplayItem(
+                publishedAt,
+                publishedAt.AddMinutes(1),
+                decisionInstrument);
+
+        var exception =
+            Assert.Throws<NotSupportedException>(
+                () =>
+                    new EventDrivenBacktester()
+                        .Run(
+                            new[] { item },
+                            new[]
+                            {
+                                Bar(
+                                    2026,
+                                    1,
+                                    2,
+                                    100m,
+                                    101m,
+                                    barInstrument)
+                            },
+                            10_000m));
+
+        Assert.Contains(
+            "one instrument",
+            exception.Message,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Replay_same_venue_id_is_same_instrument_even_when_symbol_differs()
+    {
+        var publishedAt =
+            Utc(
+                2026,
+                1,
+                2,
+                13,
+                0);
+
+        var decisionInstrument =
+            new InstrumentReference(
+                "AAPL",
+                AssetClass.Stock,
+                "USD",
+                VenueInstrumentId: "111",
+                Exchange: "NASDAQ");
+
+        var barInstrument =
+            new InstrumentReference(
+                "AAPL_ALIAS",
+                AssetClass.Stock,
+                "USD",
+                VenueInstrumentId: "111",
+                Exchange: "NASDAQ");
+
+        var result =
+            new EventDrivenBacktester()
+                .Run(
+                    new[]
+                    {
+                        CreateReplayItem(
+                            publishedAt,
+                            publishedAt.AddMinutes(1),
+                            decisionInstrument)
+                    },
+                    new[]
+                    {
+                        Bar(
+                            2026,
+                            1,
+                            2,
+                            100m,
+                            101m,
+                            barInstrument)
+                    },
+                    10_000m);
+
+        Assert.Single(
+            result.Fills);
+    }
+
+    [Fact]
+    public void Replay_without_venue_id_falls_back_to_symbol_and_currency()
+    {
+        var publishedAt =
+            Utc(
+                2026,
+                1,
+                2,
+                13,
+                0);
+
+        var decisionInstrument =
+            new InstrumentReference(
+                "AAPL",
+                AssetClass.Stock,
+                "USD");
+
+        var barInstrument =
+            new InstrumentReference(
+                "aapl",
+                AssetClass.Stock,
+                "USD");
+
+        var result =
+            new EventDrivenBacktester()
+                .Run(
+                    new[]
+                    {
+                        CreateReplayItem(
+                            publishedAt,
+                            publishedAt.AddMinutes(1),
+                            decisionInstrument)
+                    },
+                    new[]
+                    {
+                        Bar(
+                            2026,
+                            1,
+                            2,
+                            100m,
+                            101m,
+                            barInstrument)
+                    },
+                    10_000m);
+
+        Assert.Single(
+            result.Fills);
+    }
+
+    [Fact]
+    public void Replay_rejects_non_daily_market_bar_period()
+    {
+        var publishedAt =
+            Utc(
+                2026,
+                1,
+                2,
+                13,
+                0);
+
+        var exception =
+            Assert.Throws<NotSupportedException>(
+                () =>
+                    new EventDrivenBacktester()
+                        .Run(
+                            new[]
+                            {
+                                CreateReplayItem(
+                                    publishedAt,
+                                    publishedAt.AddMinutes(1))
+                            },
+                            new[]
+                            {
+                                Bar(
+                                    2026,
+                                    1,
+                                    2,
+                                    100m,
+                                    101m,
+                                    period:
+                                        MarketDataBarPeriod
+                                            .Intraday)
+                            },
+                            10_000m));
+
+        Assert.Contains(
+            "Daily",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Replay_rejects_duplicate_daily_bars_for_same_trading_date()
+    {
+        var publishedAt =
+            Utc(
+                2026,
+                1,
+                1,
+                13,
+                0);
+
+        var exception =
+            Assert.Throws<NotSupportedException>(
+                () =>
+                    new EventDrivenBacktester()
+                        .Run(
+                            new[]
+                            {
+                                CreateReplayItem(
+                                    publishedAt,
+                                    publishedAt.AddMinutes(1))
+                            },
+                            new[]
+                            {
+                                Bar(
+                                    2026,
+                                    1,
+                                    2,
+                                    100m,
+                                    101m),
+                                Bar(
+                                    2026,
+                                    1,
+                                    2,
+                                    102m,
+                                    103m)
+                            },
+                            10_000m));
+
+        Assert.Contains(
+            "at most one daily market bar",
+            exception.Message,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -404,28 +648,37 @@ public sealed class EventDrivenBacktesterTests
     private static BacktestReplayItem
         CreateReplayItem(
             DateTimeOffset publishedAt,
-            DateTimeOffset generatedAt)
+            DateTimeOffset generatedAt,
+            InstrumentReference? instrument = null)
     {
+        var replayInstrument =
+            instrument ??
+            Instrument;
+
         var earningsEvent =
             CreateEarningsEvent(
                 publishedAt,
                 publishedAt.AddMinutes(-1),
-                publishedAt.AddMinutes(2));
+                publishedAt.AddMinutes(2),
+                replayInstrument);
 
         return new BacktestReplayItem(
             earningsEvent,
             CreateDecision(
                 generatedAt,
-                earningsEvent.EventId));
+                earningsEvent.EventId,
+                replayInstrument));
     }
 
     private static EarningsEvent
         CreateEarningsEvent(
             DateTimeOffset publishedAt,
             DateTimeOffset sourceTimestamp,
-            DateTimeOffset retrievedAt) =>
+            DateTimeOffset retrievedAt,
+            InstrumentReference? instrument = null) =>
         new(
             "earnings-aapl-2025q4",
+            instrument ??
             Instrument,
             publishedAt,
             "2025-Q4",
@@ -445,10 +698,12 @@ public sealed class EventDrivenBacktesterTests
     private static ResearchDecision
         CreateDecision(
             DateTimeOffset generatedAt,
-            string eventId) =>
+            string eventId,
+            InstrumentReference? instrument = null) =>
         new(
             "decision-aapl-2025q4",
             "earnings-policy-v1",
+            instrument ??
             Instrument,
             ResearchDecisionAction
                 .SetTargetWeight,
@@ -462,7 +717,10 @@ public sealed class EventDrivenBacktesterTests
         int month,
         int day,
         decimal open,
-        decimal close)
+        decimal close,
+        InstrumentReference? instrument = null,
+        MarketDataBarPeriod period =
+            MarketDataBarPeriod.Daily)
     {
         var high =
             Math.Max(
@@ -476,7 +734,9 @@ public sealed class EventDrivenBacktesterTests
             1m;
 
         return new MarketDataBar(
+            instrument ??
             Instrument,
+            period,
             Utc(
                 year,
                 month,
