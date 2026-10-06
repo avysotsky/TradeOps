@@ -14,6 +14,7 @@ public static class ExchangeProviders
     public const string KrakenFuturesReadOnly = "KrakenFuturesReadOnly";
     public const string KuCoinFuturesReadOnly = "KuCoinFuturesReadOnly";
     public const string CoinbaseIntxSandbox = "CoinbaseIntxSandbox";
+    public const string IbkrPaper = "IbkrPaper";
 }
 
 public sealed class ExchangeOptions
