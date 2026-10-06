@@ -135,6 +135,52 @@ KuCoinFuturesReadOnly
 CoinbaseIntxSandbox
 ```
 
+## Broker-neutral research decision boundary
+
+TradeOps now has a validation-only contract for research or AI systems that produce structured trading intent before any order is created.
+
+```text
+Research / AI
+    |
+    v
+POST /api/research-decisions/validate
+    |
+    v
+broker-neutral InstrumentReference + ResearchDecision
+    |
+    v
+future portfolio / risk translation
+    |
+    v
+existing TradeOps execution lifecycle
+```
+
+The contract supports stocks and other asset classes without assuming crypto-style symbols. Instrument identity can carry a venue-specific identifier such as an Interactive Brokers contract ID, plus currency and routing exchange.
+
+Research decisions are deliberately not executable orders. They can express `Buy`, `Sell`, `Exit`, `NoAction`, or `SetTargetWeight`, but a later deterministic portfolio/risk layer must translate them into orders.
+
+Example:
+
+```json
+{
+  "decisionId": "AAPL-Q4-2026-guidance",
+  "strategyId": "earnings-quality-v1",
+  "instrument": {
+    "symbol": "AAPL",
+    "assetClass": "Stock",
+    "currency": "USD",
+    "venueInstrumentId": "265598",
+    "exchange": "SMART"
+  },
+  "action": "SetTargetWeight",
+  "generatedAt": "2026-10-06T12:00:00Z",
+  "targetWeight": 0.04,
+  "confidence": 0.82,
+  "sourceEventId": "AAPL-Q4-2026",
+  "reason": "guidance-raised"
+}
+```
+
 ## Execution flow
 
 ```text
