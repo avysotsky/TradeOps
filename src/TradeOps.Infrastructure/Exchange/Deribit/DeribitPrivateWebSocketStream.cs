@@ -78,7 +78,7 @@ public sealed class DeribitPrivateWebSocketStream(
                     channels = new[]
                     {
                         "user.orders.future.any.raw",
-                        "user.trades.future.any.raw"
+                        "user.trades.future.any.100ms"
                     }
                 }
             },
@@ -90,7 +90,7 @@ public sealed class DeribitPrivateWebSocketStream(
             cancellationToken);
 
         logger.LogInformation(
-            "Connected to Deribit testnet private websocket and subscribed to future order/trade streams.");
+            "Connected to Deribit testnet private websocket and subscribed to raw order / 100ms trade streams.");
 
         while (!cancellationToken.IsCancellationRequested)
         {
