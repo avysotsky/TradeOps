@@ -30,7 +30,7 @@ public sealed class NextBarOpenExecutionPricePolicy
         return orderedBars
             .Where(
                 bar =>
-                    IsSameInstrument(
+                    BacktestInstrumentIdentity.IsSameInstrument(
                         bar.Instrument,
                         instrument) &&
                     bar.OpenTime >= notBefore)
@@ -79,20 +79,4 @@ public sealed class NextBarOpenExecutionPricePolicy
         };
     }
 
-    private static bool IsSameInstrument(
-        InstrumentReference left,
-        InstrumentReference right) =>
-        left.AssetClass == right.AssetClass &&
-        string.Equals(
-            left.Symbol.Trim(),
-            right.Symbol.Trim(),
-            StringComparison.OrdinalIgnoreCase) &&
-        (
-            string.IsNullOrWhiteSpace(left.Currency) ||
-            string.IsNullOrWhiteSpace(right.Currency) ||
-            string.Equals(
-                left.Currency.Trim(),
-                right.Currency.Trim(),
-                StringComparison.OrdinalIgnoreCase)
-        );
 }

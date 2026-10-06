@@ -4,7 +4,7 @@ namespace TradeOps.Application.Services.Backtesting;
 
 public static class BacktestPerformanceCalculator
 {
-    private const double TradingPeriodsPerYear = 252d;
+    private const double DailyTradingObservationsPerYear = 252d;
 
     public static BacktestPerformanceMetrics Calculate(
         IReadOnlyList<BacktestEquityPoint> equityCurve,
@@ -185,7 +185,7 @@ public static class BacktestPerformanceCalculator
         return (decimal)(
             mean /
             Math.Sqrt(variance) *
-            Math.Sqrt(TradingPeriodsPerYear));
+            Math.Sqrt(DailyTradingObservationsPerYear));
     }
 
     private static decimal? CalculateSortino(
@@ -220,6 +220,6 @@ public static class BacktestPerformanceCalculator
         return (decimal)(
             returns.Average() /
             downsideDeviation *
-            Math.Sqrt(TradingPeriodsPerYear));
+            Math.Sqrt(DailyTradingObservationsPerYear));
     }
 }

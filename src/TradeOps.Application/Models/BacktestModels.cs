@@ -2,8 +2,17 @@ using TradeOps.Domain.Enums;
 
 namespace TradeOps.Application.Models;
 
+public enum MarketDataBarPeriod
+{
+    Unknown = 0,
+    Daily = 1,
+    Intraday = 2,
+    Weekly = 3
+}
+
 public sealed record MarketDataBar(
     InstrumentReference Instrument,
+    MarketDataBarPeriod Period,
     DateTimeOffset OpenTime,
     DateTimeOffset CloseTime,
     decimal Open,
