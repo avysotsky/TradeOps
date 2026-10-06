@@ -21,6 +21,18 @@ public sealed class BitgetAdapterTests
     }
 
     [Fact]
+    public void Sign_RejectsMissingSecret()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => BitgetSigner.Sign(
+                16273667805456,
+                "GET",
+                "/api/v3/account/assets",
+                string.Empty,
+                string.Empty));
+    }
+
+    [Fact]
     public void ClientOrderIdFactory_IsStableAndBitgetCompatible()
     {
         var first = BitgetClientOrderIdFactory.Create("tradeops-order-123");
