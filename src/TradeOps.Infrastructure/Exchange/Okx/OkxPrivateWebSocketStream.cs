@@ -8,12 +8,22 @@ using TradeOps.Application.Models;
 
 namespace TradeOps.Infrastructure.Exchange.Okx;
 
-public sealed class OkxPrivateWebSocketStream(
-    OkxOptions options,
-    ILogger<OkxPrivateWebSocketStream> logger) : IExchangeEventStream
+public sealed class OkxPrivateWebSocketStream : IExchangeEventStream
 {
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web);
+
+    private readonly OkxOptions _options;
+    private readonly ILogger<OkxPrivateWebSocketStream> _logger;
+
+    public OkxPrivateWebSocketStream(
+        OkxOptions options,
+        ILogger<OkxPrivateWebSocketStream> logger)
+    {
+        _options = options;
+        _logger = logger;
+        ValidateConfiguration(options);
+    }
 
     public bool IsEnabled => true;
 
@@ -22,12 +32,10 @@ public sealed class OkxPrivateWebSocketStream(
         Func<ExchangeExecutionUpdate, CancellationToken, Task> onExecutionUpdate,
         CancellationToken cancellationToken = default)
     {
-        ValidateConfiguration(options);
-
         using var socket = new ClientWebSocket();
 
         await socket.ConnectAsync(
-            new Uri(options.PrivateWebSocketUrl),
+            new Uri(_options.PrivateWebSocketUrl),
             cancellationToken);
 
         var timestamp =
@@ -44,12 +52,12 @@ public sealed class OkxPrivateWebSocketStream(
                 {
                     new
                     {
-                        apiKey = options.ApiKey,
-                        passphrase = options.Passphrase,
+                        apiKey = _options.ApiKey,
+                        passphrase = _options.Passphrase,
                         timestamp,
                         sign = CreateLoginSignature(
                             timestamp,
-                            options.ApiSecret)
+                            _options.ApiSecret)
                     }
                 }
             },
@@ -71,7 +79,7 @@ public sealed class OkxPrivateWebSocketStream(
             "FUTURES",
             cancellationToken);
 
-        logger.LogInformation(
+        _logger.LogInformation(
             "Connected to OKX Demo private websocket and subscribed to SWAP/FUTURES order events.");
 
         using var linkedCts =
@@ -322,7 +330,7 @@ public sealed class OkxPrivateWebSocketStream(
         var delay =
             TimeSpan.FromSeconds(
                 Math.Clamp(
-                    options.WebSocketPingIntervalSeconds,
+                    _options.WebSocketPingIntervalSeconds,
                     5,
                     25));
 
