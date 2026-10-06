@@ -6,6 +6,7 @@ using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
+using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
 using TradeOps.Infrastructure.Exchange.Okx;
@@ -509,6 +510,64 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.Contains(
             "restricted to the official api.bitget.com REST host",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsGateFuturesTestnetFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "GateFuturesTestnet",
+                ["Exchange:Gate:ApiKey"] = "test-key",
+                ["Exchange:Gate:ApiSecret"] = "test-secret",
+                ["Exchange:Gate:Settle"] = "usdt",
+                ["Exchange:Gate:HttpTimeoutSeconds"] = "13"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exchangeClient = provider.GetRequiredService<IExchangeClient>();
+        var connectionManager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var eventStream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<GateOptions>();
+
+        Assert.IsType<GateFuturesTestnetExchangeClient>(exchangeClient);
+        Assert.Same(exchangeClient, connectionManager);
+        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.Equal("https://api-testnet.gateapi.io/api/v4", options.BaseUrl);
+        Assert.Equal("test-key", options.ApiKey);
+        Assert.Equal("test-secret", options.ApiSecret);
+        Assert.Equal("usdt", options.Settle);
+        Assert.Equal(13, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_GateProductionBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "GateFuturesTestnet",
+                ["Exchange:Gate:BaseUrl"] = "https://api.gateio.ws/api/v4"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official TestNet API endpoint",
             exception.Message);
     }
 
