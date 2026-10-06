@@ -187,6 +187,10 @@ public sealed class ExchangeCapabilityCatalogTests
 
             ["Exchange:Gate:Settle"] = "usdt",
 
+            ["Exchange:Okx:ApiKey"] = "demo-key",
+            ["Exchange:Okx:ApiSecret"] = "demo-secret",
+            ["Exchange:Okx:Passphrase"] = "demo-passphrase",
+
             ["Exchange:CoinbaseIntx:PortfolioId"] = "portfolio-1"
         };
 
