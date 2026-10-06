@@ -104,7 +104,7 @@ internal static class OkxWebSocketMessageParser
 
             // TradeOps accounting convention is positive=fee paid,
             // negative=rebate. OKX publishes the inverse sign.
-            var normalizedFee =
+            decimal? normalizedFee =
                 okxFillFee is null
                     ? null
                     : -okxFillFee.Value;
