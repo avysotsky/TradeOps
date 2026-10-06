@@ -56,12 +56,14 @@ public static class ResearchDecisionValidator
 
         if (!Enum.IsDefined(
                 typeof(ResearchDecisionAction),
-                decision.Action))
+                decision.Action)
+            || decision.Action ==
+               ResearchDecisionAction.Unknown)
         {
             Add(
                 errors,
                 nameof(decision.Action),
-                "Action must be a supported ResearchDecisionAction value.");
+                "Action must identify a supported non-Unknown ResearchDecisionAction value.");
         }
 
         if (decision.GeneratedAt == default)
