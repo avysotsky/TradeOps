@@ -1,3 +1,4 @@
+using Xunit;
 using TradeOps.Application.Models;
 using TradeOps.Application.Services.Backtesting;
 using TradeOps.Domain.Enums;
