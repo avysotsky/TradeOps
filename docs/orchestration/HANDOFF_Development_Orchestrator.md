@@ -28,9 +28,9 @@ DocFlow:  avysotsky/DocFlow
 ## TradeOps baseline
 
 ```text
-main
-cd62df96fdec27e047aac63818e49aa46ba724f2
-TradeOps v2.6.0.0 — Broker-Neutral Research Decision Contracts
+main product integration
+3f7aa84565fbd77f202821f72c36160c001774f3
+WS-03 Portfolio Target & Rebalancing Engine integrated via PR #49
 ```
 
 Existing frozen shared boundary:
@@ -66,19 +66,19 @@ DocFlow — Accounting/QBO
 
 ## Immediate scheduling
 
-Run in parallel:
+Current scheduling:
 
 ```text
-WS-01 IBKR Paper Adapter
-WS-02 Earnings Intelligence
-WS-03 bounded portfolio/rebalance contract work
+WS-01 IBKR Paper Adapter — validation/read-boundary integration candidate
+WS-02 Earnings Intelligence — next integration candidate after current-head CI
+WS-03 Portfolio Target Engine — integrated; stop independent changes
 ```
 
 WS-04:
 
 ```text
-design/contracts only
-full implementation blocked
+design/contracts only until WS-02 integration
+after WS-02 is frozen, full implementation may begin using integrated WS-03 semantics
 ```
 
 DocFlow:
@@ -132,14 +132,15 @@ Keep earnings ingestion as a separate bounded context. This TradeOps branch is t
 
 ### WS-03
 
-Read:
+Integrated via PR #49.
 
 ```text
-docs/orchestration/WS03_SIGNAL_PORTFOLIO.md
-src/TradeOps.Application/Models/ResearchDecision.cs
+worker HEAD: 3e5796bf815f64c9d9bc6adbb4391239fd3ca157
+merge commit: 3f7aa84565fbd77f202821f72c36160c001774f3
+CI: 37510799848 success
 ```
 
-Build deterministic target/rebalance semantics only.
+Treat RebalancePlan / RebalanceOrderIntent v1 semantics as frozen for downstream WS-04 and future execution-bridge work.
 
 ### WS-04
 
