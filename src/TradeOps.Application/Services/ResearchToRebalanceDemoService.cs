@@ -155,6 +155,15 @@ public sealed class ResearchToRebalanceDemoService
                 decision;
         }
 
+        var finalAssessment =
+            latestAssessment ??
+            throw new InvalidOperationException(
+                "Demo did not produce an earnings assessment.");
+        var finalDecision =
+            latestDecision ??
+            throw new InvalidOperationException(
+                "Demo did not produce a research decision.");
+
         var backtest =
             _backtester.Run(
                 replayItems,
@@ -166,7 +175,7 @@ public sealed class ResearchToRebalanceDemoService
 
         var currentPlan =
             PortfolioRebalancePlanner.Plan(
-                latestDecision!,
+                finalDecision,
                 request.CurrentPortfolio,
                 request.CurrentReferencePrice,
                 request.CurrentRebalanceConstraints);
@@ -197,12 +206,12 @@ public sealed class ResearchToRebalanceDemoService
             request.CurrentPortfolio.NetAssetValue;
 
         return new ResearchToRebalanceDemoResult(
-            latestDecision.Instrument,
+            finalDecision.Instrument,
             earningsEvents[^1].EventId,
             earningsEvents[^1].FiscalPeriod,
             earningsEvents[^1].PublishedAt,
-            latestAssessment!.Assessment,
-            latestDecision.TargetWeight!.Value,
+            finalAssessment.Assessment,
+            finalDecision.TargetWeight!.Value,
             equityCurve[0].AsOf,
             equityCurve[^1].AsOf,
             metrics.EventCount,
@@ -220,8 +229,8 @@ public sealed class ResearchToRebalanceDemoService
             orderIntent?.Side,
             orderIntent?.Quantity,
             orderIntent?.EstimatedNotional,
-            latestAssessment,
-            latestDecision,
+            finalAssessment,
+            finalDecision,
             backtest,
             currentPlan);
     }
