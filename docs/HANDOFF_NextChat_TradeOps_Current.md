@@ -17,7 +17,13 @@ main
 Current `main` merge commit:
 
 ```text
-6cb17fc75b3d84de0fe49fbf2b0779f24f3e226c
+11c6d1c6e26b3adeb199d3ebf36b1cc70e924586
+```
+
+Current main CI:
+
+```text
+#546 success
 ```
 
 Latest completed milestone:
@@ -79,6 +85,184 @@ Commercial value is:
 - monitoring / health;
 - audit / evidence;
 - paid-pilot handoff.
+
+## New commercial direction — broker + research automation
+
+A current Upwork lead surfaced a concrete adjacent use case:
+
+```text
+global stock universe
+-> earnings calls / filings / company data
+-> structured research interpretation
+-> trading / portfolio decision
+-> TradeOps risk and execution
+-> Interactive Brokers Paper
+-> small live rollout only after validation
+```
+
+This changes near-term development priority.
+
+Do not continue adding crypto venue private streams merely for parity while this broker/research opportunity is being prepared. Bitget / Gate / Coinbase streaming remain valid backlog items, but they are no longer the immediate next milestones.
+
+TradeOps must remain the execution / risk / reliability boundary. Do not turn TradeOps itself into the earnings-transcript ingestion or LLM reasoning service.
+
+Preferred architecture:
+
+```text
+Earnings calls / filings / transcripts
+        |
+        v
+Research ingestion / AI service
+(DocFlow-like capability; separate bounded context)
+        |
+        v
+Structured ResearchDecision
+        |
+        v
+TradeOps
+        |
+        +--> deterministic validation
+        +--> portfolio / risk rules
+        +--> broker-neutral instrument resolution
+        +--> execution / reconciliation / audit
+        |
+        v
+Interactive Brokers Paper
+        |
+        v
+Live only after explicit validated rollout
+```
+
+The external research/AI layer may identify facts, scores, commentary changes or proposed portfolio targets. It must not bypass deterministic TradeOps validation and risk controls.
+
+### New roadmap
+
+Immediate milestones:
+
+```text
+v2.6.0.0 — Broker-Neutral Instruments & Research Decision Contract
+v2.7.0.0 — Interactive Brokers Paper Adapter
+v2.8.0.0 — Portfolio Target & Rebalancing Engine
+v2.9.0.0 — Research -> TradeOps intake / evidence workflow
+```
+
+#### v2.6.0.0 — Broker-Neutral Instruments & Research Decision Contract
+
+Purpose:
+
+- define instrument identity without assuming crypto symbols;
+- support stock identity needed by brokers such as IBKR;
+- define a structured contract between research/AI and TradeOps;
+- keep research output distinct from executable orders;
+- add deterministic validation before later portfolio/execution translation;
+- avoid breaking existing crypto adapters and signal execution.
+
+Expected primitives:
+
+```text
+AssetClass
+InstrumentReference
+ResearchDecisionAction
+ResearchDecision
+ResearchDecisionValidationResult / validator
+```
+
+An instrument reference should be able to carry:
+
+```text
+Symbol
+AssetClass
+Currency
+VenueInstrumentId
+Exchange
+```
+
+For IBKR, `VenueInstrumentId` is expected to carry a broker contract identifier such as `conid` when known, while `Exchange` can represent routing such as SMART.
+
+A research decision should support machine-readable provenance and intent, for example:
+
+```json
+{
+  "decisionId": "AAPL-Q4-2026-guidance",
+  "strategyId": "earnings-quality-v1",
+  "instrument": {
+    "symbol": "AAPL",
+    "assetClass": "Stock",
+    "currency": "USD",
+    "venueInstrumentId": "265598",
+    "exchange": "SMART"
+  },
+  "action": "SetTargetWeight",
+  "targetWeight": 0.04,
+  "confidence": 0.82,
+  "sourceEventId": "AAPL-Q4-2026",
+  "reason": "guidance-raised"
+}
+```
+
+No AI or research decision is allowed to directly bypass risk / portfolio / order lifecycle controls.
+
+#### v2.7.0.0 — Interactive Brokers Paper Adapter
+
+Prepare a paper-first IBKR execution path:
+
+```text
+TradeOps
+-> broker instrument resolution
+-> IBKR Paper
+-> place order
+-> order state
+-> partial fills / executions
+-> positions
+-> reconciliation
+```
+
+Current IBKR documentation confirms:
+
+- Web API provides trading, portfolio, contract and WebSocket access;
+- TWS API supports C# and emits order / execution events;
+- Paper Trading Accounts support simulated testing, with known simulation differences from live trading.
+
+Before implementation, choose the API surface based on the actual client environment:
+
+```text
+Web API / Client Portal or OAuth
+vs
+TWS API / IB Gateway
+```
+
+Do not enable live IBKR execution in the first adapter milestone.
+
+#### v2.8.0.0 — Portfolio Target & Rebalancing Engine
+
+Support long-horizon stock workflows where research emits target exposures rather than immediate market-order instructions.
+
+Concept:
+
+```text
+current portfolio
++ target weights
++ cash / risk constraints
+-> delta calculation
+-> deterministic rebalance plan
+-> orders
+```
+
+This is a better fit for earnings/fundamental strategies than latency-sensitive news trading.
+
+#### v2.9.0.0 — Research intake / evidence
+
+Add a reliable API boundary and audit trail for research decisions:
+
+- source event identity;
+- idempotency / duplicate protection;
+- structured metadata;
+- validation status;
+- portfolio decision linkage;
+- execution linkage;
+- evidence export.
+
+The earnings/transcript ingestion implementation itself should remain in a separate research/DocFlow-style service and call TradeOps through this contract.
 
 ## Core product baseline
 
@@ -620,46 +804,37 @@ All are merged.
 
 ## Current development state
 
-There is no active unfinished venue implementation.
+Active development branch:
 
-Do not restart any of the venue work above.
+```text
+TradeOps/v2.6.0.0_Broker_Neutral_Research_Contracts
+```
 
-The repository is now at the point where adding more REST adapters has diminishing value.
+The crypto venue milestones above are complete. Do not restart them.
+
+Development is now intentionally pivoting to broker-neutral stock/research infrastructure before returning to lower-priority exchange parity.
 
 ## Recommended next technical work
 
-The highest-value next step is exchange-event parity, not another venue.
+The immediate priority has changed from crypto exchange-event parity to broker/research preparation driven by a concrete prospective-client use case.
 
 Recommended order:
 
-1. Continue private event streams / streaming adapters for execution-capable venues that are still REST-only:
+1. Complete **v2.6.0.0 Broker-Neutral Instruments & Research Decision Contract**.
+2. Build **v2.7.0.0 Interactive Brokers Paper Adapter** after choosing Web API vs TWS/IB Gateway from the client's deployment constraints.
+3. Build **v2.8.0.0 Portfolio Target & Rebalancing Engine**.
+4. Build **v2.9.0.0 Research -> TradeOps intake / evidence workflow**.
+5. Return to crypto streaming parity when justified by a paid-pilot requirement:
    - Bitget Demo;
    - Gate Futures TestNet;
-   - Coinbase INTX Sandbox (likely FIX/drop-copy rather than a simple REST poller).
+   - Coinbase INTX Sandbox.
 
-   Completed:
-   - Deribit Testnet private order/trade streaming in v2.4.0.0;
-   - OKX Demo private derivative order/fill streaming in v2.5.0.0.
-
-2. Extend the capability contract only when a real distinction is needed, for example:
-   - order event stream;
-   - fill stream;
-   - transport type;
-   - symbol semantics;
-   - quantity semantics.
-
-3. Add a common adapter conformance test harness where practical:
-   - read operations;
-   - invalid mutation behavior for read-only providers;
-   - deterministic client identity;
-   - production-host guard;
-   - ambiguous placement recovery contract.
-
-4. Do not enable live execution for:
-   - MEXC;
-   - Kraken;
-   - KuCoin;
-   unless a safe persistent test environment with queryable order lifecycle is available and verified first.
+Do not enable live execution for:
+- Interactive Brokers in the initial adapter milestone;
+- MEXC;
+- Kraken;
+- KuCoin;
+unless a safe test/paper environment and explicit rollout requirements are validated first.
 
 ## Commercial rule
 
@@ -689,8 +864,9 @@ Start with:
 
 ```text
 Продолжаем TradeOps с docs/HANDOFF_NextChat_TradeOps_Current.md.
-Текущий main: 6cb17fc75b3d84de0fe49fbf2b0779f24f3e226c.
-Продолжай со следующего технического milestone после v2.5.0.0 OKX Demo Private Event Stream.
+Текущий main: 11c6d1c6e26b3adeb199d3ebf36b1cc70e924586.
+Новый приоритет зафиксирован в разделе broker + research automation.
+Продолжай v2.6.0.0 Broker-Neutral Instruments & Research Decision Contract, затем IBKR Paper и portfolio rebalancing.
 ```
 
 Before editing code:
