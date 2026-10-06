@@ -1,6 +1,6 @@
 # WS-04 — Event-Driven Backtester
 
-State: BLOCKED_IMPLEMENTATION
+State: READY
 
 Repository:
 
@@ -24,28 +24,41 @@ main @ cd62df96fdec27e047aac63818e49aa46ba724f2
 
 Evaluate long-horizon earnings/research decisions with event-time correctness and the same portfolio decision semantics used by production TradeOps.
 
-## Allowed work now
+## Implementation status
 
-Contract/design only:
+Full bounded implementation may now begin.
 
-- event clock;
-- market data bar abstraction;
-- execution-price policy;
-- portfolio snapshot interface;
-- performance metrics contract;
-- explicit look-ahead-bias rules;
-- fixtures.
-
-Do not build the full simulator yet.
-
-## Implementation blockers
-
-Need stable outputs from:
+Integrated dependencies:
 
 ```text
-WS-02 EarningsSnapshot / event-time contract
-WS-03 RebalancePlan / order-intent contract
+WS-02 via PR #51:
+EarningsEvent / EarningsSnapshot
+PublishedAt + provenance / anti-look-ahead semantics
+ResearchDecision(Action = SetTargetWeight)
+
+WS-03 via PR #49:
+PortfolioSnapshot
+RebalanceConstraints
+PortfolioRebalancePlanner
+RebalancePlan
+RebalanceOrderIntent
 ```
+
+WS-04 must reuse these production contracts. Do not create backtest-only substitutes for ResearchDecision, EarningsEvent, PortfolioSnapshot or RebalancePlan.
+
+First bounded implementation should cover:
+
+- deterministic event clock;
+- market-data bar abstraction;
+- execution-price policy;
+- historical portfolio snapshot construction;
+- replay through the actual PortfolioRebalancePlanner;
+- commissions/slippage configuration;
+- event-time/look-ahead enforcement;
+- core performance metrics;
+- deterministic fixtures/tests.
+
+Do not integrate broker-specific IBKR APIs into the backtester.
 
 ## Required correctness properties
 
@@ -69,6 +82,17 @@ Sortino
 turnover
 exposure
 ```
+
+## Dependency decision
+
+The previous implementation blocker is resolved as of:
+
+```text
+WS-03 PR #49 merged
+WS-02 PR #51 merged
+```
+
+The worker should synchronize this branch to current `main` before implementation.
 
 ## Status update template
 
