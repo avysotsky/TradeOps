@@ -29,4 +29,29 @@ public sealed class DeribitAdapterTests
             () => DeribitTestnetExchangeClient.ValidateClientOrderId(
                 new string('x', 65)));
     }
+
+    [Fact]
+    public void ValidateWebSocketConfiguration_AcceptsOfficialTestnetEndpoint()
+    {
+        DeribitPrivateWebSocketStream.ValidateConfiguration(
+            new DeribitOptions
+            {
+                WebSocketUrl = "wss://test.deribit.com/ws/api/v2",
+                ClientId = "client-id",
+                ClientSecret = "client-secret"
+            });
+    }
+
+    [Fact]
+    public void ValidateWebSocketConfiguration_RejectsProductionEndpoint()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => DeribitPrivateWebSocketStream.ValidateConfiguration(
+                new DeribitOptions
+                {
+                    WebSocketUrl = "wss://www.deribit.com/ws/api/v2",
+                    ClientId = "client-id",
+                    ClientSecret = "client-secret"
+                }));
+    }
 }
