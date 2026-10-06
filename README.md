@@ -4,7 +4,7 @@ C#/.NET trading execution and automation backend focused on reliable order handl
 
 TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Execution-capable venue integrations are restricted to non-production environments: **Bybit testnet**, **Binance USD-M Futures testnet**, **Hyperliquid testnet**, **Deribit testnet**, **OKX Demo**, **Bitget Demo**, and **Gate Futures TestNet**. **MEXC Futures, Kraken Futures, and KuCoin Futures are live-host read-only** because a usable persistent public sandbox/testnet is not currently documented for those adapters.
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Execution-capable venue integrations are restricted to non-production environments: **Bybit testnet**, **Binance USD-M Futures testnet**, **Hyperliquid testnet**, **Deribit testnet**, **OKX Demo**, **Bitget Demo**, and **Gate Futures TestNet**. **MEXC Futures, Kraken Futures, and KuCoin Futures are live-host read-only** because a usable persistent public sandbox/testnet is not currently documented for those adapters. **Coinbase International Exchange (INTX)** uses its dedicated sandbox.
 
 ## What this demo proves
 
@@ -34,6 +34,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - MEXC Futures live-host read-only account, position and order-state integration with trading mutations disabled;
 - Kraken Futures live-host read-only account, position and open-order integration with trading mutations disabled;
 - KuCoin Futures live-host read-only account, position and order-state integration with trading mutations disabled;
+- Coinbase INTX sandbox perpetual-futures account, position and REST order execution integration with production-host rejection;
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
@@ -115,6 +116,7 @@ BitgetDemo
 GateFuturesTestnet
 KrakenFuturesReadOnly
 KuCoinFuturesReadOnly
+CoinbaseIntxSandbox
 ```
 
 ## Execution flow
@@ -856,6 +858,54 @@ bash scripts/kucoin-futures-readonly-smoke.sh
 ```
 
 `PlaceOrderAsync` and `CancelOrderAsync` are blocked locally. TradeOps will only enable KuCoin execution if a persistent test environment with queryable order lifecycle becomes available.
+
+## Coinbase INTX sandbox
+
+TradeOps v2.2.0.0 adds Coinbase International Exchange perpetual-futures REST execution against the dedicated INTX sandbox:
+
+```text
+https://api-n5e1.coinbase.com/api/v1
+```
+
+Provider:
+
+```text
+CoinbaseIntxSandbox
+```
+
+The adapter supports portfolio account state, perpetual positions, open orders, order lookup, market/limit placement, cancellation, and ambiguous-placement recovery. It uses native INTX instrument symbols such as `BTC-PERP`.
+
+Authentication follows the official INTX REST scheme:
+
+```text
+timestamp + HTTP method + /api/v1 request path + exact JSON body
+-> HMAC-SHA256(Base64-decoded signing key)
+-> Base64 CB-ACCESS-SIGN
+```
+
+Required headers are `CB-ACCESS-KEY`, `CB-ACCESS-PASSPHRASE`, `CB-ACCESS-SIGN`, and `CB-ACCESS-TIMESTAMP`.
+
+TradeOps maps arbitrary local `ClientOrderId` values to deterministic 32-character exchange IDs. Ambiguous placement first checks open orders by `client_order_id`; if the order filled immediately, it falls back to portfolio fills filtered by the same client ID instead of blindly re-submitting.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=CoinbaseIntxSandbox
+export COINBASE_INTX_SANDBOX_ACCESS_KEY='YOUR_SANDBOX_ACCESS_KEY'
+export COINBASE_INTX_SANDBOX_PASSPHRASE='YOUR_SANDBOX_PASSPHRASE'
+export COINBASE_INTX_SANDBOX_SIGNING_KEY='YOUR_BASE64_SANDBOX_SIGNING_KEY'
+export COINBASE_INTX_SANDBOX_PORTFOLIO_ID='YOUR_SANDBOX_PORTFOLIO_ID'
+export COINBASE_INTX_ACCOUNT_CURRENCY='USDC'
+docker compose up --build -d
+```
+
+Smoke:
+
+```bash
+bash scripts/coinbase-intx-sandbox-smoke.sh
+```
+
+The adapter accepts only `https://api-n5e1.coinbase.com/api/v1`. Production `https://api.international.coinbase.com/api/v1` is rejected. REST is the first milestone; INTX FIX/drop-copy streaming remains separate.
 
 ## API
 
