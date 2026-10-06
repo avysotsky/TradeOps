@@ -484,6 +484,8 @@ public sealed class CoinbaseIntxSandboxExchangeClient
                 if ((int)response.StatusCode >= 500)
                 {
                     _isConnected = false;
+                    throw new HttpRequestException(
+                        $"Coinbase INTX sandbox returned HTTP {(int)response.StatusCode} ({response.StatusCode}).");
                 }
 
                 throw new CoinbaseIntxApiException(
