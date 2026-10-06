@@ -273,9 +273,37 @@ tests/TradeOps.UnitTests/ResearchToRebalanceDemoTests.cs
 
 This status file is documentation-only and follows the CI-validated implementation HEAD above.
 
+## Stale-branch check
+
+After the validated implementation CI completed, `main` advanced to:
+
+```text
+5ae7f0fe3b83c908e3a387f8e81786cf90ecdbed
+```
+
+The two new main commits only modify:
+
+```text
+docs/orchestration/ORCHESTRATION.md
+docs/orchestration/WS01_IBKR.md
+```
+
+VS-01 modifies neither file, so no changed-file overlap was found.
+
+At handoff time the worker branch is therefore:
+
+```text
+behind current main by 2 commits
+no VS-01 file overlap with those main changes
+```
+
+Per `WORKSTREAM_PROTOCOL.md`, Development Orchestrator should perform the final sync/rebase/merge decision before integration.
+
 ## Blockers
 
-None for integration review of this bounded slice.
+No VS-01 code or contract blocker remains.
+
+A current-main synchronization step is required during integration review because `main` advanced after the assigned baseline; the observed changes are non-overlapping orchestration/WS-01 documentation.
 
 IBKR mutation remains explicitly out of scope and must not be inferred from this demo.
 
@@ -283,7 +311,7 @@ IBKR mutation remains explicitly out of scope and must not be inferred from this
 
 Development Orchestrator should:
 
-1. compare this branch with current `main` and check for stale overlap;
+1. synchronize/reconcile the branch with current `main @ 5ae7f0fe3b83c908e3a387f8e81786cf90ecdbed`; the observed two-commit advance has no VS-01 file overlap;
 2. verify the diff remains limited to the VS-01 application service, tests and this status file;
 3. confirm no frozen WS-02 / WS-03 / WS-04 contract changed;
 4. review the deterministic fixture and client-facing result surface;
