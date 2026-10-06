@@ -30,6 +30,27 @@ CI #552: success
 
 There is no unfinished implementation branch to resume. Start from `main`.
 
+## Parallel development orchestration
+
+Parallel development is now coordinated through:
+
+```text
+docs/orchestration/ORCHESTRATION.md
+docs/orchestration/WORKSTREAM_PROTOCOL.md
+docs/orchestration/HANDOFF_Development_Orchestrator.md
+```
+
+Assigned worker branches:
+
+```text
+TradeOps/ws01-ibkr-paper-adapter
+TradeOps/ws02-earnings-intelligence-contract
+TradeOps/ws03-signal-portfolio-engine
+TradeOps/ws04-backtester-contracts
+```
+
+Use the central orchestration files as the cross-chat source of truth. Do not infer worker progress only from chat history.
+
 ## User workflow preference
 
 Work in medium-sized bounded chunks.
