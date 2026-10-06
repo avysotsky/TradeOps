@@ -142,6 +142,15 @@ public sealed class ExchangeCapabilityCatalog(
             execution: true,
             privateStream: false,
             "REST");
+
+        yield return Profile(
+            ExchangeProviders.IbkrPaper,
+            "Interactive Brokers",
+            "Paper",
+            usesLiveTradingHost: false,
+            execution: false,
+            privateStream: false,
+            "Web API / Client Portal Gateway");
     }
 
     private static ExchangeCapabilityProfile Profile(

@@ -8,6 +8,7 @@ using TradeOps.Infrastructure.Exchange.Coinbase;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
+using TradeOps.Infrastructure.Exchange.Ibkr;
 using TradeOps.Infrastructure.Exchange.Kraken;
 using TradeOps.Infrastructure.Exchange.KuCoin;
 using TradeOps.Infrastructure.Exchange.Mexc;
@@ -93,6 +94,15 @@ public static class ExchangeServiceRegistration
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{CoinbaseIntxOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
+        var ibkrOptions = new IbkrOptions
+        {
+            BaseUrl = configuration[$"{IbkrOptions.SectionName}:BaseUrl"] ?? "https://localhost:5000/v1/api",
+            AccountId = configuration[$"{IbkrOptions.SectionName}:AccountId"] ?? string.Empty,
+            AccountCurrency = configuration[$"{IbkrOptions.SectionName}:AccountCurrency"] ?? "USD",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{IbkrOptions.SectionName}:HttpTimeoutSeconds"], 15),
+            AllowUntrustedLocalhostCertificate = ReadBool(configuration[$"{IbkrOptions.SectionName}:AllowUntrustedLocalhostCertificate"], true)
+        };
+
         var deribitOptions = new DeribitOptions
         {
             BaseUrl = configuration[$"{DeribitOptions.SectionName}:BaseUrl"] ?? "https://test.deribit.com/api/v2",
@@ -159,6 +169,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton(kuCoinOptions);
         services.AddSingleton(deribitOptions);
         services.AddSingleton(coinbaseIntxOptions);
+        services.AddSingleton(ibkrOptions);
         services.AddSingleton(okxOptions);
         services.AddHttpClient(BitgetDemoExchangeClient.HttpClientName, client =>
         {
@@ -204,6 +215,22 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(okxOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(IbkrPaperExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(ibkrOptions.HttpTimeoutSeconds);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            var handler = new HttpClientHandler();
+
+            if (ibkrOptions.AllowUntrustedLocalhostCertificate)
+            {
+                handler.ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            }
+
+            return handler;
+        });
 
         services.AddSingleton<BitgetDemoExchangeClient>();
         services.AddSingleton<GateFuturesTestnetExchangeClient>();
@@ -221,6 +248,8 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<CoinbaseIntxSandboxExchangeClient>();
         services.AddSingleton<OkxDemoExchangeClient>();
         services.AddSingleton<OkxPrivateWebSocketStream>();
+        services.AddSingleton<IbkrInstrumentResolver>();
+        services.AddSingleton<IbkrPaperExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -320,12 +349,23 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.IbkrPaper, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<IbkrPaperExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<IbkrPaperExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}, {ExchangeProviders.KrakenFuturesReadOnly}, {ExchangeProviders.KuCoinFuturesReadOnly}, {ExchangeProviders.CoinbaseIntxSandbox}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}, {ExchangeProviders.KrakenFuturesReadOnly}, {ExchangeProviders.KuCoinFuturesReadOnly}, {ExchangeProviders.CoinbaseIntxSandbox}, {ExchangeProviders.IbkrPaper}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
+
+    private static bool ReadBool(string? value, bool fallback) =>
+        bool.TryParse(value, out var parsed) ? parsed : fallback;
 
     private static decimal ReadPositiveDecimal(string? value, decimal fallback) =>
         decimal.TryParse(
