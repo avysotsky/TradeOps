@@ -107,12 +107,14 @@ public static class ExchangeServiceRegistration
         var okxOptions = new OkxOptions
         {
             BaseUrl = configuration[$"{OkxOptions.SectionName}:BaseUrl"] ?? "https://openapi.okx.com",
+            PrivateWebSocketUrl = configuration[$"{OkxOptions.SectionName}:PrivateWebSocketUrl"] ?? "wss://wspap.okx.com/ws/v5/private",
             ApiKey = configuration[$"{OkxOptions.SectionName}:ApiKey"] ?? string.Empty,
             ApiSecret = configuration[$"{OkxOptions.SectionName}:ApiSecret"] ?? string.Empty,
             Passphrase = configuration[$"{OkxOptions.SectionName}:Passphrase"] ?? string.Empty,
             AccountCurrency = configuration[$"{OkxOptions.SectionName}:AccountCurrency"] ?? "USDT",
             TradeMode = configuration[$"{OkxOptions.SectionName}:TradeMode"] ?? "cross",
-            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{OkxOptions.SectionName}:HttpTimeoutSeconds"], 10)
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{OkxOptions.SectionName}:HttpTimeoutSeconds"], 10),
+            WebSocketPingIntervalSeconds = ReadPositiveInt(configuration[$"{OkxOptions.SectionName}:WebSocketPingIntervalSeconds"], 20)
         };
 
         var krakenOptions = new KrakenFuturesOptions
@@ -218,6 +220,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<DeribitPrivateWebSocketStream>();
         services.AddSingleton<CoinbaseIntxSandboxExchangeClient>();
         services.AddSingleton<OkxDemoExchangeClient>();
+        services.AddSingleton<OkxPrivateWebSocketStream>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
 
@@ -273,7 +276,7 @@ public static class ExchangeServiceRegistration
         {
             services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<OkxDemoExchangeClient>());
             services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<OkxDemoExchangeClient>());
-            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<OkxPrivateWebSocketStream>());
             return services;
         }
 

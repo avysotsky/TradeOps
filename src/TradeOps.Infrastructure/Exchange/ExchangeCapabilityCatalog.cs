@@ -95,8 +95,8 @@ public sealed class ExchangeCapabilityCatalog(
             "Demo",
             usesLiveTradingHost: true,
             execution: true,
-            privateStream: false,
-            "REST + simulated-trading header");
+            privateStream: true,
+            "REST + Demo WebSocket");
 
         yield return Profile(
             ExchangeProviders.BitgetDemo,
