@@ -17,15 +17,15 @@ main
 Current `main` merge commit:
 
 ```text
-29f9d959ff0c949db0e58335ab2a8eaf3a39a343
+e9695adc0c50f8ffd9b409c98587b8d4f347ab56
 ```
 
 Latest completed milestone:
 
 ```text
-TradeOps v2.3.0.0 — Exchange Capability Contracts
-PR #40
-CI #518: success
+TradeOps v2.4.0.0 — Deribit Private Event Stream
+PR #42
+CI #529: success
 ```
 
 There is no unfinished implementation branch to resume. Start from `main`.
@@ -130,7 +130,7 @@ CoinbaseIntxSandbox
 | BinanceFuturesTestnet | Binance USD-M Futures | Testnet | yes | yes | no |
 | HyperliquidTestnet | Hyperliquid | Testnet | yes | yes | no |
 | MexcFuturesReadOnly | MEXC Futures | LiveReadOnly | no | no | yes |
-| DeribitTestnet | Deribit | Testnet | yes | no | no |
+| DeribitTestnet | Deribit | Testnet | yes | yes | no |
 | OkxDemo | OKX | Demo | yes | no | yes, protected by simulated-trading header |
 | BitgetDemo | Bitget | Demo | yes | no | yes, protected by demo header |
 | GateFuturesTestnet | Gate Futures | Testnet | yes | no | no |
@@ -257,7 +257,24 @@ Supports:
 - open orders;
 - lookup by order ID / label;
 - buy / sell;
-- cancel.
+- cancel;
+- authenticated private WebSocket order updates;
+- authenticated private WebSocket user-trade/fill updates.
+
+Private WebSocket endpoint:
+
+```text
+wss://test.deribit.com/ws/api/v2
+```
+
+Subscriptions:
+
+```text
+user.orders.future.any.raw
+user.trades.future.any.100ms
+```
+
+Private WebSocket authentication uses `public/auth` with `client_credentials`, followed by `private/subscribe`. Production WebSocket hosts are rejected locally.
 
 Important semantics:
 
@@ -427,7 +444,7 @@ Contract tests verify:
 
 - every declared ExchangeProviders constant has exactly one capability profile;
 - LiveReadOnly providers cannot advertise mutations;
-- only Bybit/Binance/Hyperliquid currently advertise private event streams;
+- only Bybit/Binance/Hyperliquid/Deribit currently advertise private event streams;
 - execution is never advertised for LiveReadOnly environments;
 - every provider resolves through DI;
 - actual IExchangeEventStream wiring matches capability metadata.
@@ -450,6 +467,60 @@ CI:
 #518 success
 ```
 
+## v2.4.0.0 Deribit private-event milestone
+
+PR #42 added authenticated Deribit Testnet private execution events without changing the live-execution safety boundary.
+
+Added:
+
+```text
+src/TradeOps.Infrastructure/Exchange/Deribit/DeribitPrivateWebSocketStream.cs
+src/TradeOps.Infrastructure/Exchange/Deribit/DeribitWebSocketMessageParser.cs
+tests/TradeOps.UnitTests/DeribitWebSocketMessageParserTests.cs
+```
+
+Updated:
+
+```text
+src/TradeOps.Infrastructure/Exchange/Deribit/DeribitOptions.cs
+src/TradeOps.Infrastructure/Exchange/ExchangeServiceRegistration.cs
+src/TradeOps.Infrastructure/Exchange/ExchangeCapabilityCatalog.cs
+tests/TradeOps.UnitTests/DeribitAdapterTests.cs
+tests/TradeOps.UnitTests/ExchangeCapabilityCatalogTests.cs
+tests/TradeOps.UnitTests/ExchangeServiceRegistrationTests.cs
+README.md
+```
+
+The stream:
+
+- connects only to the official Deribit Testnet WebSocket endpoint;
+- authenticates with `public/auth` / `client_credentials`;
+- subscribes to futures user-order and user-trade channels;
+- normalizes order lifecycle events into `ExchangeOrderUpdate`;
+- normalizes fills into `ExchangeExecutionUpdate`;
+- preserves the existing Deribit contract-quantity conversion semantics;
+- allows fill correlation to fall back to persisted `ExchangeOrderId` when a trade notification has no label;
+- rejects production WebSocket endpoints.
+
+PR #42 head:
+
+```text
+c6866e4ef85187cf102301aac1cb8499c7b03f0c
+```
+
+Merge commit:
+
+```text
+e9695adc0c50f8ffd9b409c98587b8d4f347ab56
+```
+
+CI:
+
+```text
+#528 push: success
+#529 pull_request: success
+```
+
 ## Recent venue PR history
 
 ```text
@@ -465,6 +536,7 @@ CI:
 #38 Kraken + KuCoin Futures Read-Only
 #39 Coinbase INTX Sandbox REST
 #40 Exchange Capability Contracts
+#42 Deribit Private Event Stream
 ```
 
 All are merged.
@@ -483,12 +555,13 @@ The highest-value next step is exchange-event parity, not another venue.
 
 Recommended order:
 
-1. Add private event streams / streaming adapters to execution-capable venues that are still REST-only:
-   - Deribit Testnet;
+1. Continue private event streams / streaming adapters for execution-capable venues that are still REST-only:
    - OKX Demo;
    - Bitget Demo;
    - Gate Futures TestNet;
    - Coinbase INTX Sandbox (likely FIX/drop-copy rather than a simple REST poller).
+
+   Deribit Testnet private order/trade streaming is complete in v2.4.0.0.
 
 2. Extend the capability contract only when a real distinction is needed, for example:
    - order event stream;
@@ -538,8 +611,8 @@ Start with:
 
 ```text
 Продолжаем TradeOps с docs/HANDOFF_NextChat_TradeOps_Current.md.
-Текущий main: 29f9d959ff0c949db0e58335ab2a8eaf3a39a343.
-Продолжай со следующего технического milestone после v2.3.0.0 Exchange Capability Contracts.
+Текущий main: e9695adc0c50f8ffd9b409c98587b8d4f347ab56.
+Продолжай со следующего технического milestone после v2.4.0.0 Deribit Private Event Stream.
 ```
 
 Before editing code:
