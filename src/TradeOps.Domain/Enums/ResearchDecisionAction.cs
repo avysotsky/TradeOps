@@ -2,9 +2,10 @@ namespace TradeOps.Domain.Enums;
 
 public enum ResearchDecisionAction
 {
-    NoAction = 0,
-    Buy = 1,
-    Sell = 2,
-    Exit = 3,
-    SetTargetWeight = 4
+    Unknown = 0,
+    NoAction = 1,
+    Buy = 2,
+    Sell = 3,
+    Exit = 4,
+    SetTargetWeight = 5
 }
