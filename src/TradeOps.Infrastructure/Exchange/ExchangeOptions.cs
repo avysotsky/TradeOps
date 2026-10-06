@@ -13,6 +13,7 @@ public static class ExchangeProviders
     public const string GateFuturesTestnet = "GateFuturesTestnet";
     public const string KrakenFuturesReadOnly = "KrakenFuturesReadOnly";
     public const string KuCoinFuturesReadOnly = "KuCoinFuturesReadOnly";
+    public const string CoinbaseIntxSandbox = "CoinbaseIntxSandbox";
 }
 
 public sealed class ExchangeOptions

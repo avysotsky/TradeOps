@@ -5,6 +5,7 @@ using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Coinbase;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
@@ -741,6 +742,67 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.Contains(
             "restricted to the official live Futures API host",
+            exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsCoinbaseIntxSandboxFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "CoinbaseIntxSandbox",
+                ["Exchange:CoinbaseIntx:AccessKey"] = "sandbox-key",
+                ["Exchange:CoinbaseIntx:Passphrase"] = "sandbox-pass",
+                ["Exchange:CoinbaseIntx:SigningKey"] = "dGVzdC1zZWNyZXQ=",
+                ["Exchange:CoinbaseIntx:PortfolioId"] = "portfolio-1",
+                ["Exchange:CoinbaseIntx:AccountCurrency"] = "USDC",
+                ["Exchange:CoinbaseIntx:HttpTimeoutSeconds"] = "17"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IExchangeClient>();
+        var manager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var stream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<CoinbaseIntxOptions>();
+
+        Assert.IsType<CoinbaseIntxSandboxExchangeClient>(client);
+        Assert.Same(client, manager);
+        Assert.IsType<NullExchangeEventStream>(stream);
+        Assert.Equal(
+            "https://api-n5e1.coinbase.com/api/v1",
+            options.BaseUrl);
+        Assert.Equal("sandbox-key", options.AccessKey);
+        Assert.Equal("portfolio-1", options.PortfolioId);
+        Assert.Equal(17, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_CoinbaseIntxProductionBaseUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "CoinbaseIntxSandbox",
+                ["Exchange:CoinbaseIntx:BaseUrl"] = "https://api.international.coinbase.com/api/v1"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeClient>());
+
+        Assert.Contains(
+            "restricted to the official sandbox REST endpoint",
             exception.Message);
     }
 
