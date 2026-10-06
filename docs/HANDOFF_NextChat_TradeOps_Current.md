@@ -17,21 +17,15 @@ main
 Current `main` merge commit:
 
 ```text
-11c6d1c6e26b3adeb199d3ebf36b1cc70e924586
-```
-
-Current main CI:
-
-```text
-#546 success
+b1523346988c705d9ae36576473a204f059770a4
 ```
 
 Latest completed milestone:
 
 ```text
-TradeOps v2.5.0.0 — OKX Demo Private Event Stream
-PR #44
-CI #541: success
+TradeOps v2.6.0.0 — Broker-Neutral Research Decision Contracts
+PR #46
+CI #552: success
 ```
 
 There is no unfinished implementation branch to resume. Start from `main`.
@@ -781,6 +775,72 @@ CI:
 #541 pull_request: success
 ```
 
+## v2.6.0.0 broker-neutral research-contract milestone
+
+PR #46 established the boundary between external research/AI output and TradeOps execution.
+
+Added:
+
+```text
+src/TradeOps.Domain/Enums/AssetClass.cs
+src/TradeOps.Domain/Enums/ResearchDecisionAction.cs
+src/TradeOps.Application/Models/InstrumentReference.cs
+src/TradeOps.Application/Models/ResearchDecision.cs
+src/TradeOps.Application/Models/ResearchDecisionValidationResult.cs
+src/TradeOps.Application/Services/ResearchDecisionValidator.cs
+src/TradeOps.Api/Controllers/ResearchDecisionsController.cs
+tests/TradeOps.UnitTests/ResearchDecisionValidatorTests.cs
+```
+
+Updated:
+
+```text
+README.md
+docs/HANDOFF_NextChat_TradeOps_Current.md
+```
+
+The milestone provides:
+
+- broker-neutral asset classes;
+- instrument identity with symbol, currency, exchange and optional venue-specific instrument ID;
+- explicit research actions including `NoAction`, `Buy`, `Sell`, `Exit`, and `SetTargetWeight`;
+- explicit `Unknown = 0` action so omitted JSON actions cannot silently become valid;
+- source-event identity, confidence, reason and metadata provenance;
+- deterministic validation and normalization;
+- validation-only API endpoint:
+  `POST /api/research-decisions/validate`;
+- no automatic conversion from research output to executable orders.
+
+For an IBKR stock, the contract can represent data such as:
+
+```text
+Symbol = AAPL
+AssetClass = Stock
+Currency = USD
+VenueInstrumentId = 265598
+Exchange = SMART
+```
+
+This is aligned with IBKR's current contract model where `conid` plus exchange is the preferred unambiguous contract identity.
+
+PR #46 head:
+
+```text
+2915251a8b09aa3f72fb736f3520d72489001634
+```
+
+Merge commit:
+
+```text
+b1523346988c705d9ae36576473a204f059770a4
+```
+
+CI:
+
+```text
+#552 push: success
+```
+
 ## Recent venue PR history
 
 ```text
@@ -804,15 +864,11 @@ All are merged.
 
 ## Current development state
 
-Active development branch:
-
-```text
-TradeOps/v2.6.0.0_Broker_Neutral_Research_Contracts
-```
+There is no unfinished implementation branch to resume.
 
 The crypto venue milestones above are complete. Do not restart them.
 
-Development is now intentionally pivoting to broker-neutral stock/research infrastructure before returning to lower-priority exchange parity.
+The broker-neutral research contract is now complete in v2.6.0.0. The next active direction is the paper-first Interactive Brokers adapter, while lower-priority crypto exchange parity remains backlog.
 
 ## Recommended next technical work
 
@@ -820,11 +876,13 @@ The immediate priority has changed from crypto exchange-event parity to broker/r
 
 Recommended order:
 
-1. Complete **v2.6.0.0 Broker-Neutral Instruments & Research Decision Contract**.
-2. Build **v2.7.0.0 Interactive Brokers Paper Adapter** after choosing Web API vs TWS/IB Gateway from the client's deployment constraints.
-3. Build **v2.8.0.0 Portfolio Target & Rebalancing Engine**.
-4. Build **v2.9.0.0 Research -> TradeOps intake / evidence workflow**.
-5. Return to crypto streaming parity when justified by a paid-pilot requirement:
+1. Build **v2.7.0.0 Interactive Brokers Paper Adapter**.
+   - default technical preference: IBKR Web API for platform-neutral HTTP/WebSocket integration;
+   - reconsider TWS API / IB Gateway only when a client deployment specifically requires it;
+   - paper-only first; do not enable live execution.
+2. Build **v2.8.0.0 Portfolio Target & Rebalancing Engine**.
+3. Build **v2.9.0.0 Research -> TradeOps intake / evidence workflow**.
+4. Return to crypto streaming parity when justified by a paid-pilot requirement:
    - Bitget Demo;
    - Gate Futures TestNet;
    - Coinbase INTX Sandbox.
@@ -864,9 +922,9 @@ Start with:
 
 ```text
 Продолжаем TradeOps с docs/HANDOFF_NextChat_TradeOps_Current.md.
-Текущий main: 11c6d1c6e26b3adeb199d3ebf36b1cc70e924586.
-Новый приоритет зафиксирован в разделе broker + research automation.
-Продолжай v2.6.0.0 Broker-Neutral Instruments & Research Decision Contract, затем IBKR Paper и portfolio rebalancing.
+Текущий main: b1523346988c705d9ae36576473a204f059770a4.
+v2.6.0.0 Broker-Neutral Research Decision Contracts завершён.
+Продолжай v2.7.0.0 Interactive Brokers Paper Adapter, затем portfolio target/rebalancing.
 ```
 
 Before editing code:
