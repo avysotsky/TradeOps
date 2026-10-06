@@ -1,6 +1,6 @@
 # VS-01 — Research-to-Rebalance Client Demo
 
-State: READY_FOR_INTEGRATION
+State: INTEGRATED
 
 Repository / branch:
 
@@ -319,3 +319,18 @@ Development Orchestrator should:
 6. only after separate orchestration decide whether the next client-facing slice adds a transport/demo wrapper, real research data fixtures, or an IBKR Paper read-path demonstration.
 
 Do not start IBKR mutation work or generic backtester expansion from VS-01.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #54
+validated implementation HEAD: d923568d440affaaa5c49c7f11af39ba66d8be5e
+synchronized branch HEAD: 3569ffa281bd978bc82874e1ab1370fab09a50e8
+exact synchronized-head CI: 37524381672 — success
+merge commit: ef1690203929a5c0c4adafd3fd0f33d55b088170
+```
+
+The first client-ready research-to-rebalance vertical slice is now part of main. Future slices must extend this integrated path rather than introduce parallel research, portfolio or backtest contracts.

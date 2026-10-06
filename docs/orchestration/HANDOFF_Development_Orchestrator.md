@@ -29,7 +29,9 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
+ef1690203929a5c0c4adafd3fd0f33d55b088170
+VS-01 Research-to-Rebalance Client Demo integrated via PR #54
+WS-01 manual Paper smoke harness integrated via PR #53
 WS-04 Event-driven Backtester integrated via PR #52
 WS-02 Earnings Intelligence boundary integrated via PR #51
 WS-01 IBKR Paper read-only adapter integrated via PR #50
@@ -52,6 +54,7 @@ TradeOps/ws01-ibkr-paper-adapter
 TradeOps/ws02-earnings-intelligence-contract
 TradeOps/ws03-signal-portfolio-engine
 TradeOps/ws04-backtester-contracts
+TradeOps/vs01-research-to-rebalance-demo
 ```
 
 ## Worker chats
@@ -72,23 +75,32 @@ DocFlow — Accounting/QBO
 Current scheduling:
 
 ```text
-WS-01 IBKR Paper Adapter — read-only boundary integrated; real Paper smoke before mutations
+WS-01 IBKR Paper Adapter — read-only boundary + manual smoke harness integrated; WAITING_FOR_REAL_PAPER_ACCOUNT
 WS-02 Earnings Intelligence — integrated; event-time and SetTargetWeight boundary frozen
 WS-03 Portfolio Target Engine — integrated; rebalance boundary frozen
 WS-04 Backtester — integrated bounded v1; stop generic expansion
 ```
 
-Next product focus:
+Integrated client-ready vertical slice:
 
 ```text
-client-ready vertical slice
+VS-01
 earnings/research facts
 -> explicit client rule / target-weight policy
 -> ResearchDecision(SetTargetWeight)
 -> WS-04 historical backtest
 -> WS-03 rebalance
--> WS-01 IBKR Paper path
 ```
+
+Next product focus:
+
+```text
+reproducible public historical inputs
+-> integrated VS-01 service
+-> runnable demo surface
+```
+
+IBKR Paper validation remains an external dependency and is not on the critical path for the research/backtest/rebalance demo.
 
 Do not broaden WS-04 or WS-02 generically unless the client-facing slice requires it.
 
@@ -184,3 +196,16 @@ continue
 ```
 
 and must finish each bounded slice by updating their WS status file with exact HEAD and CI.
+
+
+## VS-01
+
+Integrated via PR #54.
+
+```text
+synchronized worker HEAD: 3569ffa281bd978bc82874e1ab1370fab09a50e8
+merge commit: ef1690203929a5c0c4adafd3fd0f33d55b088170
+exact-head CI: 37524381672 success
+```
+
+Reuse ResearchToRebalanceDemoService for subsequent client-facing slices. Do not create parallel research, portfolio or backtest contracts.

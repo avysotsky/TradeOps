@@ -193,3 +193,23 @@ WAITING_FOR_REAL_PAPER_ACCOUNT
 until a real authenticated Paper smoke actually passes.
 
 Do not begin the mutation slice before that gate. Order placement/cancellation and live IBKR execution remain disabled.
+
+
+## Integration record
+
+The manual read-only validation harness slice is integrated:
+
+```text
+PR #53
+worker HEAD: e5ed3f135f157b65c4e69fa31872f2c7aab8ae1b
+merge commit: a4f594ca18b01ae42b1b05da256c35281804d3b2
+current-head CI before merge: 37522953630 — success
+```
+
+State remains:
+
+```text
+WAITING_FOR_REAL_PAPER_ACCOUNT
+```
+
+This is an external validation dependency only. Mutation capabilities remain disabled until a real authenticated Paper smoke passes.
