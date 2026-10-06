@@ -4,6 +4,7 @@ using TradeOps.Application.Interfaces;
 using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
+using TradeOps.Infrastructure.Exchange.Coinbase;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
@@ -81,6 +82,17 @@ public static class ExchangeServiceRegistration
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{HyperliquidOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
+        var coinbaseIntxOptions = new CoinbaseIntxOptions
+        {
+            BaseUrl = configuration[$"{CoinbaseIntxOptions.SectionName}:BaseUrl"] ?? "https://api-n5e1.coinbase.com/api/v1",
+            AccessKey = configuration[$"{CoinbaseIntxOptions.SectionName}:AccessKey"] ?? string.Empty,
+            Passphrase = configuration[$"{CoinbaseIntxOptions.SectionName}:Passphrase"] ?? string.Empty,
+            SigningKey = configuration[$"{CoinbaseIntxOptions.SectionName}:SigningKey"] ?? string.Empty,
+            PortfolioId = configuration[$"{CoinbaseIntxOptions.SectionName}:PortfolioId"] ?? string.Empty,
+            AccountCurrency = configuration[$"{CoinbaseIntxOptions.SectionName}:AccountCurrency"] ?? "USDC",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{CoinbaseIntxOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var deribitOptions = new DeribitOptions
         {
             BaseUrl = configuration[$"{DeribitOptions.SectionName}:BaseUrl"] ?? "https://test.deribit.com/api/v2",
@@ -141,6 +153,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton(krakenOptions);
         services.AddSingleton(kuCoinOptions);
         services.AddSingleton(deribitOptions);
+        services.AddSingleton(coinbaseIntxOptions);
         services.AddSingleton(okxOptions);
         services.AddHttpClient(BitgetDemoExchangeClient.HttpClientName, client =>
         {
@@ -178,6 +191,10 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(deribitOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(CoinbaseIntxSandboxExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(coinbaseIntxOptions.HttpTimeoutSeconds);
+        });
         services.AddHttpClient(OkxDemoExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(okxOptions.HttpTimeoutSeconds);
@@ -195,6 +212,7 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<KrakenFuturesReadOnlyExchangeClient>();
         services.AddSingleton<KuCoinFuturesReadOnlyExchangeClient>();
         services.AddSingleton<DeribitTestnetExchangeClient>();
+        services.AddSingleton<CoinbaseIntxSandboxExchangeClient>();
         services.AddSingleton<OkxDemoExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
         services.AddSingleton<BybitPrivateWebSocketStream>();
@@ -287,8 +305,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.CoinbaseIntxSandbox, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<CoinbaseIntxSandboxExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<CoinbaseIntxSandboxExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}, {ExchangeProviders.KrakenFuturesReadOnly}, {ExchangeProviders.KuCoinFuturesReadOnly}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}, {ExchangeProviders.KrakenFuturesReadOnly}, {ExchangeProviders.KuCoinFuturesReadOnly}, {ExchangeProviders.CoinbaseIntxSandbox}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
