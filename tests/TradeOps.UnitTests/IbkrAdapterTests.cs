@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using TradeOps.Application.Models;
 using TradeOps.Domain.Enums;
+using TradeOps.Infrastructure.Exchange;
 using TradeOps.Infrastructure.Exchange.Ibkr;
 using Xunit;
 
@@ -329,6 +330,28 @@ public sealed class IbkrAdapterTests
 
         await Assert.ThrowsAsync<NotSupportedException>(
             () => client.CancelOrderAsync("123"));
+    }
+
+
+    [Fact]
+    public void CapabilityCatalog_IbkrPaperRemainsReadOnly()
+    {
+        var catalog = new ExchangeCapabilityCatalog(
+            new ExchangeOptions
+            {
+                Provider = ExchangeProviders.IbkrPaper
+            });
+
+        var profile = catalog.Current;
+
+        Assert.Equal("Paper", profile.Environment);
+        Assert.True(profile.SupportsAccountRead);
+        Assert.True(profile.SupportsPositionRead);
+        Assert.True(profile.SupportsOpenOrdersRead);
+        Assert.True(profile.SupportsOrderLookup);
+        Assert.False(profile.SupportsOrderPlacement);
+        Assert.False(profile.SupportsOrderCancellation);
+        Assert.False(profile.SupportsPrivateEventStream);
     }
 
     private static IbkrPaperExchangeClient CreateClient(
