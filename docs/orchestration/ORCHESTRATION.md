@@ -12,8 +12,9 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main product integration: 3f7aa84565fbd77f202821f72c36160c001774f3
-latest integrated workstream: WS-03 — Portfolio Target & Rebalancing Engine (PR #49)
+main product integration: 2c9acfa9a19b1ebe82add786c66656a4458e885d
+latest integrated workstream: WS-01 — IBKR Paper read-only adapter (PR #50)
+previous integrated workstream: WS-03 — Portfolio Target & Rebalancing Engine (PR #49)
 ```
 
 DocFlow repository:
@@ -67,10 +68,10 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 
 | ID | Workstream | Branch | State | Can run now |
 |---|---|---|---|---|
-| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | VALIDATION | yes, read-path review / Paper smoke next |
-| WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | READY_FOR_INTEGRATION | yes, pending current-head CI/review |
+| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | INTEGRATED_READ_ONLY | real Paper smoke / mutation slice later |
+| WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | BLOCKED_ALIGNMENT | yes: align ResearchDecision action with WS-03 SetTargetWeight |
 | WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further worker changes without orchestration |
-| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | BLOCKED_IMPLEMENTATION | contract/design only until WS-02 integration |
+| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | BLOCKED_IMPLEMENTATION | contract/design only until WS-02 alignment/integration |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -95,7 +96,9 @@ Worker branches must not change this v1 contract without an explicit orchestrato
                     +------------------+
 ```
 
-WS-01 and WS-02 are independent and should proceed in parallel.
+WS-01 read-only boundary is integrated by PR #50. Real authenticated Paper validation remains a hard gate before enabling order mutations.
+
+WS-02 currently has a semantic integration blocker: its deterministic rule emits Buy/Sell, while integrated WS-03 RebalancePlan v1 accepts only SetTargetWeight. The worker must align its ResearchDecision output to the integrated SetTargetWeight portfolio contract before merge.
 
 WS-03 RebalancePlan / RebalanceOrderIntent v1 semantics are integrated by PR #49 and are now the downstream portfolio-planning boundary.
 
@@ -105,12 +108,13 @@ WS-04 full implementation now waits only for the WS-02 earnings/event-time contr
 
 1. DONE — merge orchestration layer.
 2. DONE — WS-03 target-weight/rebalance planning contract (PR #49).
-3. Integrate WS-02 earnings/research event contract + deterministic SEC source path after current-head CI/review.
-4. Integrate WS-01 paper-only IBKR read boundary; real Paper smoke remains a gate before mutation capability is enabled.
-5. Freeze historical event contract after WS-02 integration.
-6. Unblock WS-04 full event-driven backtester against integrated WS-02 + WS-03 contracts.
-7. Build orchestrator-approved RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR bridge.
-8. End-to-end demo: earnings event -> ResearchDecision -> rebalance -> IBKR Paper.
+3. DONE — WS-01 paper-only IBKR read boundary (PR #50); real Paper smoke remains a gate before mutation capability.
+4. ALIGN — WS-02 deterministic output must use/produce SetTargetWeight semantics compatible with integrated WS-03.
+5. Integrate WS-02 earnings/event-time contract after alignment + green CI.
+6. Freeze historical event contract after WS-02 integration.
+7. Unblock WS-04 full event-driven backtester against integrated WS-02 + WS-03 contracts.
+8. Build orchestrator-approved RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR bridge.
+9. End-to-end demo: earnings event -> ResearchDecision(SetTargetWeight) -> rebalance -> IBKR Paper.
 
 ## Ownership / merge-conflict rules
 
@@ -198,9 +202,9 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  WS-02 Earnings Intelligence boundary / MVP — next integration candidate
-P0  WS-01 IBKR Paper Adapter — integrate safe read boundary, then real Paper smoke
+P0  WS-02 Earnings Intelligence — align Buy/Sell output to SetTargetWeight, then integrate
+DONE WS-01 IBKR Paper read boundary — PR #50; real Paper smoke before mutations
 DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
-P2  WS-04 Backtester — full implementation blocked only on WS-02 contract integration
+P2  WS-04 Backtester — full implementation blocked on WS-02 alignment/integration
 HOLD DocFlow QBO sandbox work
 ```
