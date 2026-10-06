@@ -117,7 +117,7 @@ public sealed class EventDrivenBacktesterTests
         var item =
             CreateReplayItem(
                 publishedAt,
-                publishedAt.AddMinute());
+                publishedAt.AddMinutes(1));
 
         var bars =
             new[]
@@ -249,7 +249,7 @@ public sealed class EventDrivenBacktesterTests
         var item =
             CreateReplayItem(
                 publishedAt,
-                publishedAt.AddMinute());
+                publishedAt.AddMinutes(1));
 
         var bars =
             new[]
@@ -355,7 +355,7 @@ public sealed class EventDrivenBacktesterTests
 
         var sourceTimestamp =
             sourceAfterPublished
-                ? publishedAt.AddMinute()
+                ? publishedAt.AddMinutes(1)
                 : publishedAt.AddMinutes(-2);
         var retrievedAt =
             sourceAfterPublished
