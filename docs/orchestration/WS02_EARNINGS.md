@@ -1,6 +1,6 @@
 # WS-02 — Earnings Intelligence / Research Boundary
 
-State: READY_FOR_INTEGRATION
+State: INTEGRATED
 
 Repository / branch:
 
@@ -237,3 +237,28 @@ Development Orchestrator should:
 Historical evaluation must use only information known to be available by `PublishedAt`.
 
 Target-weight mapping is deterministic configuration, not inferred alpha and not an executable-order bypass.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #51
+worker HEAD: 07ce98c6481b426631707bc91b22143b14b7326e
+merge commit: c739d3b9645e02cb32795ceb35d2436dc6bc057b
+current-head CI before merge: 37514678283 — success
+```
+
+The following semantics are now downstream integration invariants unless explicitly changed by Development Orchestrator:
+
+```text
+EarningsEvent.PublishedAt
+ResearchSourceProvenance.SourceTimestamp / RetrievedAt
+exact-accession SEC fact selection
+anti-look-ahead availability rules
+explicit EarningsTargetWeightPolicy
+ResearchDecision(Action = SetTargetWeight)
+```
+
+WS-04 must reuse these semantics for historical replay rather than define a second event-time or decision contract.
