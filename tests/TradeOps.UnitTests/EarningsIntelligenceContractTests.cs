@@ -7,6 +7,12 @@ namespace TradeOps.UnitTests;
 
 public sealed class EarningsIntelligenceContractTests
 {
+    private static readonly EarningsTargetWeightPolicy PortfolioPolicy =
+        new(
+            PositiveTargetWeight: 0.04m,
+            NeutralTargetWeight: 0.02m,
+            NegativeTargetWeight: 0m);
+
     [Fact]
     public void SecNormalizer_SelectsExactAccessionPeriodAndConsolidatedFacts()
     {
@@ -325,7 +331,7 @@ public sealed class EarningsIntelligenceContractTests
     }
 
     [Fact]
-    public void Rule_PositiveComparableKpis_ProducesValidatedBuyDecision()
+    public void Rule_PositiveComparableKpis_ProducesTargetWeightDecisionAcceptedByPlanner()
     {
         var prior =
             SecFixtureData.Event(
@@ -353,11 +359,18 @@ public sealed class EarningsIntelligenceContractTests
             DeterministicEarningsDecisionRule.Evaluate(
                 current,
                 prior,
-                current.PublishedAt.AddSeconds(1));
+                current.PublishedAt.AddSeconds(1),
+                PortfolioPolicy);
 
         Assert.Equal(
-            ResearchDecisionAction.Buy,
+            ResearchDecisionAction.SetTargetWeight,
             decision.Action);
+        Assert.Equal(
+            PortfolioPolicy.PositiveTargetWeight,
+            decision.TargetWeight);
+        Assert.Equal(
+            EarningsAssessment.Positive.ToString(),
+            decision.Metadata!["assessment"]);
         Assert.Equal(
             1m,
             decision.Confidence);
@@ -370,10 +383,34 @@ public sealed class EarningsIntelligenceContractTests
         Assert.True(
             ResearchDecisionValidator.Validate(
                 decision).IsValid);
+
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                new PortfolioSnapshot(
+                    "USD",
+                    NetAssetValue: 100_000m,
+                    Cash: 100_000m,
+                    Positions:
+                        Array.Empty<PortfolioPosition>(),
+                    AsOf:
+                        decision.GeneratedAt.AddMinutes(1)),
+                referencePrice: 200m,
+                new RebalanceConstraints(
+                    MaxTargetWeight: 0.10m));
+
+        Assert.Equal(
+            RebalancePlanStatus.Ready,
+            plan.Status);
+        Assert.Equal(
+            PortfolioPolicy.PositiveTargetWeight,
+            plan.TargetPosition!.TargetWeight);
+        Assert.NotNull(
+            plan.OrderIntent);
     }
 
     [Fact]
-    public void Rule_NegativeComparableKpis_ProducesSellDecision()
+    public void Rule_NegativeComparableKpis_MapsToConfiguredLongOnlyTarget()
     {
         var prior =
             SecFixtureData.Event(
@@ -399,14 +436,124 @@ public sealed class EarningsIntelligenceContractTests
             DeterministicEarningsDecisionRule.Evaluate(
                 current,
                 prior,
-                current.PublishedAt);
+                current.PublishedAt,
+                PortfolioPolicy);
 
         Assert.Equal(
-            ResearchDecisionAction.Sell,
+            ResearchDecisionAction.SetTargetWeight,
             decision.Action);
         Assert.Equal(
+            PortfolioPolicy.NegativeTargetWeight,
+            decision.TargetWeight);
+        Assert.Equal(
+            EarningsAssessment.Negative.ToString(),
+            decision.Metadata!["assessment"]);
+        Assert.Equal(
             "-3",
-            decision.Metadata!["score"]);
+            decision.Metadata["score"]);
+    }
+
+    [Fact]
+    public void Rule_NeutralAssessment_MapsToConfiguredNeutralTarget()
+    {
+        var prior =
+            SecFixtureData.Event(
+                "AAPL",
+                "aapl-neutral-prior",
+                new DateTimeOffset(
+                    2026,
+                    5,
+                    1,
+                    10,
+                    0,
+                    0,
+                    TimeSpan.Zero),
+                100m,
+                2m,
+                0.30m);
+
+        var current =
+            SecFixtureData.Event(
+                "AAPL",
+                "aapl-neutral-current",
+                new DateTimeOffset(
+                    2026,
+                    8,
+                    1,
+                    10,
+                    0,
+                    0,
+                    TimeSpan.Zero),
+                104m,
+                2.20m,
+                0.30m);
+
+        var decision =
+            DeterministicEarningsDecisionRule.Evaluate(
+                current,
+                prior,
+                current.PublishedAt,
+                PortfolioPolicy);
+
+        Assert.Equal(
+            ResearchDecisionAction.SetTargetWeight,
+            decision.Action);
+        Assert.Equal(
+            PortfolioPolicy.NeutralTargetWeight,
+            decision.TargetWeight);
+        Assert.Equal(
+            EarningsAssessment.Neutral.ToString(),
+            decision.Metadata!["assessment"]);
+        Assert.Equal(
+            "1",
+            decision.Metadata["score"]);
+    }
+
+    [Fact]
+    public void Rule_RejectsTargetWeightPolicyOutsideLongOnlyRange()
+    {
+        var prior =
+            SecFixtureData.Event(
+                "AAPL",
+                "aapl-policy-prior",
+                new DateTimeOffset(
+                    2026,
+                    5,
+                    1,
+                    10,
+                    0,
+                    0,
+                    TimeSpan.Zero),
+                100m,
+                2m,
+                0.30m);
+
+        var current =
+            SecFixtureData.Event(
+                "AAPL",
+                "aapl-policy-current",
+                new DateTimeOffset(
+                    2026,
+                    8,
+                    1,
+                    10,
+                    0,
+                    0,
+                    TimeSpan.Zero),
+                110m,
+                2.20m,
+                0.31m);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () =>
+                DeterministicEarningsDecisionRule.Evaluate(
+                    current,
+                    prior,
+                    current.PublishedAt,
+                    new EarningsTargetWeightPolicy(
+                        PositiveTargetWeight: 1.01m,
+                        NeutralTargetWeight: 0.02m,
+                        NegativeTargetWeight: 0m)));
     }
 
     [Fact]
@@ -437,7 +584,8 @@ public sealed class EarningsIntelligenceContractTests
                 DeterministicEarningsDecisionRule.Evaluate(
                     current,
                     prior,
-                    current.PublishedAt.AddTicks(-1)));
+                    current.PublishedAt.AddTicks(-1),
+                    PortfolioPolicy));
     }
 
     [Fact]
@@ -468,7 +616,8 @@ public sealed class EarningsIntelligenceContractTests
                 DeterministicEarningsDecisionRule.Evaluate(
                     current,
                     prior,
-                    current.Provenance.SourceTimestamp));
+                    current.Provenance.SourceTimestamp,
+                    PortfolioPolicy));
     }
 
     [Fact]
@@ -500,13 +649,15 @@ public sealed class EarningsIntelligenceContractTests
             DeterministicEarningsDecisionRule.Evaluate(
                 current,
                 prior,
-                generatedAt);
+                generatedAt,
+                PortfolioPolicy);
 
         var second =
             DeterministicEarningsDecisionRule.Evaluate(
                 current,
                 prior,
-                generatedAt);
+                generatedAt,
+                PortfolioPolicy);
 
         Assert.Equal(
             first.DecisionId,
