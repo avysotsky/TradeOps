@@ -347,7 +347,7 @@ public sealed class EventDrivenBacktesterTests
         var retrievedAt =
             sourceAfterPublished
                 ? publishedAt.AddMinutes(2)
-                : publishedAt.AddMinute(-1);
+                : publishedAt.AddMinutes(-1);
 
         var earningsEvent =
             CreateEarningsEvent(
