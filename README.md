@@ -32,6 +32,7 @@ TradeOps is built for the case where a client already has trading rules, signals
 - Binance USD-M Futures testnet REST integration plus private user-data stream with mainnet host rejection;
 - Hyperliquid testnet signed execution plus order/fill WebSocket integration with mainnet host rejection;
 - Deribit testnet REST execution plus authenticated private WebSocket order/trade events with production-host rejection;
+- OKX Demo REST execution plus authenticated private WebSocket SWAP/FUTURES order/fill events on the demo websocket host;
 - MEXC Futures live-host read-only account, position and order-state integration with trading mutations disabled;
 - Kraken Futures live-host read-only account, position and open-order integration with trading mutations disabled;
 - KuCoin Futures live-host read-only account, position and order-state integration with trading mutations disabled;
@@ -100,7 +101,7 @@ TradeOps also exposes an `IExchangeCapabilityCatalog` so execution safety is dat
 | HyperliquidTestnet | Testnet | yes | yes | non-production |
 | MexcFuturesReadOnly | LiveReadOnly | no | no | live |
 | DeribitTestnet | Testnet | yes | yes | non-production |
-| OkxDemo | Demo | yes | no | live REST + simulated-trading header |
+| OkxDemo | Demo | yes | yes | live REST + simulated-trading header / demo WebSocket |
 | BitgetDemo | Demo | yes | no | live REST + demo header |
 | GateFuturesTestnet | Testnet | yes | no | non-production |
 | KrakenFuturesReadOnly | LiveReadOnly | no | no | live |
