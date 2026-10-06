@@ -728,6 +728,58 @@ Smoke:
 bash scripts/bitget-demo-smoke.sh
 ```
 
+## Gate Futures TestNet
+
+TradeOps v2.0.0.0 adds Gate perpetual futures REST execution against the official Gate Futures TestNet:
+
+```text
+https://api-testnet.gateapi.io/api/v4
+```
+
+Provider:
+
+```text
+GateFuturesTestnet
+```
+
+Gate TestNet is a separate environment with separate API keys. Production Gate API keys are not used by this adapter.
+
+Configuration:
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=GateFuturesTestnet
+export GATE_TESTNET_API_KEY='YOUR_TESTNET_KEY'
+export GATE_TESTNET_API_SECRET='YOUR_TESTNET_SECRET'
+export GATE_TESTNET_SETTLE='usdt'
+docker compose up --build -d
+```
+
+The adapter supports account state, current positions, open orders, lookup by exchange order ID or deterministic custom `text`, market/limit placement, cancellation, and ambiguous-placement recovery.
+
+Private requests use Gate API v4 signing:
+
+```text
+METHOD
+/api/v4 + request path
+query string
+SHA512(body)
+Unix timestamp seconds
+-> HMAC-SHA512(secret)
+-> lowercase hexadecimal SIGN
+```
+
+`Symbol` must be a native Gate contract such as `BTC_USDT`. `Quantity` is a positive whole number of contracts. Buy/sell direction is represented by positive/negative Gate `size`.
+
+TradeOps maps `Market` to `price=0, tif=ioc` and `Limit` to `tif=gtc`. Client order identity is encoded in Gate's `text` field with the required `t-` prefix.
+
+The adapter accepts only the official Gate Futures TestNet API endpoint. Production Gate hosts are rejected.
+
+Smoke:
+
+```bash
+bash scripts/gate-futures-testnet-smoke.sh
+```
+
 ## API
 
 Swagger/OpenAPI is exposed by the running API. Main routes:
