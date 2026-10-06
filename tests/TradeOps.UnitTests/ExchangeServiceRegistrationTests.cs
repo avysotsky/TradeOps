@@ -8,6 +8,8 @@ using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
+using TradeOps.Infrastructure.Exchange.Kraken;
+using TradeOps.Infrastructure.Exchange.KuCoin;
 using TradeOps.Infrastructure.Exchange.Mexc;
 using TradeOps.Infrastructure.Exchange.Okx;
 using Xunit;
@@ -569,6 +571,129 @@ public sealed class ExchangeServiceRegistrationTests
         Assert.Contains(
             "restricted to the official TestNet API endpoint",
             exception.Message);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsKrakenFuturesReadOnlyFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KrakenFuturesReadOnly",
+                ["Exchange:Kraken:ApiKey"] = "read-key",
+                ["Exchange:Kraken:ApiSecret"] = "dGVzdC1zZWNyZXQ=",
+                ["Exchange:Kraken:AccountCurrency"] = "USD",
+                ["Exchange:Kraken:HttpTimeoutSeconds"] = "15"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IExchangeClient>();
+        var manager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var stream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<KrakenFuturesOptions>();
+
+        Assert.IsType<KrakenFuturesReadOnlyExchangeClient>(client);
+        Assert.Same(client, manager);
+        Assert.IsType<NullExchangeEventStream>(stream);
+        Assert.Equal("https://futures.kraken.com/derivatives/api/v3", options.BaseUrl);
+        Assert.Equal(15, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public async Task KrakenFuturesReadOnly_RejectsTradingMutationsLocally()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KrakenFuturesReadOnly"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IExchangeClient>();
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => client.PlaceOrderAsync(
+                new TradeOps.Application.Models.PlaceOrderRequest(
+                    "client-1",
+                    "PI_XBTUSD",
+                    TradeOps.Domain.Enums.OrderSide.Buy,
+                    TradeOps.Domain.Enums.OrderType.Market,
+                    1m)));
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => client.CancelOrderAsync("order-1"));
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_SelectsKuCoinFuturesReadOnlyFromConfiguration()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KuCoinFuturesReadOnly",
+                ["Exchange:KuCoin:ApiKey"] = "read-key",
+                ["Exchange:KuCoin:ApiSecret"] = "read-secret",
+                ["Exchange:KuCoin:Passphrase"] = "read-pass",
+                ["Exchange:KuCoin:KeyVersion"] = "2",
+                ["Exchange:KuCoin:AccountCurrency"] = "USDT",
+                ["Exchange:KuCoin:HttpTimeoutSeconds"] = "16"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IExchangeClient>();
+        var manager = provider.GetRequiredService<IExchangeConnectionManager>();
+        var stream = provider.GetRequiredService<IExchangeEventStream>();
+        var options = provider.GetRequiredService<KuCoinFuturesOptions>();
+
+        Assert.IsType<KuCoinFuturesReadOnlyExchangeClient>(client);
+        Assert.Same(client, manager);
+        Assert.IsType<NullExchangeEventStream>(stream);
+        Assert.Equal("https://api-futures.kucoin.com", options.BaseUrl);
+        Assert.Equal("2", options.KeyVersion);
+        Assert.Equal(16, options.HttpTimeoutSeconds);
+    }
+
+    [Fact]
+    public async Task KuCoinFuturesReadOnly_RejectsTradingMutationsLocally()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "KuCoinFuturesReadOnly"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var client = provider.GetRequiredService<IExchangeClient>();
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => client.PlaceOrderAsync(
+                new TradeOps.Application.Models.PlaceOrderRequest(
+                    "client-1",
+                    "XBTUSDTM",
+                    TradeOps.Domain.Enums.OrderSide.Buy,
+                    TradeOps.Domain.Enums.OrderType.Market,
+                    1m)));
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            () => client.CancelOrderAsync("order-1"));
     }
 
     [Fact]
