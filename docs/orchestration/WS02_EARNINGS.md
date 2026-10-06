@@ -9,16 +9,17 @@ avysotsky/TradeOps
 TradeOps/ws02-earnings-intelligence-contract
 ```
 
-TradeOps base:
+Synchronized base:
 
 ```text
-main @ e4466fecab999d83b7b9f9b5353514125b793251
+main @ 902072924bbfd5f35a7c506192407915deacd29c
+sync commit: e3fe13c42e3feadf3c463ccaa88cbb78813fa500
 ```
 
-Validated implementation HEAD:
+Current validated implementation HEAD:
 
 ```text
-25b46806bf9b4f5b57ff03d106e2633ef7e97406
+784e00470a101928ba29750c970f25653d8472f5
 ```
 
 ## Goal
@@ -29,18 +30,35 @@ Prepare the consumer-side Earnings Intelligence MVP for:
 company/watchlist
 -> earnings / filings / company data
 -> structured facts
--> deterministic analysis/rules
--> ResearchDecision v1
--> TradeOps
+-> deterministic earnings assessment
+-> explicit target-weight policy
+-> ResearchDecision v1 (SetTargetWeight)
+-> PortfolioRebalancePlanner
+-> RebalancePlan
 ```
 
-without turning TradeOps into a crawler, document parser, transcript system or LLM application.
+without turning TradeOps into a crawler, transcript system, generic document parser or LLM application.
 
 ## Completed
 
-### Contract
+### Main synchronization
 
-Implemented:
+WS-02 was rebased/synchronized onto current TradeOps main after WS-03 integration.
+
+The branch therefore contains the integrated portfolio-planning boundary:
+
+```text
+ResearchDecision(Action = SetTargetWeight)
+-> PortfolioRebalancePlanner
+-> RebalancePlan
+-> RebalanceOrderIntent
+```
+
+No WS-03-owned file was modified by this slice.
+
+### Earnings research boundary
+
+Existing WS-02 contracts remain:
 
 ```text
 EarningsEvent v1
@@ -51,107 +69,95 @@ SecStructuredFiling / SecStructuredFact
 SecFilingEarningsFacts
 ```
 
-The event/snapshot boundary carries:
+The SEC normalization, provenance, conservative PublishedAt semantics and anti-look-ahead rules remain unchanged.
 
-- symbol via broker-neutral `InstrumentReference`;
-- stable eventId;
-- publication/consumer-availability timestamp;
-- fiscal period;
-- source provider/URI/document identity;
-- revenue;
-- diluted EPS;
-- net income;
-- gross margin;
-- operating margin;
-- optional guidance direction/ranges;
-- provenance.
+### Semantic mismatch fixed
 
-### SEC deterministic normalization
-
-Implemented:
+The previous deterministic earnings rule emitted:
 
 ```text
-SecStructuredFiling
--> SecStructuredFilingNormalizer
--> SecFilingEarningsFacts
--> SecEarningsEventFactory
--> EarningsEvent v1
+Buy / Sell / NoAction
 ```
 
-Fact selection requires:
-
-- `us-gaap`;
-- exact accession;
-- exact form;
-- exact fiscal-period start/end;
-- expected unit;
-- consolidated/non-dimensional context.
-
-Later-accession facts are ignored for the earlier event. Ambiguous exact facts fail closed.
-
-### Availability / look-ahead semantics
-
-SEC `AcceptedAt` is retained as provider/source timestamp, but is **not** treated as exact public dissemination time.
-
-SEC documents that sec.gov availability can lag EDGAR acceptance, commonly by 1–3 minutes, with no exact sec.gov first-availability timestamp.
-
-Therefore:
+That was incompatible with integrated WS-03, whose RebalancePlan v1 accepts only:
 
 ```text
-SourceTimestamp = SEC AcceptedAt
-
-if verified PubliclyAvailableAt exists:
-    PublishedAt = PubliclyAvailableAt
-else:
-    PublishedAt = first successful RetrievedAt
+ResearchDecisionAction.SetTargetWeight
 ```
 
-Enforced invariants:
+The rule now separates two layers.
+
+Research assessment:
 
 ```text
-SourceTimestamp <= PublishedAt <= RetrievedAt
-ResearchDecision.GeneratedAt >= PublishedAt
+structured earnings facts
+-> revenue growth / diluted EPS growth / operating-margin delta
+-> score
+-> EarningsAssessment.Positive | Neutral | Negative
 ```
 
-This makes historical replay conservative when exact dissemination time is unknown and prevents after-hours decisions from being timestamped before observed availability.
-
-### Structured research -> frozen ResearchDecision v1
-
-`DeterministicEarningsDecisionRule` compares current/prior structured events using:
-
-- revenue growth;
-- diluted-EPS growth;
-- operating-margin delta.
-
-It emits validated existing `ResearchDecision v1`.
-
-It does not create executable orders. WS-03 owns portfolio/rebalance translation.
-
-The rule is an integration fixture only, not a profitability/alpha claim.
-
-### Fixtures
-
-Added SEC-anchored AAPL/MSFT/NVDA fixtures with real filing identities and realistic SEC base-unit facts:
+Explicit integration policy:
 
 ```text
-AAPL FY2026 Q3
-accession 0000320193-26-000020
-period end 2026-06-27
-
-MSFT FY2026 Q3
-accession 0001193125-26-191507
-period end 2026-03-31
-
-NVDA FY2027 Q2
-accession 0001045810-26-000075
-period end 2026-07-26
+EarningsTargetWeightPolicy
+  PositiveTargetWeight
+  NeutralTargetWeight
+  NegativeTargetWeight
 ```
+
+Final portfolio-facing output:
+
+```text
+ResearchDecision
+Action = SetTargetWeight
+TargetWeight = configured weight for the assessment
+```
+
+No hidden portfolio strategy is hardcoded. The caller must provide the target-weight policy explicitly.
+
+### Long-only v1
+
+Every configured target weight is validated as:
+
+```text
+0 <= TargetWeight <= 1
+```
+
+and with the same maximum decimal scale accepted by frozen ResearchDecision v1.
+
+The demo tests use an explicit policy:
+
+```text
+Positive -> 0.04
+Neutral  -> 0.02
+Negative -> 0.00
+```
+
+Those values are test/integration policy only and are not asserted to be profitable or production-optimal.
+
+### Determinism
+
+Decision identity now includes both:
+
+- earnings comparison settings;
+- explicit target-weight policy.
+
+Therefore changing a threshold or target mapping cannot silently produce a different portfolio decision under the same deterministic DecisionId.
+
+Metadata records:
+
+- assessment;
+- score;
+- comparable signal count;
+- KPI deltas/growth;
+- source/provenance timestamps;
+- positive/neutral/negative target-weight settings.
 
 ## Shared contracts changed
 
 No.
 
-Frozen contracts remain unchanged:
+Frozen shared contracts remain unchanged:
 
 ```text
 InstrumentReference v1
@@ -160,39 +166,43 @@ ResearchDecisionAction v1
 ResearchDecisionValidationResult v1
 ```
 
+Integrated WS-03 contracts were also not changed:
+
+```text
+PortfolioSnapshot
+RebalanceConstraints
+TargetPosition
+RebalancePlan
+RebalanceOrderIntent
+PortfolioRebalancePlanner
+```
+
 ## Tests
 
-WS-02 coverage now includes:
+WS-02 coverage includes all prior SEC/provenance/look-ahead tests plus:
 
-- exact accession selection;
-- exact fiscal-period selection;
-- consolidated/non-dimensional fact selection;
-- later-accession fact exclusion;
-- ambiguous exact XBRL fact rejection;
-- SEC URI validation;
-- SEC event/KPI normalization;
-- deterministic margin calculation;
-- retrieval-before-SEC-acceptance rejection;
-- conservative fallback `PublishedAt = RetrievedAt`;
-- verified `PubliclyAvailableAt` propagation;
-- public availability before acceptance rejection;
-- public availability after retrieval rejection;
-- decision-before-`PublishedAt` rejection;
-- invalid `PublishedAt < SourceTimestamp` rejection;
-- deterministic research decision identity/output;
-- positive/negative deterministic decision examples.
+- positive earnings assessment -> configured positive target weight;
+- neutral assessment -> configured neutral target weight;
+- negative assessment -> configured non-negative long-only target;
+- invalid target-weight policy outside [0, 1] rejected;
+- final decision uses `ResearchDecisionAction.SetTargetWeight`;
+- final decision passes frozen `ResearchDecisionValidator`;
+- end-to-end application-layer test:
+  `EarningsEvent -> deterministic assessment -> ResearchDecision(SetTargetWeight) -> PortfolioRebalancePlanner -> RebalancePlanStatus.Ready`;
+- planner produces a non-null `RebalanceOrderIntent` for the positive demo case;
+- deterministic DecisionId/output for identical events, rules and policy.
 
 ## CI
 
 Validated implementation:
 
 ```text
-HEAD: 25b46806bf9b4f5b57ff03d106e2633ef7e97406
-GitHub Actions run: 37511648743
+HEAD: 784e00470a101928ba29750c970f25653d8472f5
+GitHub Actions run: 37514197922
 Conclusion: success
 ```
 
-Successful workflow includes:
+The successful full workflow includes:
 
 - restore/build;
 - full unit suite;
@@ -201,42 +211,29 @@ Successful workflow includes:
 - customer TradingView demo;
 - client-pilot starter-kit validation;
 - Docker Compose/gateway validation;
-- API/Worker image builds.
-
-A prior intermediate timestamp-semantics commit `00ae9051020931469aeadcfd6f8bf27245bd87f7` failed one WS-02 assertion because that assertion still encoded the superseded `PublishedAt == AcceptedAt` assumption. The corrected tests are included in the successful HEAD above.
+- API/Worker Docker image builds.
 
 ## Blockers
 
-No blocker for integration of this TradeOps consumer-side slice.
+The semantic WS-02 -> WS-03 contract blocker is resolved.
 
-**Live production SEC acquisition is blocked by bounded-context ownership:** it should not be implemented inside TradeOps.
+No blocker remains for Development Orchestrator integration review of this bounded TradeOps slice.
 
-Development Orchestrator should create/assign a separate Earnings Research repository/service for:
-
-- filing discovery;
-- SEC submissions/metadata access;
-- structured XBRL retrieval;
-- polling/RSS/PDS or other availability observation;
-- HTTP rate limiting/caching;
-- raw-source persistence/evidence;
-- future release/transcript ingestion;
-- optional LLM fact extraction/classification.
-
-Audio/transcript/LLM work is explicitly later and is not required for the SEC MVP.
+Live SEC acquisition remains a separate bounded-context task and should be implemented in a separate Earnings Research repository/service rather than inside TradeOps.
 
 ## Next integration action
 
 Development Orchestrator should:
 
-1. compare this branch with current `main`;
-2. verify no shared-contract/file conflict with WS-03;
-3. merge this bounded consumer-side slice when integration order permits;
-4. freeze `EarningsEvent v1` availability/provenance semantics as an input candidate for WS-04;
-5. create/assign the separate Earnings Research repository;
-6. implement live SEC acquisition there and output `SecStructuredFiling` to this boundary.
+1. repeat integration review against current `main`;
+2. verify the WS-02 diff is limited to earnings/research-owned files;
+3. verify the new end-to-end planner compatibility test;
+4. integrate the bounded WS-02 slice if review remains green;
+5. preserve the explicit target-weight-policy requirement for any future research provider;
+6. reuse the same `SetTargetWeight -> PortfolioRebalancePlanner` boundary in WS-04 historical replay.
 
 ## Critical correctness rule
 
 Historical evaluation must use only information known to be available by `PublishedAt`.
 
-Never backdate a filing to SEC acceptance when actual dissemination/observation occurred later. Never use later accessions, later restatements/revisions or post-event market data as though they were known at the earlier event.
+Target-weight mapping is deterministic configuration, not inferred alpha and not an executable-order bypass.
