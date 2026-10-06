@@ -58,6 +58,11 @@ services:
       Exchange__KuCoin__Passphrase: ${KUCOIN_FUTURES_PASSPHRASE:-}
       Exchange__KuCoin__KeyVersion: ${KUCOIN_FUTURES_KEY_VERSION:-2}
       Exchange__KuCoin__AccountCurrency: ${KUCOIN_FUTURES_ACCOUNT_CURRENCY:-USDT}
+      Exchange__CoinbaseIntx__AccessKey: ${COINBASE_INTX_SANDBOX_ACCESS_KEY:-}
+      Exchange__CoinbaseIntx__Passphrase: ${COINBASE_INTX_SANDBOX_PASSPHRASE:-}
+      Exchange__CoinbaseIntx__SigningKey: ${COINBASE_INTX_SANDBOX_SIGNING_KEY:-}
+      Exchange__CoinbaseIntx__PortfolioId: ${COINBASE_INTX_SANDBOX_PORTFOLIO_ID:-}
+      Exchange__CoinbaseIntx__AccountCurrency: ${COINBASE_INTX_ACCOUNT_CURRENCY:-USDC}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -122,6 +127,11 @@ services:
       Exchange__KuCoin__Passphrase: ${KUCOIN_FUTURES_PASSPHRASE:-}
       Exchange__KuCoin__KeyVersion: ${KUCOIN_FUTURES_KEY_VERSION:-2}
       Exchange__KuCoin__AccountCurrency: ${KUCOIN_FUTURES_ACCOUNT_CURRENCY:-USDT}
+      Exchange__CoinbaseIntx__AccessKey: ${COINBASE_INTX_SANDBOX_ACCESS_KEY:-}
+      Exchange__CoinbaseIntx__Passphrase: ${COINBASE_INTX_SANDBOX_PASSPHRASE:-}
+      Exchange__CoinbaseIntx__SigningKey: ${COINBASE_INTX_SANDBOX_SIGNING_KEY:-}
+      Exchange__CoinbaseIntx__PortfolioId: ${COINBASE_INTX_SANDBOX_PORTFOLIO_ID:-}
+      Exchange__CoinbaseIntx__AccountCurrency: ${COINBASE_INTX_ACCOUNT_CURRENCY:-USDC}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
