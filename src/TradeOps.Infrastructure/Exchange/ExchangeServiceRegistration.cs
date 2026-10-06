@@ -144,6 +144,7 @@ public static class ExchangeServiceRegistration
         };
 
         services.AddSingleton(exchangeOptions);
+        services.AddSingleton<IExchangeCapabilityCatalog, ExchangeCapabilityCatalog>();
         services.AddSingleton(bitgetOptions);
         services.AddSingleton(gateOptions);
         services.AddSingleton(bybitOptions);
