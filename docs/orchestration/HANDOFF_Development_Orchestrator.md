@@ -29,7 +29,8 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-3f7aa84565fbd77f202821f72c36160c001774f3
+2c9acfa9a19b1ebe82add786c66656a4458e885d
+WS-01 IBKR Paper read-only adapter integrated via PR #50
 WS-03 Portfolio Target & Rebalancing Engine integrated via PR #49
 ```
 
@@ -69,8 +70,8 @@ DocFlow — Accounting/QBO
 Current scheduling:
 
 ```text
-WS-01 IBKR Paper Adapter — validation/read-boundary integration candidate
-WS-02 Earnings Intelligence — next integration candidate after current-head CI
+WS-01 IBKR Paper Adapter — read-only boundary integrated; real Paper smoke before mutations
+WS-02 Earnings Intelligence — blocked on Buy/Sell -> SetTargetWeight semantic alignment
 WS-03 Portfolio Target Engine — integrated; stop independent changes
 ```
 
