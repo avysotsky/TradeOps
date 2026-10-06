@@ -29,7 +29,8 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-c739d3b9645e02cb32795ceb35d2436dc6bc057b
+eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
+WS-04 Event-driven Backtester integrated via PR #52
 WS-02 Earnings Intelligence boundary integrated via PR #51
 WS-01 IBKR Paper read-only adapter integrated via PR #50
 WS-03 Portfolio Target & Rebalancing Engine integrated via PR #49
@@ -74,15 +75,22 @@ Current scheduling:
 WS-01 IBKR Paper Adapter — read-only boundary integrated; real Paper smoke before mutations
 WS-02 Earnings Intelligence — integrated; event-time and SetTargetWeight boundary frozen
 WS-03 Portfolio Target Engine — integrated; rebalance boundary frozen
-WS-04 Backtester — unblocked; start full bounded implementation using WS-02 + WS-03 production contracts
+WS-04 Backtester — integrated bounded v1; stop generic expansion
 ```
 
-WS-04:
+Next product focus:
 
 ```text
-design/contracts only until WS-02 integration
-after WS-02 is frozen, full implementation may begin using integrated WS-03 semantics
+client-ready vertical slice
+earnings/research facts
+-> explicit client rule / target-weight policy
+-> ResearchDecision(SetTargetWeight)
+-> WS-04 historical backtest
+-> WS-03 rebalance
+-> WS-01 IBKR Paper path
 ```
+
+Do not broaden WS-04 or WS-02 generically unless the client-facing slice requires it.
 
 DocFlow:
 
@@ -147,13 +155,15 @@ Treat RebalancePlan / RebalanceOrderIntent v1 semantics as frozen for downstream
 
 ### WS-04
 
-Read:
+Integrated via PR #52.
 
 ```text
-docs/orchestration/WS04_BACKTESTER.md
+worker HEAD: d7c1f172643691024cf25001afdcf52b6624f647
+merge commit: eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
+CI: 37519740705 success
 ```
 
-Do not start full simulator implementation until WS-02 and WS-03 are unblocked/frozen.
+Treat bounded v1 daily single-instrument backtest semantics as integrated. Further work should be driven by the client-ready end-to-end slice, not generic backtester expansion.
 
 ## User-facing workflow
 
