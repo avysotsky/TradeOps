@@ -29,7 +29,8 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-2c9acfa9a19b1ebe82add786c66656a4458e885d
+c739d3b9645e02cb32795ceb35d2436dc6bc057b
+WS-02 Earnings Intelligence boundary integrated via PR #51
 WS-01 IBKR Paper read-only adapter integrated via PR #50
 WS-03 Portfolio Target & Rebalancing Engine integrated via PR #49
 ```
@@ -71,8 +72,9 @@ Current scheduling:
 
 ```text
 WS-01 IBKR Paper Adapter — read-only boundary integrated; real Paper smoke before mutations
-WS-02 Earnings Intelligence — blocked on Buy/Sell -> SetTargetWeight semantic alignment
-WS-03 Portfolio Target Engine — integrated; stop independent changes
+WS-02 Earnings Intelligence — integrated; event-time and SetTargetWeight boundary frozen
+WS-03 Portfolio Target Engine — integrated; rebalance boundary frozen
+WS-04 Backtester — unblocked; start full bounded implementation using WS-02 + WS-03 production contracts
 ```
 
 WS-04:
