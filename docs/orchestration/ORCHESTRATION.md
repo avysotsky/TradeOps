@@ -12,8 +12,8 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: cd62df96fdec27e047aac63818e49aa46ba724f2
-latest completed milestone: v2.6.0.0 — Broker-Neutral Research Decision Contracts
+main product integration: 3f7aa84565fbd77f202821f72c36160c001774f3
+latest integrated workstream: WS-03 — Portfolio Target & Rebalancing Engine (PR #49)
 ```
 
 DocFlow repository:
@@ -67,10 +67,10 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 
 | ID | Workstream | Branch | State | Can run now |
 |---|---|---|---|---|
-| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | READY | yes |
-| WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | READY | yes |
-| WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | READY_WITH_CONTRACT | yes, bounded |
-| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | BLOCKED_IMPLEMENTATION | contract/design only |
+| WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | VALIDATION | yes, read-path review / Paper smoke next |
+| WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | READY_FOR_INTEGRATION | yes, pending current-head CI/review |
+| WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further worker changes without orchestration |
+| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | BLOCKED_IMPLEMENTATION | contract/design only until WS-02 integration |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -97,19 +97,19 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 
 WS-01 and WS-02 are independent and should proceed in parallel.
 
-WS-03 may implement deterministic translation against the frozen ResearchDecision v1 contract, but must avoid assumptions about a specific earnings provider.
+WS-03 RebalancePlan / RebalanceOrderIntent v1 semantics are integrated by PR #49 and are now the downstream portfolio-planning boundary.
 
-WS-04 implementation waits until the event/research snapshot contract from WS-02 and portfolio-decision output contract from WS-03 are stable.
+WS-04 full implementation now waits only for the WS-02 earnings/event-time contract to be integrated and frozen. It must reuse the integrated WS-03 planner semantics rather than define a second portfolio-decision model.
 
 ## Integration order
 
-1. Merge orchestration layer.
-2. WS-01: paper-only IBKR connectivity/instrument/account/read path.
-3. WS-02: earnings/research event contract + one deterministic source path.
-4. WS-03: target-weight/rebalance planning contract.
-5. Integrate WS-01 execution with WS-03 rebalance output.
-6. Freeze historical event contract.
-7. WS-04: event-driven backtester.
+1. DONE — merge orchestration layer.
+2. DONE — WS-03 target-weight/rebalance planning contract (PR #49).
+3. Integrate WS-02 earnings/research event contract + deterministic SEC source path after current-head CI/review.
+4. Integrate WS-01 paper-only IBKR read boundary; real Paper smoke remains a gate before mutation capability is enabled.
+5. Freeze historical event contract after WS-02 integration.
+6. Unblock WS-04 full event-driven backtester against integrated WS-02 + WS-03 contracts.
+7. Build orchestrator-approved RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR bridge.
 8. End-to-end demo: earnings event -> ResearchDecision -> rebalance -> IBKR Paper.
 
 ## Ownership / merge-conflict rules
@@ -198,9 +198,9 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  WS-01 IBKR Paper Adapter
-P0  WS-02 Earnings Intelligence boundary / MVP
-P1  WS-03 Portfolio Target & Rebalancing Engine
-P2  WS-04 Backtester
+P0  WS-02 Earnings Intelligence boundary / MVP — next integration candidate
+P0  WS-01 IBKR Paper Adapter — integrate safe read boundary, then real Paper smoke
+DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
+P2  WS-04 Backtester — full implementation blocked only on WS-02 contract integration
 HOLD DocFlow QBO sandbox work
 ```
