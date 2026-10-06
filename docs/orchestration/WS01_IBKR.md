@@ -1,6 +1,6 @@
 # WS-01 — Interactive Brokers Paper Adapter
 
-State: INTEGRATED_READ_ONLY
+State: WAITING_FOR_REAL_PAPER_ACCOUNT
 
 Repository:
 
@@ -108,3 +108,25 @@ Before enabling mutations:
 6. only then advertise mutation capability.
 
 Real Paper validation is a hard gate before order placement/cancellation can be enabled.
+
+
+## External validation dependency
+
+A real authenticated IBKR Paper read-path smoke cannot currently be executed because no IBKR client/Paper account is available to the repository owner.
+
+This is an external validation dependency, not a code blocker.
+
+Until an IBKR Paper account is available, WS-01 may only:
+
+- keep the integrated read-only adapter green against current main;
+- provide an opt-in manual CPGW smoke harness and exact local run instructions;
+- preserve the Paper-only runtime guard;
+- preserve mutation capabilities as disabled.
+
+WS-01 must not:
+
+- simulate or claim a successful real-account validation;
+- enable PlaceOrder or CancelOrder capability metadata;
+- implement or advertise live execution.
+
+The client-facing research/backtest/rebalance demo may proceed independently of this external broker-account dependency.
