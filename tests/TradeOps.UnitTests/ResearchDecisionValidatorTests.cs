@@ -128,6 +128,28 @@ public sealed class ResearchDecisionValidatorTests
     }
 
     [Fact]
+    public void Validate_UnknownAction_IsRejected()
+    {
+        var decision =
+            CreateValid(
+                ResearchDecisionAction.NoAction)
+            with
+            {
+                Action =
+                    ResearchDecisionAction.Unknown
+            };
+
+        var result =
+            ResearchDecisionValidator.Validate(
+                decision);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(
+            nameof(ResearchDecision.Action),
+            result.Errors.Keys);
+    }
+
+    [Fact]
     public void Validate_ConfidenceOutsideZeroToOne_IsRejected()
     {
         var decision =
