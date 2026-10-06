@@ -85,10 +85,13 @@ jobs:
           assert data['dependencies']['exchangeClient'], data
           PY
 
-          OPENAPI=$(curl --fail --silent --show-error http://127.0.0.1:5080/swagger/v1/swagger.json)
-          OPENAPI_JSON="$OPENAPI" python3 - <<'PY'
-          import json, os
-          paths = json.loads(os.environ['OPENAPI_JSON'])['paths']
+          curl --fail --silent --show-error \
+            -o openapi.json \
+            http://127.0.0.1:5080/swagger/v1/swagger.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          paths = json.loads(Path('openapi.json').read_text())['paths']
           required = (
               '/health/live', '/health/ready', '/api/signals', '/api/signals/{id}',
               '/api/integrations/tradingview',
@@ -100,7 +103,10 @@ jobs:
               '/api/orders/local/{idOrClientOrderId}/cancel',
               '/api/orders/local/cancel-all',
               '/api/system/reconciliation/status', '/api/system/recovery/status',
-              '/api/system/runs', '/api/metrics/execution', '/api/metrics/execution/window',
+              '/api/system/runs',
+              '/api/exchange/capabilities',
+              '/api/exchange/capabilities/current',
+              '/api/metrics/execution', '/api/metrics/execution/window',
               '/api/fills', '/api/pnl/daily')
           for path in required:
               assert path in paths, (path, list(paths))
