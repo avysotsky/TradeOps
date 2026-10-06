@@ -11,6 +11,8 @@ public static class ExchangeProviders
     public const string OkxDemo = "OkxDemo";
     public const string BitgetDemo = "BitgetDemo";
     public const string GateFuturesTestnet = "GateFuturesTestnet";
+    public const string KrakenFuturesReadOnly = "KrakenFuturesReadOnly";
+    public const string KuCoinFuturesReadOnly = "KuCoinFuturesReadOnly";
 }
 
 public sealed class ExchangeOptions
