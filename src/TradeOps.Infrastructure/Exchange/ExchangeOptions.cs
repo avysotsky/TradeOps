@@ -9,6 +9,7 @@ public static class ExchangeProviders
     public const string MexcFuturesReadOnly = "MexcFuturesReadOnly";
     public const string DeribitTestnet = "DeribitTestnet";
     public const string OkxDemo = "OkxDemo";
+    public const string BitgetDemo = "BitgetDemo";
 }
 
 public sealed class ExchangeOptions
