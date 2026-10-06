@@ -50,6 +50,14 @@ services:
       Exchange__Gate__ApiKey: ${GATE_TESTNET_API_KEY:-}
       Exchange__Gate__ApiSecret: ${GATE_TESTNET_API_SECRET:-}
       Exchange__Gate__Settle: ${GATE_TESTNET_SETTLE:-usdt}
+      Exchange__Kraken__ApiKey: ${KRAKEN_FUTURES_API_KEY:-}
+      Exchange__Kraken__ApiSecret: ${KRAKEN_FUTURES_API_SECRET:-}
+      Exchange__Kraken__AccountCurrency: ${KRAKEN_FUTURES_ACCOUNT_CURRENCY:-USD}
+      Exchange__KuCoin__ApiKey: ${KUCOIN_FUTURES_API_KEY:-}
+      Exchange__KuCoin__ApiSecret: ${KUCOIN_FUTURES_API_SECRET:-}
+      Exchange__KuCoin__Passphrase: ${KUCOIN_FUTURES_PASSPHRASE:-}
+      Exchange__KuCoin__KeyVersion: ${KUCOIN_FUTURES_KEY_VERSION:-2}
+      Exchange__KuCoin__AccountCurrency: ${KUCOIN_FUTURES_ACCOUNT_CURRENCY:-USDT}
       SignalIngress__Authentication__Enabled: ${TRADEOPS_SIGNAL_AUTH_ENABLED:-false}
       SignalIngress__Authentication__ApiKey: ${TRADEOPS_SIGNAL_API_KEY:-}
       SignalIngress__ReplayProtection__Enabled: ${TRADEOPS_SIGNAL_REPLAY_ENABLED:-false}
@@ -106,6 +114,14 @@ services:
       Exchange__Gate__ApiKey: ${GATE_TESTNET_API_KEY:-}
       Exchange__Gate__ApiSecret: ${GATE_TESTNET_API_SECRET:-}
       Exchange__Gate__Settle: ${GATE_TESTNET_SETTLE:-usdt}
+      Exchange__Kraken__ApiKey: ${KRAKEN_FUTURES_API_KEY:-}
+      Exchange__Kraken__ApiSecret: ${KRAKEN_FUTURES_API_SECRET:-}
+      Exchange__Kraken__AccountCurrency: ${KRAKEN_FUTURES_ACCOUNT_CURRENCY:-USD}
+      Exchange__KuCoin__ApiKey: ${KUCOIN_FUTURES_API_KEY:-}
+      Exchange__KuCoin__ApiSecret: ${KUCOIN_FUTURES_API_SECRET:-}
+      Exchange__KuCoin__Passphrase: ${KUCOIN_FUTURES_PASSPHRASE:-}
+      Exchange__KuCoin__KeyVersion: ${KUCOIN_FUTURES_KEY_VERSION:-2}
+      Exchange__KuCoin__AccountCurrency: ${KUCOIN_FUTURES_ACCOUNT_CURRENCY:-USDT}
       Exchange__Binance__PrivateWebSocketBaseUrl: ${BINANCE_FUTURES_TESTNET_WS_BASE_URL:-wss://stream.binancefuture.com}
       Exchange__Binance__ListenKeyKeepaliveMinutes: ${BINANCE_FUTURES_LISTENKEY_KEEPALIVE_MINUTES:-30}
       Telegram__Enabled: ${TELEGRAM_ENABLED:-false}
