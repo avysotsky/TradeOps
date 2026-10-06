@@ -4,7 +4,7 @@ C#/.NET trading execution and automation backend focused on reliable order handl
 
 TradeOps is built for the case where a client already has trading rules, signals, or an existing bot and needs the engineering layer around execution: broker/exchange integration, order lifecycle, risk controls, persistence, reconciliation, recovery, logging and alerts.
 
-> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Execution-capable venue integrations are restricted to **Bybit testnet**, **Binance USD-M Futures testnet**, and **Hyperliquid testnet**. MEXC Futures is **live-host read-only** because no separate Contract API sandbox/testnet is documented.
+> TradeOps does **not** provide a profitable strategy, alpha, signals, or return guarantees. Mock mode is the default. Execution-capable venue integrations are restricted to non-production environments: **Bybit testnet**, **Binance USD-M Futures testnet**, **Hyperliquid testnet**, **Deribit testnet**, **OKX Demo**, **Bitget Demo**, and **Gate Futures TestNet**. **MEXC Futures, Kraken Futures, and KuCoin Futures are live-host read-only** because a usable persistent public sandbox/testnet is not currently documented for those adapters.
 
 ## What this demo proves
 
@@ -32,6 +32,8 @@ TradeOps is built for the case where a client already has trading rules, signals
 - Binance USD-M Futures testnet REST integration plus private user-data stream with mainnet host rejection;
 - Hyperliquid testnet signed execution plus order/fill WebSocket integration with mainnet host rejection;
 - MEXC Futures live-host read-only account, position and order-state integration with trading mutations disabled;
+- Kraken Futures live-host read-only account, position and open-order integration with trading mutations disabled;
+- KuCoin Futures live-host read-only account, position and order-state integration with trading mutations disabled;
 - execution and signal-transition metrics, including window/series/by-symbol views;
 - structured logging and optional fail-safe Telegram alerts;
 - reproducible Docker demo;
@@ -46,7 +48,7 @@ ASP.NET Core
 Worker Service
 EF Core 8
 PostgreSQL 16
-HttpClient / Bybit V5 REST / Binance USD-M Futures REST / Hyperliquid API / MEXC Contract API
+HttpClient / Bybit V5 REST / Binance USD-M Futures REST / Hyperliquid API / MEXC Contract API / Kraken Futures REST / KuCoin Futures REST
 Docker / Docker Compose
 GitHub Actions
 ```
@@ -68,7 +70,7 @@ Responsibilities:
 
 - **Domain** — entities, enums and order state rules.
 - **Application** — execution use cases and exchange-independent contracts.
-- **Infrastructure** — EF Core/PostgreSQL, mock exchange, Bybit testnet adapter, Binance Futures testnet adapter, Hyperliquid testnet adapter, MEXC Futures read-only adapter and Telegram adapter.
+- **Infrastructure** — EF Core/PostgreSQL, mock exchange, test/demo exchange adapters, live-host read-only adapters for venues without a usable public sandbox, and Telegram adapter.
 - **Api** — signal input, exchange/account monitoring, order lookup/cancellation and manual reconciliation endpoints.
 - **Worker** — restart recovery, reconnect and periodic reconciliation.
 
@@ -110,6 +112,9 @@ MexcFuturesReadOnly
 DeribitTestnet
 OkxDemo
 BitgetDemo
+GateFuturesTestnet
+KrakenFuturesReadOnly
+KuCoinFuturesReadOnly
 ```
 
 ## Execution flow
@@ -779,6 +784,78 @@ Smoke:
 ```bash
 bash scripts/gate-futures-testnet-smoke.sh
 ```
+
+## Kraken Futures read-only
+
+TradeOps v2.1.0.0 adds Kraken Futures as a live-host read-only adapter.
+
+Kraken's support material was updated on July 7, 2026 to state that the existing public demo environment at `demo-futures.kraken.com` would be decommissioned on July 14, 2026. Because no replacement persistent public demo endpoint is currently documented, TradeOps does not enable Kraken order placement or cancellation.
+
+Provider:
+
+```text
+KrakenFuturesReadOnly
+```
+
+The adapter uses:
+
+```text
+https://futures.kraken.com/derivatives/api/v3
+```
+
+and supports account state, open positions, open orders, and open-order lookup by exchange/client order ID. Private requests use Kraken Futures `APIKey` / `Authent` signing with SHA-256 followed by HMAC-SHA512 over the Base64-decoded API secret.
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=KrakenFuturesReadOnly
+export KRAKEN_FUTURES_API_KEY='YOUR_READ_ONLY_KEY'
+export KRAKEN_FUTURES_API_SECRET='YOUR_BASE64_SECRET'
+export KRAKEN_FUTURES_ACCOUNT_CURRENCY='USD'
+bash scripts/kraken-futures-readonly-smoke.sh
+```
+
+`PlaceOrderAsync` and `CancelOrderAsync` throw `NotSupportedException` locally.
+
+## KuCoin Futures read-only
+
+TradeOps v2.1.0.0 also adds KuCoin Futures as a live-host read-only adapter.
+
+KuCoin suspended its Sandbox web/API services in July 2023. The current Futures API exposes an `/api/v1/orders/test` endpoint, but test orders do not enter the matching engine and cannot subsequently be queried. That is insufficient for TradeOps lifecycle/reconciliation guarantees, so trading mutations remain disabled.
+
+Provider:
+
+```text
+KuCoinFuturesReadOnly
+```
+
+The adapter uses:
+
+```text
+https://api-futures.kucoin.com
+```
+
+and supports futures account overview, open positions, open orders, lookup by order ID, and lookup by `clientOid`.
+
+Authentication uses the documented KuCoin headers:
+
+```text
+KC-API-KEY
+KC-API-SIGN
+KC-API-TIMESTAMP
+KC-API-PASSPHRASE
+KC-API-KEY-VERSION
+```
+
+```bash
+export TRADEOPS_EXCHANGE_PROVIDER=KuCoinFuturesReadOnly
+export KUCOIN_FUTURES_API_KEY='YOUR_READ_ONLY_KEY'
+export KUCOIN_FUTURES_API_SECRET='YOUR_SECRET'
+export KUCOIN_FUTURES_PASSPHRASE='YOUR_PASSPHRASE'
+export KUCOIN_FUTURES_KEY_VERSION='2'
+export KUCOIN_FUTURES_ACCOUNT_CURRENCY='USDT'
+bash scripts/kucoin-futures-readonly-smoke.sh
+```
+
+`PlaceOrderAsync` and `CancelOrderAsync` are blocked locally. TradeOps will only enable KuCoin execution if a persistent test environment with queryable order lifecycle becomes available.
 
 ## API
 

@@ -7,6 +7,8 @@ using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
 using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
+using TradeOps.Infrastructure.Exchange.Kraken;
+using TradeOps.Infrastructure.Exchange.KuCoin;
 using TradeOps.Infrastructure.Exchange.Mexc;
 using TradeOps.Infrastructure.Exchange.Okx;
 
@@ -99,6 +101,26 @@ public static class ExchangeServiceRegistration
             HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{OkxOptions.SectionName}:HttpTimeoutSeconds"], 10)
         };
 
+        var krakenOptions = new KrakenFuturesOptions
+        {
+            BaseUrl = configuration[$"{KrakenFuturesOptions.SectionName}:BaseUrl"] ?? "https://futures.kraken.com/derivatives/api/v3",
+            ApiKey = configuration[$"{KrakenFuturesOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{KrakenFuturesOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            AccountCurrency = configuration[$"{KrakenFuturesOptions.SectionName}:AccountCurrency"] ?? "USD",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{KrakenFuturesOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
+        var kuCoinOptions = new KuCoinFuturesOptions
+        {
+            BaseUrl = configuration[$"{KuCoinFuturesOptions.SectionName}:BaseUrl"] ?? "https://api-futures.kucoin.com",
+            ApiKey = configuration[$"{KuCoinFuturesOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{KuCoinFuturesOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            Passphrase = configuration[$"{KuCoinFuturesOptions.SectionName}:Passphrase"] ?? string.Empty,
+            KeyVersion = configuration[$"{KuCoinFuturesOptions.SectionName}:KeyVersion"] ?? "2",
+            AccountCurrency = configuration[$"{KuCoinFuturesOptions.SectionName}:AccountCurrency"] ?? "USDT",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{KuCoinFuturesOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var mexcOptions = new MexcOptions
         {
             BaseUrl = configuration[$"{MexcOptions.SectionName}:BaseUrl"] ?? "https://contract.mexc.com",
@@ -116,6 +138,8 @@ public static class ExchangeServiceRegistration
         services.AddSingleton(binanceOptions);
         services.AddSingleton(hyperliquidOptions);
         services.AddSingleton(mexcOptions);
+        services.AddSingleton(krakenOptions);
+        services.AddSingleton(kuCoinOptions);
         services.AddSingleton(deribitOptions);
         services.AddSingleton(okxOptions);
         services.AddHttpClient(BitgetDemoExchangeClient.HttpClientName, client =>
@@ -142,6 +166,14 @@ public static class ExchangeServiceRegistration
         {
             client.Timeout = TimeSpan.FromSeconds(mexcOptions.HttpTimeoutSeconds);
         });
+        services.AddHttpClient(KrakenFuturesReadOnlyExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(krakenOptions.HttpTimeoutSeconds);
+        });
+        services.AddHttpClient(KuCoinFuturesReadOnlyExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(kuCoinOptions.HttpTimeoutSeconds);
+        });
         services.AddHttpClient(DeribitTestnetExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(deribitOptions.HttpTimeoutSeconds);
@@ -160,6 +192,8 @@ public static class ExchangeServiceRegistration
         services.AddSingleton<HyperliquidExchangeClient>();
         services.AddSingleton<HyperliquidUserDataStream>();
         services.AddSingleton<MexcFuturesReadOnlyExchangeClient>();
+        services.AddSingleton<KrakenFuturesReadOnlyExchangeClient>();
+        services.AddSingleton<KuCoinFuturesReadOnlyExchangeClient>();
         services.AddSingleton<DeribitTestnetExchangeClient>();
         services.AddSingleton<OkxDemoExchangeClient>();
         services.AddSingleton<NullExchangeEventStream>();
@@ -237,8 +271,24 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.KrakenFuturesReadOnly, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<KrakenFuturesReadOnlyExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<KrakenFuturesReadOnlyExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
+        if (string.Equals(provider, ExchangeProviders.KuCoinFuturesReadOnly, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<KuCoinFuturesReadOnlyExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<KuCoinFuturesReadOnlyExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}, {ExchangeProviders.KrakenFuturesReadOnly}, {ExchangeProviders.KuCoinFuturesReadOnly}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
