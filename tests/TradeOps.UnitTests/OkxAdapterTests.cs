@@ -21,6 +21,44 @@ public sealed class OkxAdapterTests
     }
 
     [Fact]
+    public void WebSocketLoginSignature_MatchesFixedHmacVector()
+    {
+        var signature = OkxPrivateWebSocketStream.CreateLoginSignature(
+            "1538054050",
+            "22582BD0CFF14C41EDBF1AB98506286D");
+
+        Assert.Equal(
+            "+LdIr8lkkvhr5hoA3g9TMC0+uQJ849ftAcocA/ouu4M=",
+            signature);
+    }
+
+    [Fact]
+    public void ValidateWebSocketConfiguration_AcceptsPortlessDemoEndpoint()
+    {
+        OkxPrivateWebSocketStream.ValidateConfiguration(
+            new OkxOptions
+            {
+                PrivateWebSocketUrl = "wss://wspap.okx.com/ws/v5/private",
+                ApiKey = "demo-key",
+                ApiSecret = "demo-secret",
+                Passphrase = "demo-passphrase"
+            });
+    }
+
+    [Fact]
+    public void ValidateWebSocketConfiguration_AcceptsLegacy8443DuringTransition()
+    {
+        OkxPrivateWebSocketStream.ValidateConfiguration(
+            new OkxOptions
+            {
+                PrivateWebSocketUrl = "wss://wspap.okx.com:8443/ws/v5/private",
+                ApiKey = "demo-key",
+                ApiSecret = "demo-secret",
+                Passphrase = "demo-passphrase"
+            });
+    }
+
+    [Fact]
     public void ClientOrderIdFactory_IsStableAndOkxCompatible()
     {
         var first = OkxClientOrderIdFactory.Create("tradeops-order-123");

@@ -75,7 +75,8 @@ public sealed class ExchangeCapabilityCatalogTests
             ExchangeProviders.BinanceFuturesTestnet,
             ExchangeProviders.BybitTestnet,
             ExchangeProviders.DeribitTestnet,
-            ExchangeProviders.HyperliquidTestnet
+            ExchangeProviders.HyperliquidTestnet,
+            ExchangeProviders.OkxDemo
         }
         .OrderBy(value => value, StringComparer.Ordinal)
         .ToArray();
@@ -185,6 +186,10 @@ public sealed class ExchangeCapabilityCatalogTests
             ["Exchange:Bitget:MarginMode"] = "crossed",
 
             ["Exchange:Gate:Settle"] = "usdt",
+
+            ["Exchange:Okx:ApiKey"] = "demo-key",
+            ["Exchange:Okx:ApiSecret"] = "demo-secret",
+            ["Exchange:Okx:Passphrase"] = "demo-passphrase",
 
             ["Exchange:CoinbaseIntx:PortfolioId"] = "portfolio-1"
         };

@@ -390,7 +390,8 @@ public sealed class ExchangeServiceRegistrationTests
                 ["Exchange:Okx:Passphrase"] = "demo-passphrase",
                 ["Exchange:Okx:AccountCurrency"] = "USDT",
                 ["Exchange:Okx:TradeMode"] = "cross",
-                ["Exchange:Okx:HttpTimeoutSeconds"] = "13"
+                ["Exchange:Okx:HttpTimeoutSeconds"] = "13",
+                ["Exchange:Okx:WebSocketPingIntervalSeconds"] = "19"
             });
 
         services.AddLogging();
@@ -405,11 +406,40 @@ public sealed class ExchangeServiceRegistrationTests
 
         Assert.IsType<OkxDemoExchangeClient>(exchangeClient);
         Assert.Same(exchangeClient, connectionManager);
-        Assert.IsType<NullExchangeEventStream>(eventStream);
+        Assert.IsType<OkxPrivateWebSocketStream>(eventStream);
         Assert.Equal("https://openapi.okx.com", options.BaseUrl);
+        Assert.Equal("wss://wspap.okx.com/ws/v5/private", options.PrivateWebSocketUrl);
         Assert.Equal("demo-key", options.ApiKey);
         Assert.Equal("cross", options.TradeMode);
         Assert.Equal(13, options.HttpTimeoutSeconds);
+        Assert.Equal(19, options.WebSocketPingIntervalSeconds);
+    }
+
+    [Fact]
+    public void AddTradeOpsExchange_OkxProductionWebSocketUrlIsRejectedOnResolution()
+    {
+        var services = new ServiceCollection();
+        var configuration = BuildConfiguration(
+            new Dictionary<string, string?>
+            {
+                ["Exchange:Provider"] = "OkxDemo",
+                ["Exchange:Okx:PrivateWebSocketUrl"] = "wss://ws.okx.com/ws/v5/private",
+                ["Exchange:Okx:ApiKey"] = "demo-key",
+                ["Exchange:Okx:ApiSecret"] = "demo-secret",
+                ["Exchange:Okx:Passphrase"] = "demo-passphrase"
+            });
+
+        services.AddLogging();
+        services.AddTradeOpsExchange(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => provider.GetRequiredService<IExchangeEventStream>());
+
+        Assert.Contains(
+            "restricted to the official OKX Demo private websocket endpoint",
+            exception.Message);
     }
 
     [Fact]
