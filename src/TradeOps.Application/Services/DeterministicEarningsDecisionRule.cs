@@ -6,22 +6,41 @@ using TradeOps.Domain.Enums;
 
 namespace TradeOps.Application.Services;
 
+public enum EarningsAssessment
+{
+    Negative = -1,
+    Neutral = 0,
+    Positive = 1
+}
+
+public sealed record EarningsAssessmentResult(
+    EarningsAssessment Assessment,
+    int Score,
+    int ComparableSignals,
+    decimal? RevenueGrowth,
+    decimal? DilutedEpsGrowth,
+    decimal? OperatingMarginDelta,
+    decimal Confidence);
+
 public sealed record EarningsDecisionRuleSettings(
     decimal RevenueGrowthThreshold = 0.05m,
     decimal DilutedEpsGrowthThreshold = 0.05m,
     decimal OperatingMarginDeltaThreshold = 0.005m,
     int MinimumDirectionalSignals = 2);
 
+public sealed record EarningsTargetWeightPolicy(
+    decimal PositiveTargetWeight,
+    decimal NeutralTargetWeight,
+    decimal NegativeTargetWeight);
+
 public static class DeterministicEarningsDecisionRule
 {
     public const string DefaultStrategyId =
         "earnings-fundamentals-demo-v1";
 
-    public static ResearchDecision Evaluate(
+    public static EarningsAssessmentResult Assess(
         EarningsEvent current,
         EarningsEvent priorComparable,
-        DateTimeOffset generatedAt,
-        string strategyId = DefaultStrategyId,
         EarningsDecisionRuleSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(current);
@@ -31,40 +50,9 @@ public static class DeterministicEarningsDecisionRule
             new EarningsDecisionRuleSettings();
 
         ValidateSettings(settings);
-        ValidateAvailabilityInvariant(
+        ValidateComparableEvents(
             current,
-            nameof(current));
-        ValidateAvailabilityInvariant(
-            priorComparable,
-            nameof(priorComparable));
-
-        if (!string.Equals(
-                current.Instrument.Symbol,
-                priorComparable.Instrument.Symbol,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException(
-                "Current and prior earnings events must reference the same symbol.");
-        }
-
-        if (priorComparable.PublishedAt >=
-            current.PublishedAt)
-        {
-            throw new ArgumentException(
-                "Prior comparable event must have been published before the current event.",
-                nameof(priorComparable));
-        }
-
-        var normalizedGeneratedAt =
-            generatedAt.ToUniversalTime();
-
-        if (normalizedGeneratedAt <
-            current.PublishedAt.ToUniversalTime())
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(generatedAt),
-                "Research decisions cannot be generated before the source event became available.");
-        }
+            priorComparable);
 
         var signals =
             new List<int>();
@@ -93,12 +81,12 @@ public static class DeterministicEarningsDecisionRule
         var score =
             signals.Sum();
 
-        var action =
+        var assessment =
             score >= settings.MinimumDirectionalSignals
-                ? ResearchDecisionAction.Buy
+                ? EarningsAssessment.Positive
                 : score <= -settings.MinimumDirectionalSignals
-                    ? ResearchDecisionAction.Sell
-                    : ResearchDecisionAction.NoAction;
+                    ? EarningsAssessment.Negative
+                    : EarningsAssessment.Neutral;
 
         var confidence =
             signals.Count == 0
@@ -111,12 +99,63 @@ public static class DeterministicEarningsDecisionRule
                     6,
                     MidpointRounding.AwayFromZero);
 
+        return new EarningsAssessmentResult(
+            assessment,
+            score,
+            signals.Count,
+            revenueGrowth,
+            epsGrowth,
+            operatingMarginDelta,
+            confidence);
+    }
+
+    public static ResearchDecision Evaluate(
+        EarningsEvent current,
+        EarningsEvent priorComparable,
+        DateTimeOffset generatedAt,
+        EarningsTargetWeightPolicy targetWeightPolicy,
+        string strategyId = DefaultStrategyId,
+        EarningsDecisionRuleSettings? settings = null)
+    {
+        ArgumentNullException.ThrowIfNull(
+            targetWeightPolicy);
+
+        settings ??=
+            new EarningsDecisionRuleSettings();
+
+        ValidateTargetWeightPolicy(
+            targetWeightPolicy);
+
+        var assessment =
+            Assess(
+                current,
+                priorComparable,
+                settings);
+
+        var normalizedGeneratedAt =
+            generatedAt.ToUniversalTime();
+
+        if (normalizedGeneratedAt <
+            current.PublishedAt.ToUniversalTime())
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(generatedAt),
+                "Research decisions cannot be generated before the source event became available.");
+        }
+
+        var targetWeight =
+            MapTargetWeight(
+                assessment.Assessment,
+                targetWeightPolicy);
+
         var metadata =
             new Dictionary<string, string>(
                 StringComparer.Ordinal)
             {
                 ["researchRule"] =
                     "deterministic-earnings-comparison-v1",
+                ["assessment"] =
+                    assessment.Assessment.ToString(),
                 ["provider"] =
                     current.Provenance.Provider,
                 ["fiscalPeriod"] =
@@ -137,33 +176,52 @@ public static class DeterministicEarningsDecisionRule
                             "O",
                             CultureInfo.InvariantCulture),
                 ["score"] =
-                    score.ToString(
+                    assessment.Score.ToString(
                         CultureInfo.InvariantCulture),
                 ["comparableSignals"] =
-                    signals.Count.ToString(
+                    assessment.ComparableSignals.ToString(
                         CultureInfo.InvariantCulture),
                 ["revenueGrowth"] =
-                    FormatNullable(revenueGrowth),
+                    FormatNullable(
+                        assessment.RevenueGrowth),
                 ["dilutedEpsGrowth"] =
-                    FormatNullable(epsGrowth),
+                    FormatNullable(
+                        assessment.DilutedEpsGrowth),
                 ["operatingMarginDelta"] =
-                    FormatNullable(operatingMarginDelta)
+                    FormatNullable(
+                        assessment.OperatingMarginDelta),
+                ["positiveTargetWeight"] =
+                    FormatWeight(
+                        targetWeightPolicy.PositiveTargetWeight),
+                ["neutralTargetWeight"] =
+                    FormatWeight(
+                        targetWeightPolicy.NeutralTargetWeight),
+                ["negativeTargetWeight"] =
+                    FormatWeight(
+                        targetWeightPolicy.NegativeTargetWeight)
             };
 
         var decision =
             new ResearchDecision(
                 CreateDecisionId(
                     current,
-                    strategyId),
+                    strategyId,
+                    settings,
+                    targetWeightPolicy),
                 strategyId,
                 current.Instrument,
-                action,
+                ResearchDecisionAction.SetTargetWeight,
                 normalizedGeneratedAt,
-                Confidence: confidence,
-                SourceEventId: current.EventId,
+                TargetWeight:
+                    targetWeight,
+                Confidence:
+                    assessment.Confidence,
+                SourceEventId:
+                    current.EventId,
                 Reason:
-                    $"Deterministic earnings comparison score {score} from {signals.Count} comparable KPI signals.",
-                Metadata: metadata);
+                    $"Deterministic earnings assessment {assessment.Assessment} with score {assessment.Score} from {assessment.ComparableSignals} comparable KPI signals; mapped by explicit target-weight policy.",
+                Metadata:
+                    metadata);
 
         var validation =
             ResearchDecisionValidator.Validate(
@@ -186,6 +244,35 @@ public static class DeterministicEarningsDecisionRule
         }
 
         return validation.NormalizedDecision;
+    }
+
+    private static void ValidateComparableEvents(
+        EarningsEvent current,
+        EarningsEvent priorComparable)
+    {
+        ValidateAvailabilityInvariant(
+            current,
+            nameof(current));
+        ValidateAvailabilityInvariant(
+            priorComparable,
+            nameof(priorComparable));
+
+        if (!string.Equals(
+                current.Instrument.Symbol,
+                priorComparable.Instrument.Symbol,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException(
+                "Current and prior earnings events must reference the same symbol.");
+        }
+
+        if (priorComparable.PublishedAt >=
+            current.PublishedAt)
+        {
+            throw new ArgumentException(
+                "Prior comparable event must have been published before the current event.",
+                nameof(priorComparable));
+        }
     }
 
     private static void ValidateAvailabilityInvariant(
@@ -244,6 +331,24 @@ public static class DeterministicEarningsDecisionRule
                 parameterName);
         }
     }
+
+    private static decimal MapTargetWeight(
+        EarningsAssessment assessment,
+        EarningsTargetWeightPolicy policy) =>
+        assessment switch
+        {
+            EarningsAssessment.Positive =>
+                policy.PositiveTargetWeight,
+            EarningsAssessment.Neutral =>
+                policy.NeutralTargetWeight,
+            EarningsAssessment.Negative =>
+                policy.NegativeTargetWeight,
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(assessment),
+                    assessment,
+                    "Unsupported earnings assessment.")
+        };
 
     private static decimal? AddGrowthSignal(
         ICollection<int> signals,
@@ -312,9 +417,12 @@ public static class DeterministicEarningsDecisionRule
 
     private static string CreateDecisionId(
         EarningsEvent current,
-        string strategyId)
+        string strategyId,
+        EarningsDecisionRuleSettings settings,
+        EarningsTargetWeightPolicy policy)
     {
-        if (string.IsNullOrWhiteSpace(strategyId))
+        if (string.IsNullOrWhiteSpace(
+                strategyId))
         {
             throw new ArgumentException(
                 "StrategyId is required.",
@@ -325,8 +433,25 @@ public static class DeterministicEarningsDecisionRule
             string.Join(
                 "|",
                 strategyId.Trim(),
-                current.Instrument.Symbol.Trim().ToUpperInvariant(),
-                current.EventId.Trim());
+                current.Instrument.Symbol
+                    .Trim()
+                    .ToUpperInvariant(),
+                current.EventId.Trim(),
+                FormatWeight(
+                    settings.RevenueGrowthThreshold),
+                FormatWeight(
+                    settings.DilutedEpsGrowthThreshold),
+                FormatWeight(
+                    settings.OperatingMarginDeltaThreshold),
+                settings.MinimumDirectionalSignals
+                    .ToString(
+                        CultureInfo.InvariantCulture),
+                FormatWeight(
+                    policy.PositiveTargetWeight),
+                FormatWeight(
+                    policy.NeutralTargetWeight),
+                FormatWeight(
+                    policy.NegativeTargetWeight));
 
         var hash =
             SHA256.HashData(
@@ -343,6 +468,12 @@ public static class DeterministicEarningsDecisionRule
             "0.########",
             CultureInfo.InvariantCulture)
         ?? "n/a";
+
+    private static string FormatWeight(
+        decimal value) =>
+        value.ToString(
+            "0.########",
+            CultureInfo.InvariantCulture);
 
     private static void ValidateSettings(
         EarningsDecisionRuleSettings settings)
@@ -362,5 +493,50 @@ public static class DeterministicEarningsDecisionRule
                 nameof(settings),
                 "MinimumDirectionalSignals must be between 1 and 3.");
         }
+    }
+
+    private static void ValidateTargetWeightPolicy(
+        EarningsTargetWeightPolicy policy)
+    {
+        ValidateTargetWeight(
+            policy.PositiveTargetWeight,
+            nameof(policy.PositiveTargetWeight));
+        ValidateTargetWeight(
+            policy.NeutralTargetWeight,
+            nameof(policy.NeutralTargetWeight));
+        ValidateTargetWeight(
+            policy.NegativeTargetWeight,
+            nameof(policy.NegativeTargetWeight));
+    }
+
+    private static void ValidateTargetWeight(
+        decimal targetWeight,
+        string parameterName)
+    {
+        if (targetWeight is < 0m or > 1m)
+        {
+            throw new ArgumentOutOfRangeException(
+                parameterName,
+                targetWeight,
+                "Long-only target weight must be between 0 and 1.");
+        }
+
+        if (GetDecimalScale(
+                targetWeight) > 8)
+        {
+            throw new ArgumentOutOfRangeException(
+                parameterName,
+                targetWeight,
+                "Target weight must have at most 8 decimal places.");
+        }
+    }
+
+    private static int GetDecimalScale(
+        decimal value)
+    {
+        var bits =
+            decimal.GetBits(value);
+
+        return (bits[3] >> 16) & 0x7F;
     }
 }
