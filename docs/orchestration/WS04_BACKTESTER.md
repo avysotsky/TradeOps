@@ -1,6 +1,6 @@
 # WS-04 — Event-Driven Backtester
 
-State: READY_FOR_INTEGRATION
+State: INTEGRATED
 
 Repository:
 
@@ -276,3 +276,20 @@ Next integration action: Development Orchestrator reviews the final branch diff 
 ```
 
 This status-file update is metadata-only and follows the CI-validated implementation HEAD above.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #52
+worker HEAD: d7c1f172643691024cf25001afdcf52b6624f647
+validated implementation HEAD: 04a46215c8dab08af858ee17fc43c911b7639e27
+merge commit: eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
+current-head CI before merge: 37519740705 — success
+```
+
+The bounded v1 backtest contract is now integrated.
+
+Do not continue adding generic backtester features from this workstream unless the Development Orchestrator explicitly assigns a new slice. The next product priority is the client-ready end-to-end vertical workflow.

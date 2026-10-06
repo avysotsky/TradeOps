@@ -12,9 +12,9 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main product integration: c739d3b9645e02cb32795ceb35d2436dc6bc057b
-latest integrated workstream: WS-02 — Earnings Intelligence boundary (PR #51)
-previous integrated workstreams: WS-01 PR #50, WS-03 PR #49
+main product integration: eb6cdf9c3e8b111a85e0d44d170718527eaf9d40
+latest integrated workstream: WS-04 — Event-driven Backtester (PR #52)
+previous integrated workstreams: WS-02 PR #51, WS-01 PR #50, WS-03 PR #49
 ```
 
 DocFlow repository:
@@ -71,7 +71,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | WS-01 | IBKR Paper Adapter | TradeOps/ws01-ibkr-paper-adapter | INTEGRATED_READ_ONLY | real Paper smoke / mutation slice later |
 | WS-02 | Earnings Intelligence / research integration | TradeOps/ws02-earnings-intelligence-contract | INTEGRATED | no further contract changes without orchestration |
 | WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further contract changes without orchestration |
-| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | READY | yes, full bounded implementation may begin |
+| WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | INTEGRATED | bounded v1 complete; no generic expansion without orchestration |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -102,7 +102,7 @@ WS-02 semantic alignment is resolved and integrated by PR #51. Earnings assessme
 
 WS-03 RebalancePlan / RebalanceOrderIntent v1 semantics are integrated by PR #49 and are now the downstream portfolio-planning boundary.
 
-WS-04 full implementation now waits only for the WS-02 earnings/event-time contract to be integrated and frozen. It must reuse the integrated WS-03 planner semantics rather than define a second portfolio-decision model.
+WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-time semantics and WS-03 planner semantics. Do not expand it into a generic research project unless required by the client-facing vertical slice.
 
 ## Integration order
 
@@ -111,10 +111,11 @@ WS-04 full implementation now waits only for the WS-02 earnings/event-time contr
 3. DONE — WS-01 paper-only IBKR read boundary (PR #50); real Paper smoke remains a gate before mutation capability.
 4. DONE — WS-02 semantic alignment and earnings/event-time contract integrated (PR #51).
 5. DONE — historical event/provenance and SetTargetWeight boundaries frozen for downstream replay.
-6. START — WS-04 event-driven backtester against integrated WS-02 + WS-03 contracts.
-7. In parallel, perform real authenticated IBKR Paper read-path smoke before mutation work.
-8. Build orchestrator-approved RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR bridge only after Paper validation.
-9. End-to-end demo: earnings event -> ResearchDecision(SetTargetWeight) -> rebalance -> IBKR Paper.
+6. DONE — WS-04 bounded event-driven backtester integrated (PR #52).
+7. NEXT — assemble client-ready vertical slice: earnings event -> explicit client rule/policy -> SetTargetWeight -> historical backtest -> rebalance output.
+8. In parallel, perform real authenticated IBKR Paper read-path smoke before mutation work.
+9. After Paper validation, build RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+10. End-to-end client demo: earnings/research -> backtest -> target weight -> rebalance -> IBKR Paper.
 
 ## Ownership / merge-conflict rules
 
@@ -202,8 +203,9 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  WS-04 Backtester — now unblocked; start bounded implementation
+P0  client-ready vertical slice — connect integrated earnings, policy, backtest and rebalance flow
 P0  WS-01 next validation — real authenticated IBKR Paper read-path smoke
+DONE WS-04 Event-driven Backtester — PR #52
 DONE WS-02 Earnings Intelligence boundary — PR #51
 DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
 DONE WS-01 IBKR Paper read boundary — PR #50
