@@ -77,20 +77,34 @@ Responsibilities:
 
 ## Exchange architecture
 
+All venues implement the same application contract:
+
 ```text
 Application
     |
     v
 IExchangeClient
     |
-    +----------------------+---------------------------+--------------------------+
-    |                      |                           |                          |
-    v                      v                           v                          v
-MockExchangeClient   BybitExchangeClient   BinanceFuturesExchangeClient   HyperliquidExchangeClient
-    |                      |                           |                          |
- demo / CI              Bybit testnet          Binance Futures testnet      Hyperliquid testnet
-                                                                              read-only
+    +--> execution-capable test/demo/sandbox adapters
+    +--> live-host read-only adapters
 ```
+
+TradeOps also exposes an `IExchangeCapabilityCatalog` so execution safety is data-driven instead of inferred from provider names.
+
+| Provider | Environment | Execution | Private events | Host mode |
+| --- | --- | ---: | ---: | --- |
+| Mock | Mock | yes | no | local |
+| BybitTestnet | Testnet | yes | yes | non-production |
+| BinanceFuturesTestnet | Testnet | yes | yes | non-production |
+| HyperliquidTestnet | Testnet | yes | yes | non-production |
+| MexcFuturesReadOnly | LiveReadOnly | no | no | live |
+| DeribitTestnet | Testnet | yes | no | non-production |
+| OkxDemo | Demo | yes | no | live REST + simulated-trading header |
+| BitgetDemo | Demo | yes | no | live REST + demo header |
+| GateFuturesTestnet | Testnet | yes | no | non-production |
+| KrakenFuturesReadOnly | LiveReadOnly | no | no | live |
+| KuCoinFuturesReadOnly | LiveReadOnly | no | no | live |
+| CoinbaseIntxSandbox | Sandbox | yes | no | non-production |
 
 The selected adapter is controlled by configuration:
 
@@ -954,6 +968,9 @@ POST   /api/system/reconcile/positions
 GET    /api/system/reconciliation/status
 GET    /api/system/recovery/status
 GET    /api/system/runs
+
+GET    /api/exchange/capabilities
+GET    /api/exchange/capabilities/current
 
 GET    /api/metrics/execution
 GET    /api/metrics/execution/window
