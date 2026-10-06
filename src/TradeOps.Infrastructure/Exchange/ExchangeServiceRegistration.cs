@@ -5,6 +5,7 @@ using TradeOps.Infrastructure.Exchange.Binance;
 using TradeOps.Infrastructure.Exchange.Bitget;
 using TradeOps.Infrastructure.Exchange.Bybit;
 using TradeOps.Infrastructure.Exchange.Deribit;
+using TradeOps.Infrastructure.Exchange.Gate;
 using TradeOps.Infrastructure.Exchange.Hyperliquid;
 using TradeOps.Infrastructure.Exchange.Mexc;
 using TradeOps.Infrastructure.Exchange.Okx;
@@ -59,6 +60,15 @@ public static class ExchangeServiceRegistration
             ListenKeyKeepaliveMinutes = ReadPositiveInt(configuration[$"{BinanceOptions.SectionName}:ListenKeyKeepaliveMinutes"], 30)
         };
 
+        var gateOptions = new GateOptions
+        {
+            BaseUrl = configuration[$"{GateOptions.SectionName}:BaseUrl"] ?? "https://api-testnet.gateapi.io/api/v4",
+            ApiKey = configuration[$"{GateOptions.SectionName}:ApiKey"] ?? string.Empty,
+            ApiSecret = configuration[$"{GateOptions.SectionName}:ApiSecret"] ?? string.Empty,
+            Settle = configuration[$"{GateOptions.SectionName}:Settle"] ?? "usdt",
+            HttpTimeoutSeconds = ReadPositiveInt(configuration[$"{GateOptions.SectionName}:HttpTimeoutSeconds"], 10)
+        };
+
         var hyperliquidOptions = new HyperliquidOptions
         {
             BaseUrl = configuration[$"{HyperliquidOptions.SectionName}:BaseUrl"] ?? "https://api.hyperliquid-testnet.xyz",
@@ -101,6 +111,7 @@ public static class ExchangeServiceRegistration
 
         services.AddSingleton(exchangeOptions);
         services.AddSingleton(bitgetOptions);
+        services.AddSingleton(gateOptions);
         services.AddSingleton(bybitOptions);
         services.AddSingleton(binanceOptions);
         services.AddSingleton(hyperliquidOptions);
@@ -110,6 +121,10 @@ public static class ExchangeServiceRegistration
         services.AddHttpClient(BitgetDemoExchangeClient.HttpClientName, client =>
         {
             client.Timeout = TimeSpan.FromSeconds(bitgetOptions.HttpTimeoutSeconds);
+        });
+        services.AddHttpClient(GateFuturesTestnetExchangeClient.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(gateOptions.HttpTimeoutSeconds);
         });
         services.AddHttpClient(BybitExchangeClient.HttpClientName, client =>
         {
@@ -137,6 +152,7 @@ public static class ExchangeServiceRegistration
         });
 
         services.AddSingleton<BitgetDemoExchangeClient>();
+        services.AddSingleton<GateFuturesTestnetExchangeClient>();
         services.AddSingleton<MockExchangeClient>();
         services.AddSingleton<BybitExchangeClient>();
         services.AddSingleton<BinanceFuturesExchangeClient>();
@@ -213,8 +229,16 @@ public static class ExchangeServiceRegistration
             return services;
         }
 
+        if (string.Equals(provider, ExchangeProviders.GateFuturesTestnet, StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IExchangeClient>(sp => sp.GetRequiredService<GateFuturesTestnetExchangeClient>());
+            services.AddSingleton<IExchangeConnectionManager>(sp => sp.GetRequiredService<GateFuturesTestnetExchangeClient>());
+            services.AddSingleton<IExchangeEventStream>(sp => sp.GetRequiredService<NullExchangeEventStream>());
+            return services;
+        }
+
         throw new InvalidOperationException(
-            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}.");
+            $"Unsupported Exchange:Provider '{provider}'. Supported values: {ExchangeProviders.Mock}, {ExchangeProviders.BybitTestnet}, {ExchangeProviders.BinanceFuturesTestnet}, {ExchangeProviders.HyperliquidTestnet}, {ExchangeProviders.MexcFuturesReadOnly}, {ExchangeProviders.DeribitTestnet}, {ExchangeProviders.OkxDemo}, {ExchangeProviders.BitgetDemo}, {ExchangeProviders.GateFuturesTestnet}.");
     }
 
     private static int ReadPositiveInt(string? value, int fallback) =>
