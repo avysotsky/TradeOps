@@ -8,7 +8,7 @@ public static class PortfolioRebalancePlanner
     public static RebalancePlan Plan(
         ResearchDecision decision,
         PortfolioSnapshot portfolio,
-        decimal referencePrice,
+        decimal? referencePrice,
         RebalanceConstraints? constraints = null)
     {
         ArgumentNullException.ThrowIfNull(decision);
@@ -19,42 +19,97 @@ public static class PortfolioRebalancePlanner
         ValidatePortfolio(portfolio);
         ValidateConstraints(constraints);
 
-        if (referencePrice <= 0m)
+        var validation =
+            ResearchDecisionValidator.Validate(
+                decision);
+
+        if (!validation.IsValid ||
+            validation.NormalizedDecision is null)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(referencePrice),
-                "Reference price must be greater than zero.");
+            return BlockedWithoutCalculation(
+                decision,
+                portfolio,
+                new RebalanceConstraintViolation(
+                    "InvalidResearchDecision",
+                    FormatValidationErrors(
+                        validation.Errors)));
         }
 
         var normalizedDecision =
-            GetNormalizedValidatedDecision(decision);
+            validation.NormalizedDecision;
 
         if (normalizedDecision.Action !=
             ResearchDecisionAction.SetTargetWeight)
         {
-            throw new NotSupportedException(
-                "WS-03 first slice supports only SetTargetWeight decisions.");
+            return BlockedWithoutCalculation(
+                normalizedDecision,
+                portfolio,
+                new RebalanceConstraintViolation(
+                    "UnsupportedAction",
+                    $"WS-03 RebalancePlan v1 supports only {ResearchDecisionAction.SetTargetWeight}."));
         }
 
         if (normalizedDecision.Instrument.AssetClass !=
             AssetClass.Stock)
         {
-            throw new NotSupportedException(
-                "WS-03 first slice supports long-only stocks only.");
+            return BlockedWithoutCalculation(
+                normalizedDecision,
+                portfolio,
+                new RebalanceConstraintViolation(
+                    "UnsupportedAssetClass",
+                    $"WS-03 RebalancePlan v1 supports only {AssetClass.Stock}."));
         }
 
         var targetWeight =
             normalizedDecision.TargetWeight!.Value;
+
+        var targetViolations =
+            EvaluateTargetConstraints(
+                normalizedDecision,
+                portfolio,
+                constraints,
+                targetWeight);
+
+        if (targetViolations.Count > 0)
+        {
+            return BlockedWithoutCalculation(
+                normalizedDecision,
+                portfolio,
+                targetViolations);
+        }
+
+        if (!referencePrice.HasValue)
+        {
+            return BlockedWithoutCalculation(
+                normalizedDecision,
+                portfolio,
+                new RebalanceConstraintViolation(
+                    "MissingPrice",
+                    "A reference price is required to calculate target and delta quantities."));
+        }
+
+        if (referencePrice.Value <= 0m)
+        {
+            return BlockedWithoutCalculation(
+                normalizedDecision,
+                portfolio,
+                new RebalanceConstraintViolation(
+                    "InvalidPrice",
+                    "Reference price must be greater than zero."));
+        }
+
+        var price =
+            referencePrice.Value;
         var targetNotional =
             portfolio.NetAssetValue * targetWeight;
         var targetQuantity =
-            targetNotional / referencePrice;
+            targetNotional / price;
 
         var targetPosition =
             new TargetPosition(
                 normalizedDecision.Instrument,
                 targetWeight,
-                referencePrice,
+                price,
                 targetNotional,
                 targetQuantity);
 
@@ -67,58 +122,63 @@ public static class PortfolioRebalancePlanner
                             normalizedDecision.Instrument))
                 .Sum(position => position.Quantity);
 
+        var currentNotional =
+            currentQuantity * price;
         var deltaQuantity =
             targetQuantity - currentQuantity;
-
-        var violations =
-            EvaluateTargetConstraints(
-                normalizedDecision,
-                portfolio,
-                constraints,
-                targetWeight);
-
-        if (violations.Count > 0)
-        {
-            return new RebalancePlan(
-                normalizedDecision.DecisionId,
-                normalizedDecision.StrategyId,
-                portfolio.AsOf,
-                targetPosition,
-                currentQuantity,
-                deltaQuantity,
-                RebalancePlanStatus.Blocked,
-                null,
-                violations);
-        }
+        var deltaNotional =
+            targetNotional - currentNotional;
 
         if (deltaQuantity == 0m)
         {
-            return new RebalancePlan(
-                normalizedDecision.DecisionId,
-                normalizedDecision.StrategyId,
-                portfolio.AsOf,
+            return CalculatedPlan(
+                normalizedDecision,
+                portfolio,
                 targetPosition,
                 currentQuantity,
+                currentNotional,
                 deltaQuantity,
+                deltaNotional,
                 RebalancePlanStatus.NoAction,
                 null,
                 Array.Empty<RebalanceConstraintViolation>());
         }
 
+        if (Math.Abs(deltaQuantity) <=
+            constraints.QuantityTolerance)
+        {
+            return CalculatedPlan(
+                normalizedDecision,
+                portfolio,
+                targetPosition,
+                currentQuantity,
+                currentNotional,
+                deltaQuantity,
+                deltaNotional,
+                RebalancePlanStatus.NoAction,
+                null,
+                new[]
+                {
+                    new RebalanceConstraintViolation(
+                        "QuantityTolerance",
+                        $"Absolute quantity delta {Math.Abs(deltaQuantity)} is within tolerance {constraints.QuantityTolerance}.")
+                });
+        }
+
         var tradeNotional =
-            Math.Abs(deltaQuantity) *
-            referencePrice;
+            Math.Abs(deltaNotional);
 
         if (tradeNotional <
             constraints.MinimumTradeNotional)
         {
-            return new RebalancePlan(
-                normalizedDecision.DecisionId,
-                normalizedDecision.StrategyId,
-                portfolio.AsOf,
+            return CalculatedPlan(
+                normalizedDecision,
+                portfolio,
                 targetPosition,
                 currentQuantity,
+                currentNotional,
                 deltaQuantity,
+                deltaNotional,
                 RebalancePlanStatus.NoAction,
                 null,
                 new[]
@@ -137,13 +197,14 @@ public static class PortfolioRebalancePlanner
 
             if (tradeNotional > availableCash)
             {
-                return new RebalancePlan(
-                    normalizedDecision.DecisionId,
-                    normalizedDecision.StrategyId,
-                    portfolio.AsOf,
+                return CalculatedPlan(
+                    normalizedDecision,
+                    portfolio,
                     targetPosition,
                     currentQuantity,
+                    currentNotional,
                     deltaQuantity,
+                    deltaNotional,
                     RebalancePlanStatus.Blocked,
                     null,
                     new[]
@@ -166,48 +227,149 @@ public static class PortfolioRebalancePlanner
                 normalizedDecision.Instrument,
                 side,
                 Math.Abs(deltaQuantity),
-                referencePrice,
+                price,
                 tradeNotional);
 
-        return new RebalancePlan(
-            normalizedDecision.DecisionId,
-            normalizedDecision.StrategyId,
-            portfolio.AsOf,
+        return CalculatedPlan(
+            normalizedDecision,
+            portfolio,
             targetPosition,
             currentQuantity,
+            currentNotional,
             deltaQuantity,
+            deltaNotional,
             RebalancePlanStatus.Ready,
             orderIntent,
             Array.Empty<RebalanceConstraintViolation>());
     }
 
-    private static ResearchDecision
-        GetNormalizedValidatedDecision(
-            ResearchDecision decision)
+    private static IReadOnlyList<RebalanceConstraintViolation>
+        EvaluateTargetConstraints(
+            ResearchDecision decision,
+            PortfolioSnapshot portfolio,
+            RebalanceConstraints constraints,
+            decimal targetWeight)
     {
-        var validation =
-            ResearchDecisionValidator.Validate(
-                decision);
+        var violations =
+            new List<RebalanceConstraintViolation>();
 
-        if (validation.IsValid &&
-            validation.NormalizedDecision is not null)
+        if (targetWeight < 0m)
         {
-            return validation.NormalizedDecision;
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "LongOnly",
+                    "Target weight cannot be negative in WS-03 RebalancePlan v1."));
         }
 
-        var details =
-            string.Join(
-                "; ",
-                validation.Errors.SelectMany(
-                    item =>
-                        item.Value.Select(
-                            message =>
-                                $"{item.Key}: {message}")));
+        if (targetWeight >
+            constraints.MaxTargetWeight)
+        {
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "MaxTargetWeight",
+                    $"Target weight {targetWeight} exceeds maximum {constraints.MaxTargetWeight}."));
+        }
 
-        throw new ArgumentException(
-            $"ResearchDecision is invalid. {details}",
-            nameof(decision));
+        if (decision.GeneratedAt >
+            portfolio.AsOf)
+        {
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "DecisionNotYetAvailable",
+                    "Research decision was generated after the portfolio snapshot time."));
+        }
+
+        if (decision.ValidUntil.HasValue &&
+            decision.ValidUntil.Value <=
+            portfolio.AsOf)
+        {
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "DecisionExpired",
+                    "Research decision is expired at the portfolio snapshot time."));
+        }
+
+        if (constraints.MaximumDecisionAge.HasValue &&
+            decision.GeneratedAt <= portfolio.AsOf &&
+            portfolio.AsOf - decision.GeneratedAt >
+            constraints.MaximumDecisionAge.Value)
+        {
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "DecisionStale",
+                    $"Research decision age {portfolio.AsOf - decision.GeneratedAt} exceeds maximum {constraints.MaximumDecisionAge.Value}."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                decision.Instrument.Currency) &&
+            !string.Equals(
+                decision.Instrument.Currency,
+                portfolio.BaseCurrency.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            violations.Add(
+                new RebalanceConstraintViolation(
+                    "CurrencyMismatch",
+                    "WS-03 RebalancePlan v1 does not perform FX conversion between instrument and portfolio currencies."));
+        }
+
+        return violations;
     }
+
+    private static RebalancePlan
+        BlockedWithoutCalculation(
+            ResearchDecision decision,
+            PortfolioSnapshot portfolio,
+            params RebalanceConstraintViolation[] violations) =>
+        BlockedWithoutCalculation(
+            decision,
+            portfolio,
+            (IReadOnlyList<RebalanceConstraintViolation>)violations);
+
+    private static RebalancePlan
+        BlockedWithoutCalculation(
+            ResearchDecision decision,
+            PortfolioSnapshot portfolio,
+            IReadOnlyList<RebalanceConstraintViolation> violations) =>
+        new(
+            NormalizeIdentifier(
+                decision.DecisionId),
+            NormalizeIdentifier(
+                decision.StrategyId),
+            portfolio.AsOf,
+            null,
+            null,
+            null,
+            null,
+            null,
+            RebalancePlanStatus.Blocked,
+            null,
+            violations);
+
+    private static RebalancePlan
+        CalculatedPlan(
+            ResearchDecision decision,
+            PortfolioSnapshot portfolio,
+            TargetPosition targetPosition,
+            decimal currentQuantity,
+            decimal currentNotional,
+            decimal deltaQuantity,
+            decimal deltaNotional,
+            RebalancePlanStatus status,
+            RebalanceOrderIntent? orderIntent,
+            IReadOnlyList<RebalanceConstraintViolation> violations) =>
+        new(
+            decision.DecisionId,
+            decision.StrategyId,
+            portfolio.AsOf,
+            targetPosition,
+            currentQuantity,
+            currentNotional,
+            deltaQuantity,
+            deltaNotional,
+            status,
+            orderIntent,
+            violations);
 
     private static void ValidatePortfolio(
         PortfolioSnapshot portfolio)
@@ -261,7 +423,7 @@ public static class PortfolioRebalancePlanner
             if (position.Quantity < 0m)
             {
                 throw new ArgumentException(
-                    "Short positions are not supported by the WS-03 first slice.",
+                    "Short positions are not supported by WS-03 RebalancePlan v1.",
                     nameof(portfolio));
             }
         }
@@ -291,59 +453,22 @@ public static class PortfolioRebalancePlanner
                 nameof(constraints),
                 "MinimumCashReserve cannot be negative.");
         }
-    }
 
-    private static IReadOnlyList<RebalanceConstraintViolation>
-        EvaluateTargetConstraints(
-            ResearchDecision decision,
-            PortfolioSnapshot portfolio,
-            RebalanceConstraints constraints,
-            decimal targetWeight)
-    {
-        var violations =
-            new List<RebalanceConstraintViolation>();
-
-        if (targetWeight < 0m)
+        if (constraints.QuantityTolerance < 0m)
         {
-            violations.Add(
-                new RebalanceConstraintViolation(
-                    "LongOnly",
-                    "Target weight cannot be negative in the WS-03 long-only first slice."));
+            throw new ArgumentOutOfRangeException(
+                nameof(constraints),
+                "QuantityTolerance cannot be negative.");
         }
 
-        if (targetWeight >
-            constraints.MaxTargetWeight)
+        if (constraints.MaximumDecisionAge.HasValue &&
+            constraints.MaximumDecisionAge.Value <=
+            TimeSpan.Zero)
         {
-            violations.Add(
-                new RebalanceConstraintViolation(
-                    "MaxTargetWeight",
-                    $"Target weight {targetWeight} exceeds maximum {constraints.MaxTargetWeight}."));
+            throw new ArgumentOutOfRangeException(
+                nameof(constraints),
+                "MaximumDecisionAge must be greater than zero when provided.");
         }
-
-        if (decision.ValidUntil.HasValue &&
-            decision.ValidUntil.Value <=
-            portfolio.AsOf)
-        {
-            violations.Add(
-                new RebalanceConstraintViolation(
-                    "DecisionExpired",
-                    "Research decision is expired at the portfolio snapshot time."));
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-                decision.Instrument.Currency) &&
-            !string.Equals(
-                decision.Instrument.Currency,
-                portfolio.BaseCurrency.Trim(),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            violations.Add(
-                new RebalanceConstraintViolation(
-                    "CurrencyMismatch",
-                    "WS-03 first slice does not perform FX conversion between instrument and portfolio currencies."));
-        }
-
-        return violations;
     }
 
     private static bool IsSameInstrument(
@@ -384,4 +509,27 @@ public static class PortfolioRebalancePlanner
                    target.Currency,
                    StringComparison.OrdinalIgnoreCase);
     }
+
+    private static string FormatValidationErrors(
+        IReadOnlyDictionary<string, string[]> errors)
+    {
+        if (errors.Count == 0)
+        {
+            return "Research decision validation failed.";
+        }
+
+        return string.Join(
+            "; ",
+            errors.SelectMany(
+                item =>
+                    item.Value.Select(
+                        message =>
+                            $"{item.Key}: {message}")));
+    }
+
+    private static string NormalizeIdentifier(
+        string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
 }

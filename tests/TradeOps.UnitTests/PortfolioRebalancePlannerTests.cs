@@ -18,6 +18,67 @@ public sealed class PortfolioRebalancePlannerTests
             TimeSpan.Zero);
 
     [Fact]
+    public void Plan_OnePointEightPercentToFourPercent_CalculatesExpectedDelta()
+    {
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                CreateDecision(0.04m),
+                new PortfolioSnapshot(
+                    "USD",
+                    NetAssetValue: 100_000m,
+                    Cash: 20_000m,
+                    Positions:
+                    [
+                        new PortfolioPosition(
+                            Apple(),
+                            18m)
+                    ],
+                    AsOf: SnapshotTime),
+                referencePrice: 100m,
+                new RebalanceConstraints(
+                    MaxTargetWeight: 0.10m,
+                    MinimumTradeNotional: 100m));
+
+        Assert.Equal(
+            RebalancePlanStatus.Ready,
+            plan.Status);
+        Assert.Equal(
+            4_000m,
+            plan.TargetPosition!.TargetNotional);
+        Assert.Equal(
+            40m,
+            plan.TargetPosition.TargetQuantity);
+        Assert.Equal(
+            18m,
+            plan.CurrentQuantity);
+        Assert.Equal(
+            1_800m,
+            plan.CurrentNotional);
+        Assert.Equal(
+            22m,
+            plan.DeltaQuantity);
+        Assert.Equal(
+            2_200m,
+            plan.DeltaNotional);
+
+        var intent =
+            Assert.IsType<RebalanceOrderIntent>(
+                plan.OrderIntent);
+
+        Assert.Equal(
+            OrderSide.Buy,
+            intent.Side);
+        Assert.Equal(
+            22m,
+            intent.Quantity);
+        Assert.Equal(
+            2_200m,
+            intent.EstimatedNotional);
+        Assert.True(
+            intent.RequiresRiskApproval);
+    }
+
+    [Fact]
     public void Plan_NewPosition_CreatesBuyIntent()
     {
         var plan =
@@ -35,7 +96,7 @@ public sealed class PortfolioRebalancePlannerTests
             plan.Status);
         Assert.Equal(
             10_000m,
-            plan.TargetPosition.TargetNotional);
+            plan.TargetPosition!.TargetNotional);
         Assert.Equal(
             50m,
             plan.TargetPosition.TargetQuantity);
@@ -82,6 +143,9 @@ public sealed class PortfolioRebalancePlannerTests
         Assert.Equal(
             -30m,
             plan.DeltaQuantity);
+        Assert.Equal(
+            -6_000m,
+            plan.DeltaNotional);
 
         var intent =
             Assert.IsType<RebalanceOrderIntent>(
@@ -116,7 +180,7 @@ public sealed class PortfolioRebalancePlannerTests
             plan.Status);
         Assert.Equal(
             0m,
-            plan.TargetPosition.TargetQuantity);
+            plan.TargetPosition!.TargetQuantity);
 
         var intent =
             Assert.IsType<RebalanceOrderIntent>(
@@ -153,6 +217,36 @@ public sealed class PortfolioRebalancePlannerTests
             plan.OrderIntent);
         Assert.Empty(
             plan.ConstraintViolations);
+    }
+
+    [Fact]
+    public void Plan_QuantityWithinTolerance_ReturnsNoAction()
+    {
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                CreateDecision(0.10m),
+                CreatePortfolio(
+                    cash: 10_000m,
+                    positions:
+                    [
+                        new PortfolioPosition(
+                            Apple(),
+                            49.999m)
+                    ]),
+                referencePrice: 200m,
+                new RebalanceConstraints(
+                    QuantityTolerance: 0.01m));
+
+        Assert.Equal(
+            RebalancePlanStatus.NoAction,
+            plan.Status);
+        Assert.Null(
+            plan.OrderIntent);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "QuantityTolerance");
     }
 
     [Fact]
@@ -275,7 +369,115 @@ public sealed class PortfolioRebalancePlannerTests
     }
 
     [Fact]
-    public void Plan_NonStockDecision_IsNotSupported()
+    public void Plan_DecisionGeneratedAfterSnapshot_IsBlocked()
+    {
+        var decision =
+            CreateDecision(0.10m) with
+            {
+                GeneratedAt =
+                    SnapshotTime.AddMinutes(1)
+            };
+
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: 200m);
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "DecisionNotYetAvailable");
+    }
+
+    [Fact]
+    public void Plan_DecisionOlderThanMaximumAge_IsBlocked()
+    {
+        var decision =
+            CreateDecision(0.10m) with
+            {
+                GeneratedAt =
+                    SnapshotTime.AddDays(-10),
+                ValidUntil = null
+            };
+
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: 200m,
+                new RebalanceConstraints(
+                    MaximumDecisionAge:
+                        TimeSpan.FromDays(7)));
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "DecisionStale");
+    }
+
+    [Fact]
+    public void Plan_MissingPrice_IsBlocked()
+    {
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                CreateDecision(0.10m),
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: null);
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Null(
+            plan.TargetPosition);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "MissingPrice");
+    }
+
+    [Fact]
+    public void Plan_InvalidResearchDecision_IsBlocked()
+    {
+        var decision =
+            CreateDecision(0.10m) with
+            {
+                TargetWeight = null
+            };
+
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: 200m);
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Null(
+            plan.TargetPosition);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "InvalidResearchDecision");
+    }
+
+    [Fact]
+    public void Plan_NonStockDecision_IsBlocked()
     {
         var decision =
             CreateDecision(0.10m) with
@@ -287,13 +489,49 @@ public sealed class PortfolioRebalancePlannerTests
                         "USD")
             };
 
-        Assert.Throws<NotSupportedException>(
-            () =>
-                PortfolioRebalancePlanner.Plan(
-                    decision,
-                    CreatePortfolio(
-                        cash: 100_000m),
-                    referencePrice: 60_000m));
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: 60_000m);
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "UnsupportedAssetClass");
+    }
+
+    [Fact]
+    public void Plan_NonTargetWeightAction_IsBlocked()
+    {
+        var decision =
+            CreateDecision(0.10m) with
+            {
+                Action =
+                    ResearchDecisionAction.Buy,
+                TargetWeight = null
+            };
+
+        var plan =
+            PortfolioRebalancePlanner.Plan(
+                decision,
+                CreatePortfolio(
+                    cash: 100_000m),
+                referencePrice: 200m);
+
+        Assert.Equal(
+            RebalancePlanStatus.Blocked,
+            plan.Status);
+        Assert.Contains(
+            plan.ConstraintViolations,
+            item =>
+                item.Code ==
+                "UnsupportedAction");
     }
 
     private static ResearchDecision CreateDecision(
