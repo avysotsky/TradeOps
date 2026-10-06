@@ -12,6 +12,12 @@ internal static class BitgetSigner
         string body,
         string secret)
     {
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            throw new InvalidOperationException(
+                "Bitget API secret is not configured.");
+        }
+
         var prehash =
             timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture)
             + method.ToUpperInvariant()
