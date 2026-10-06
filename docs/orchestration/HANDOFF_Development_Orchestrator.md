@@ -55,6 +55,7 @@ TradeOps/ws02-earnings-intelligence-contract
 TradeOps/ws03-signal-portfolio-engine
 TradeOps/ws04-backtester-contracts
 TradeOps/vs01-research-to-rebalance-demo
+TradeOps/vs02-public-data-runnable-demo
 ```
 
 ## Worker chats
@@ -95,10 +96,22 @@ earnings/research facts
 Next product focus:
 
 ```text
-reproducible public historical inputs
+VS-02 Public-Data Runnable Demo
+real public SEC earnings inputs
++ public daily price inputs
 -> integrated VS-01 service
--> runnable demo surface
+-> runnable client demo output
 ```
+
+Initial public-data choice for the bounded slice:
+
+```text
+issuer: IBM
+research source: SEC EDGAR / XBRL public APIs
+daily-price demo source: Alpha Vantage TIME_SERIES_DAILY demo endpoint
+```
+
+Network acquisition must remain tooling-only and opt-in. Ordinary CI must use deterministic local fixtures/snapshots and must not depend on external services.
 
 IBKR Paper validation remains an external dependency and is not on the critical path for the research/backtest/rebalance demo.
 
