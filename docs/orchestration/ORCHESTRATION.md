@@ -12,8 +12,8 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: cd74c57a92cedeb676cf2a23372f28321add0d7f
-main CI: 37603280672 — SUCCESS
+main: 5e3e49b4d2c3dcb0e506d91295f16fa275f23458
+main CI: 37603701084 — SUCCESS
 latest integrated slice: VS-04 — Configurable Public-Data Client Demo (PR #57)
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
@@ -84,9 +84,10 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-03 | Configurable Research Policy | TradeOps/vs03-configurable-research-policy | INTEGRATED | strict versioned JSON policy layer integrated via PR #55 |
 | VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | INTEGRATED | policy-driven public-data client demo integrated via PR #57 |
 | VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
-| VS-06 | DocFlow Earnings Research Adapter | TradeOps/vs06-docflow-earnings-adapter | READY | consume DF-02 normalized JSON into an earnings-specific TradeOps input; no generic normalization or fact extraction |
+| VS-06 | DocFlow Earnings Research Adapter | TradeOps/vs06-docflow-earnings-adapter | IN_PROGRESS | implementation HEAD 0db2067334825da5309dbbaa86152d43a947fd53; CI 37604699448 SUCCESS |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
+| DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | READY | parallel text extraction engine boundary over NormalizedTextDocument; no TradeOps dependency |
 
 ## Dependency graph
 
@@ -134,8 +135,10 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 12. DONE — VS-04 Configurable Public-Data Client Demo integrated via PR #57.
 13. HOLD — VS-05 TradeOps transcript intake prototype: preserve branch, do not merge; reassess boundary against DocFlow document-processing engine.
 14. DONE — DF-02 DocFlow Generic Text/Transcript Normalization integrated via PR #2; generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
-15. START — VS-06 DocFlow Earnings Research Adapter. Consume serialized DocFlow `NormalizedTextDocument` through a bounded transport adapter and map it to an earnings-specific TradeOps research input. The adapter owns instrument/fiscal-period/earnings-event association and provenance mapping; DocFlow remains generic. Do not create `EarningsEvent`, `ResearchDecision`, LLM extraction, or a second generic transcript normalizer in this slice.
-16. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+15. IN PROGRESS — VS-06 DocFlow Earnings Research Adapter. Consume serialized DocFlow `NormalizedTextDocument` through a bounded transport adapter and map it to an earnings-specific TradeOps research input. Do not create `EarningsEvent`, `ResearchDecision`, LLM extraction, or a second generic transcript normalizer in this slice.
+16. START PARALLEL — DF-03 DocFlow Generic Text Structured Extraction Boundary. Add a parallel engine abstraction `NormalizedTextDocument -> StructuredExtractionResult` without changing the existing PDF `StructuredExtractionEngine`, and with no TradeOps or earnings-specific logic.
+17. After VS-06 and DF-03 stabilize, decide the structured earnings-fact extraction slice and its exact cross-repository boundary.
+18. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -226,6 +229,7 @@ On each "continue" or "check status":
 DONE VS-04 Configurable Public-Data Client Demo — PR #57
 DONE DF-02 DocFlow Generic Text/Transcript Normalization — PR #2; post-merge CI 37603127313 SUCCESS
 P0  VS-06 DocFlow Earnings Research Adapter — TradeOps/vs06-docflow-earnings-adapter
+P1  DF-03 Generic Text Structured Extraction — DocFlow/df03-text-structured-extraction (parallel, independent)
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
