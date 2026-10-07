@@ -580,7 +580,7 @@ Draft integration PR: #59.
 
 ### Privacy scan
 
-Changed files were reviewed for personal/prospective-client names. Project-prohibited personal name `Filip` is absent.
+Changed files were reviewed against the orchestration privacy rule. Prohibited personal/prospective-client names are absent.
 
 Synthetic code/tests use only generic values such as `sample`, `Sample Company`, `Speaker A`, and `Analyst`.
 
