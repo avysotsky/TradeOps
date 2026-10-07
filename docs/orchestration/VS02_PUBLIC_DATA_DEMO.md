@@ -15,17 +15,25 @@ Assigned baseline:
 cfa5c315772465a839b1a095675afd009e7e0dad
 ```
 
-CI-validated implementation HEAD:
+Current main synchronized before the correctness fix:
 
 ```text
-a3bbbef5f0efde5e51e5222578e1b167ef01eccf
+main @ 80e736ab9f89c593c8b0b06ee4e655b6903d7dd6
+review commit: Record VS-02 availability semantics review
+branch synchronization merge: f2e4c21122db9700e83956af330355067f0c46a5
+```
+
+CI-validated correctness implementation HEAD:
+
+```text
+877c90c814ac47679f78fe1d056ddc55f4941b38
 ```
 
 ## Goal
 
 Provide the first runnable client-facing TradeOps demo backed by public historical data rather than synthetic business inputs.
 
-The bounded IBM flow is:
+The bounded IBM flow remains:
 
 ```text
 SEC EDGAR submissions + XBRL companyfacts
@@ -44,7 +52,7 @@ EarningsEvent[] + MarketDataBar[]
 -> client-readable console + JSON result
 ```
 
-The slice demonstrates software composition and historical replay. It does not assert investment alpha or future performance.
+This demonstrates software composition and historical replay. It does not assert investment alpha or future performance.
 
 ## Runnable tool
 
@@ -54,26 +62,22 @@ Added:
 tools/TradeOps.PublicResearchDemo
 ```
 
-The tool is part of `TradeOps.sln`, so ordinary CI restores and builds it.
+The project is part of `TradeOps.sln`, so normal CI restores and builds it. Ordinary CI never performs the external SEC / Alpha Vantage acquisition.
 
-External acquisition is not executed by ordinary CI.
-
-### Network gate
-
-A network fetch fails closed unless:
+External fetch is fail-closed unless both runtime values are present:
 
 ```text
 TRADEOPS_PUBLIC_DEMO_CONFIRM=RUN_PUBLIC_DATA_DEMO
 TRADEOPS_SEC_USER_AGENT=<runtime contact-style SEC User-Agent>
 ```
 
-No SEC User-Agent, contact identity, credential, cookie, account data or private API key is committed.
+No personal SEC User-Agent, credential, cookie, broker/account data or private API key is committed.
 
-SEC requests are sequential and throttled with a 350 ms minimum interval between SEC requests, substantially below the SEC 10 requests/second maximum.
+SEC requests are sequential and conservatively throttled.
 
-### First network run
+## Exact runnable command
 
-Linux/macOS example:
+Linux/macOS first network acquisition:
 
 ```bash
 TRADEOPS_PUBLIC_DEMO_CONFIRM=RUN_PUBLIC_DATA_DEMO \
@@ -81,7 +85,7 @@ TRADEOPS_SEC_USER_AGENT="TradeOpsPublicDemo/1.0 contact@example.com" \
 dotnet run --project tools/TradeOps.PublicResearchDemo --configuration Release
 ```
 
-PowerShell example:
+PowerShell:
 
 ```powershell
 $env:TRADEOPS_PUBLIC_DEMO_CONFIRM = "RUN_PUBLIC_DATA_DEMO"
@@ -89,50 +93,53 @@ $env:TRADEOPS_SEC_USER_AGENT = "TradeOpsPublicDemo/1.0 contact@example.com"
 dotnet run --project tools/TradeOps.PublicResearchDemo --configuration Release
 ```
 
-The address above is a documentation placeholder only. Supply an appropriate runtime contact value locally.
+The address above is only a placeholder. A real local run must provide an appropriate runtime contact-style value.
 
-To force a new public snapshot after a cache already exists:
-
-```bash
-dotnet run --project tools/TradeOps.PublicResearchDemo --configuration Release -- --refresh
-```
-
-The same two runtime environment values remain required for a refresh.
-
-### Cached replay
-
-After a successful first acquisition, the same command can run from the verified local snapshot without external network access:
+After a verified cache exists, replay does not require external network access:
 
 ```bash
 dotnet run --project tools/TradeOps.PublicResearchDemo --configuration Release
 ```
 
-Optional arguments:
+Optional CLI arguments:
 
 ```text
+--refresh
 --cache <path>
 --json <path>
---refresh
 ```
 
-## SEC acquisition and exact-accession semantics
+## Data sources
 
-IBM CIK:
+IBM SEC CIK:
 
 ```text
 0000051143
 ```
 
-The bounded tool downloads only:
+Bounded SEC resources:
 
 ```text
 https://data.sec.gov/submissions/CIK0000051143.json
 https://data.sec.gov/api/xbrl/companyfacts/CIK0000051143.json
 ```
 
-It discovers the latest two IBM `10-Q` filings from submissions metadata so that the latest event has a prior comparable event.
+Bounded daily market-data source:
 
-For each filing, the parser retains:
+```text
+Alpha Vantage
+TIME_SERIES_DAILY
+symbol=IBM
+apikey=demo
+```
+
+No generic crawler or production market-data architecture is introduced.
+
+## SEC exact-accession semantics
+
+The tool discovers the latest two IBM `10-Q` filings required for one comparable earnings decision.
+
+For each filing it retains:
 
 ```text
 CIK
@@ -145,11 +152,11 @@ primary document
 SEC Archives source URI
 ```
 
-XBRL company facts are eligible only when accession and form match the selected filing exactly.
+Company facts are eligible only when accession and form match the selected filing exactly.
 
-For a `10-Q`, the parser selects the bounded quarterly duration rather than a YTD duration when both are present. Facts from another accession are excluded. Conflicting exact facts remain visible to the existing `SecStructuredFilingNormalizer`, which fails closed on ambiguity.
+For a `10-Q`, the parser selects the bounded quarterly duration rather than a YTD duration when both are present. Facts from another accession are excluded. Ambiguous exact facts continue to fail closed inside the existing `SecStructuredFilingNormalizer`.
 
-The selected values still pass through the existing production path:
+The runtime path remains:
 
 ```text
 SecStructuredFiling
@@ -159,51 +166,130 @@ SecStructuredFiling
 -> EarningsEvent
 ```
 
-No `EarningsEvent` is constructed from arbitrary business values in the runtime demo.
+No runtime `EarningsEvent` is constructed from arbitrary business values.
 
-## Historical availability / provenance
+## Corrected SEC historical availability / provenance semantics
 
-`AcceptedAt` comes from SEC submissions filing metadata.
+The integration-review blocker is resolved.
 
-For this bounded historical reconstruction, the tool uses that SEC acceptance timestamp as the historical availability/observation boundary supplied to the existing factory. It never substitutes the current backfill-download time into an old event.
+The three timestamps now have separate meanings.
 
-The actual time at which the raw public payloads are downloaded is retained separately as `RetrievedAt` in the cache manifest.
-
-This separation is intentional:
+### SEC AcceptedAt
 
 ```text
-historical event availability
-    -> SEC filing metadata boundary
-
-current raw snapshot acquisition
-    -> cache-manifest RetrievedAt
+ResearchSourceProvenance.SourceTimestamp = SEC AcceptedAt
 ```
 
-It preserves the existing VS-01 rule:
+`AcceptedAt` is the SEC provider/source acceptance timestamp.
+
+It is **not** treated as an exact market-publication or dissemination timestamp.
+
+### HistoricalPublicAvailabilityAt
+
+VS-02 adds a bounded tooling policy:
 
 ```text
-ResearchDecision.GeneratedAt =
-max(EarningsEvent.PublishedAt, ResearchSourceProvenance.RetrievedAt)
+SecHistoricalAvailabilityPolicy
 ```
 
-and prevents a 2026 backfill download timestamp from moving an older decision into the future and invalidating historical replay.
-
-The implementation does not change production `PublishedAt`, `GeneratedAt`, provenance or anti-look-ahead semantics.
-
-## Market data
-
-The bounded public market-data source is:
+For historical replay it deliberately defines:
 
 ```text
-Alpha Vantage
-TIME_SERIES_DAILY
-symbol=IBM
-apikey=demo
+HistoricalPublicAvailabilityAt =
+22:00 America/New_York
+on the official SEC FilingDate
 ```
 
-This is a demo acquisition adapter only; it is not a production market-data architecture.
+This timestamp is passed through:
 
-Provider trading dates are converted to existing `MarketDataBar` with:
+```text
+SecStructuredFiling.PubliclyAvailableAt
+-> SecEarningsEventFactory
+-> EarningsEvent.PublishedAt
+```
+
+It is a **conservative replay availability boundary**, not a claim about the exact time at which SEC first disseminated the filing.
+
+The New York time zone is resolved per date, including DST.
+
+If the derived conservative boundary would precede the filing's `AcceptedAt`, the policy fails closed rather than violating causal ordering.
+
+### Actual snapshot RetrievedAt
+
+The raw network/cache snapshot retains the real acquisition timestamp:
+
+```text
+PublicDemoRawSnapshot.RetrievedAt
+```
+
+That exact timestamp is passed to:
+
+```text
+SecEarningsEventFactory.Create(facts, snapshot.RetrievedAt)
+```
+
+Therefore:
+
+```text
+ResearchSourceProvenance.RetrievedAt =
+actual raw public-data snapshot acquisition time
+```
+
+It is no longer rewritten to historical `AcceptedAt`.
+
+Required invariant:
+
+```text
+SourceTimestamp <= PublishedAt <= RetrievedAt
+```
+
+For the bounded SEC demo this means:
+
+```text
+SourceTimestamp = SEC AcceptedAt
+PublishedAt     = conservative HistoricalPublicAvailabilityAt
+RetrievedAt     = actual snapshot.RetrievedAt
+```
+
+## Historical decision timing mode
+
+The existing VS-01 default behavior remains unchanged.
+
+`ResearchToRebalanceDemoRequest` now has an explicit backward-compatible timing option:
+
+```text
+ResearchDecisionTimingMode.ObservedRetrieval
+ResearchDecisionTimingMode.HistoricalPublishedAvailability
+```
+
+Default:
+
+```text
+ObservedRetrieval
+
+GeneratedAt =
+max(EarningsEvent.PublishedAt,
+    EarningsEvent.Provenance.RetrievedAt)
+```
+
+That preserves the original VS-01 observation behavior for all existing callers that do not specify a mode.
+
+VS-02 explicitly selects:
+
+```text
+HistoricalPublishedAvailability
+
+GeneratedAt =
+EarningsEvent.PublishedAt
+```
+
+This mode is only for historical reconstruction/replay. It does not change `ResearchSourceProvenance.RetrievedAt`, does not alter `DeterministicEarningsDecisionRule`, and does not relax the frozen `ResearchDecision` semantics.
+
+The backtester still uses the normal causal execution boundary, so an after-hours historical availability timestamp cannot execute against an earlier daily bar. The IBM fixture verifies execution only at the next eligible regular-session open.
+
+## Market-data timing
+
+Alpha Vantage provider trading dates are converted to existing `MarketDataBar` values with:
 
 ```text
 Period = Daily
@@ -211,13 +297,13 @@ OpenTime  = 09:30 America/New_York
 CloseTime = 16:00 America/New_York
 ```
 
-The conversion uses the New York time-zone rules so DST is handled per date. It does not hardcode one UTC offset for the whole year.
+DST is resolved per trading date. No fixed UTC offset is used for the entire year.
 
-No separate holiday calendar is introduced because the provider supplies the trading dates.
+A separate holiday calendar is unnecessary in this bounded slice because the provider already supplies the trading dates.
 
 ## Local snapshot / cache
 
-Default cache:
+Default location:
 
 ```text
 .tradeops/public-demo-cache/
@@ -225,9 +311,7 @@ Default cache:
 
 The entire `.tradeops/` directory is gitignored.
 
-The cache stores only the bounded raw public payloads plus a manifest. It is not a third-party data corpus.
-
-Manifest provenance includes:
+The manifest retains:
 
 ```text
 provider
@@ -238,19 +322,39 @@ CIK where applicable
 selected accession numbers
 market-data date range
 relative payload path
-SHA-256 for every cached payload
+SHA-256 for every raw payload
 ```
 
-Every cached payload is checksum-verified before replay. A modified payload fails closed.
+Every cached payload is checksum-verified before replay. A mismatch fails closed.
+
+## Demo portfolio
+
+No IBKR account or broker data is used.
+
+The explicit local fixture remains:
+
+```text
+Initial NAV: 10,000 USD
+IBM quantity: 10 shares
+CurrentReferencePrice: latest retrieved IBM daily close
+Cash: 10,000 USD - current IBM notional
+```
+
+It is labelled:
+
+```text
+demo portfolio snapshot
+```
+
+The resulting `RebalanceOrderIntent` remains broker-neutral and requires downstream risk approval.
 
 ## Client-readable result
 
-Console output and JSON include:
+Console and JSON output contain:
 
 ```text
 Instrument
-real SEC EventId
-real accession
+real SEC EventId/accession
 FiscalPeriod
 PublishedAt
 Assessment
@@ -277,121 +381,90 @@ estimated notional
 status
 ```
 
-The default JSON artifact is:
+Default JSON artifact:
 
 ```text
 .tradeops/public-demo-cache/ibm-result.json
 ```
 
-The output explicitly labels the current holdings as:
-
-```text
-demo portfolio snapshot
-```
-
-and includes a software-demo / no-forecast disclaimer.
-
-## Demo portfolio fixture
-
-There is no broker or IBKR dependency in VS-02.
-
-The current-portfolio example is deterministic local input:
-
-```text
-Initial NAV: 10,000 USD
-IBM quantity: 10 shares
-CurrentReferencePrice: latest retrieved IBM daily close
-Cash: 10,000 USD - current IBM notional
-```
-
-If that fixture would imply non-positive cash at the retrieved reference price, the tool fails closed.
-
-## Existing production pipeline reused
-
-VS-02 calls the integrated:
-
-```text
-ResearchToRebalanceDemoService
-DeterministicEarningsDecisionRule
-EarningsTargetWeightPolicy
-EventDrivenBacktester
-PortfolioRebalancePlanner
-```
-
-The production decision remains:
-
-```text
-ResearchDecisionAction.SetTargetWeight
-```
-
-The current rebalance remains a `RebalanceOrderIntent` requiring downstream risk approval; it is not a broker order.
+The output is explicitly described as a software-pipeline demonstration and not as evidence of future returns.
 
 ## Public/shared contracts changed
 
-None.
-
-VS-02 does not modify:
+Frozen/public contracts changed:
 
 ```text
-InstrumentReference
-ResearchDecision
+none
+```
+
+Unchanged frozen contracts include:
+
+```text
+ResearchSourceProvenance
 EarningsEvent
+ResearchDecision
+MarketDataBar
 PortfolioSnapshot
 RebalancePlan
 RebalanceOrderIntent
-MarketDataBar
+InstrumentReference
 BacktestPerformanceMetrics
-PublishedAt semantics
-GeneratedAt semantics
-PortfolioRebalancePlanner semantics
-EventDrivenBacktester semantics
 ```
 
-No LLM, transcript parsing, generic web scraping, IBKR order placement/mutation, multi-asset backtesting or optimization is added.
+The only application-layer production-source change is the explicitly authorized backward-compatible extension to `ResearchToRebalanceDemoService` / `ResearchToRebalanceDemoRequest` for decision timing mode.
 
-## Deterministic tests
+No change was made to:
 
-Added `PublicResearchDemoTests` coverage for:
+```text
+DeterministicEarningsDecisionRule
+PortfolioRebalancePlanner
+EventDrivenBacktester
+ResearchDecision semantics
+SetTargetWeight semantics
+```
+
+## Tests
+
+The corrected suite covers:
 
 ```text
 SEC submissions parsing
-exact accession / form selection
-quarter-duration selection instead of YTD for 10-Q
+exact accession/form matching
+quarter-duration selection instead of YTD
 SEC companyfacts -> SecStructuredFiling
-AcceptedAt and source-provenance projection
-exclusion of facts from another accession
-Alpha Vantage JSON -> MarketDataBar(Daily)
-09:30 / 16:00 New York timestamps in both standard time and DST
-cache manifest + SHA-256 verification
-checksum mismatch fail-closed behavior
-network opt-in fail-closed behavior
-full public-data composition -> existing VS-01 pipeline
-ResearchDecision(Action = SetTargetWeight)
-existing backtester / rebalance planner invocation
+SourceTimestamp == AcceptedAt
+PublishedAt is not automatically AcceptedAt
+PublishedAt == SecHistoricalAvailabilityPolicy result
+RetrievedAt == actual snapshot.RetrievedAt
+SourceTimestamp <= PublishedAt <= RetrievedAt
+default VS-01 timing remains ObservedRetrieval
+historical timing generates ResearchDecision at PublishedAt
+historical timing does not rewrite provenance RetrievedAt
+after-hours historical availability fills only at next eligible daily open
+no execution before GeneratedAt
+New York daily-session DST conversion
+snapshot SHA-256 verification
+network gate fail-closed behavior
+full public-data composition through existing VS-01/backtester/planner
 ```
 
-Validated full solution:
+Validated result:
 
 ```text
-Total tests: 349
-Passed: 349
+Total tests: 352
+Passed: 352
 Failed: 0
 ```
 
 ## Full CI
 
-CI-validated implementation HEAD:
+CI-validated correctness implementation:
 
 ```text
-a3bbbef5f0efde5e51e5222578e1b167ef01eccf
-```
-
-GitHub Actions:
-
-```text
+HEAD: 877c90c814ac47679f78fe1d056ddc55f4941b38
 workflow: build
-run number: 650
-run id: 37591360446
+run number: 654
+run id: 37593688233
 conclusion: SUCCESS
 ```
 
@@ -400,7 +473,7 @@ Validated stages:
 ```text
 restore
 build
-349/349 tests
+352/352 unit tests
 API + PostgreSQL smoke
 signed webhook end-to-end demo
 customer TradingView demo
@@ -410,58 +483,52 @@ TradingView gateway deployment validation
 Docker image build
 ```
 
-The external SEC / Alpha Vantage acquisition is deliberately not part of ordinary CI.
+External SEC / Alpha Vantage acquisition remains deliberately outside ordinary CI.
 
-## Public-data network smoke result
+## Public-data network smoke
 
 ```text
 NOT RUN
 ```
 
-Reason:
+The worker executable environment still does not have the runtime prerequisites for a real compiled-tool public fetch, including an explicit SEC contact-style User-Agent. No network PASS is simulated.
 
-The worker's executable/container environment cannot resolve external hosts, and no runtime SEC contact-style User-Agent was supplied to that environment. The GitHub-connected/web retrieval path is not the same runtime as the compiled CLI and therefore was not used to claim a tool smoke PASS.
-
-No public-data PASS was simulated.
-
-The exact manual smoke is the first-network-run command documented above. A successful run must produce real IBM accessions, a verified cache manifest and the JSON artifact; any missing gate/User-Agent, provider error, malformed payload, checksum mismatch, missing comparable filing or missing next daily bar fails the tool.
-
-## Changed files versus assigned baseline
+## Changed files versus synchronized main
 
 ```text
 .gitignore
 TradeOps.sln
+docs/orchestration/VS02_PUBLIC_DATA_DEMO.md
+src/TradeOps.Application/Services/ResearchToRebalanceDemoService.cs
 tests/TradeOps.UnitTests/PublicResearchDemoTests.cs
+tests/TradeOps.UnitTests/ResearchToRebalanceDemoTests.cs
 tests/TradeOps.UnitTests/TradeOps.UnitTests.csproj
 tools/TradeOps.PublicResearchDemo/Program.cs
 tools/TradeOps.PublicResearchDemo/PublicDataInfrastructure.cs
 tools/TradeOps.PublicResearchDemo/PublicResearchDemo.cs
 tools/TradeOps.PublicResearchDemo/TradeOps.PublicResearchDemo.csproj
-docs/orchestration/VS02_PUBLIC_DATA_DEMO.md
 ```
-
-No production contract/source file under `src/TradeOps.Application` was changed by VS-02.
 
 ## Blockers
 
-No code, test or CI blocker remains for integration review.
+No code, semantic, test or CI blocker remains for integration review.
 
-The only unvalidated item is the real opt-in external public-data smoke, because the worker execution environment cannot execute the compiled tool against public hosts and no runtime SEC User-Agent was available.
-
-This does not make ordinary CI dependent on SEC or Alpha Vantage.
+The real opt-in external public-data smoke remains an external/manual validation item and is not required by ordinary CI.
 
 ## Worker handoff
 
 ```text
 State: READY_FOR_INTEGRATION
-Baseline: cfa5c315772465a839b1a095675afd009e7e0dad
-CI-validated implementation HEAD: a3bbbef5f0efde5e51e5222578e1b167ef01eccf
-Public/shared contracts changed: none
-Tests: 349/349 passed
-Full CI: build #650 / run 37591360446 / SUCCESS
-Public-data smoke: NOT RUN; not simulated
-Blocker: real network smoke remains externally runnable when an explicit SEC User-Agent is supplied
-Next integration action: Development Orchestrator reviews the bounded diff, reconciles against current main if needed, and integrates VS-02 if review remains green.
+Assigned baseline: cfa5c315772465a839b1a095675afd009e7e0dad
+Synchronized main: 80e736ab9f89c593c8b0b06ee4e655b6903d7dd6
+Synchronization merge: f2e4c21122db9700e83956af330355067f0c46a5
+Validated correctness implementation HEAD: 877c90c814ac47679f78fe1d056ddc55f4941b38
+Public/shared frozen contracts changed: none
+Tests: 352/352 passed
+Full CI: build #654 / run 37593688233 / SUCCESS
+Public-data network smoke: NOT RUN; no PASS simulated
+Blockers: none for integration review
+Next integration action: Development Orchestrator reviews the corrected bounded diff and integrates VS-02 if review remains green.
 ```
 
-Do not start transcript ingestion, IBKR mutation, strategy optimization or another research slice from this worker without a new Development Orchestrator decision.
+Do not begin transcript ingestion, IBKR mutation, strategy optimization or another slice from this worker without a new Development Orchestrator decision.
