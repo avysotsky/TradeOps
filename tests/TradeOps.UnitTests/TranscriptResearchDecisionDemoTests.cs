@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using TradeOps.Application.Models;
 using TradeOps.Application.Services;
+using TradeOps.Domain.Enums;
 using TradeOps.TranscriptResearchDemo;
 using Xunit;
 
