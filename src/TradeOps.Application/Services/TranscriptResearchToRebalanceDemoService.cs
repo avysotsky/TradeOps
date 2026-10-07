@@ -119,7 +119,7 @@ public sealed class TranscriptResearchToRebalanceDemoService
                 "Transcript research assessment diverged from the existing research-to-rebalance assessment.");
         }
 
-        if (!Equals(
+        if (!AreSemanticallyEqual(
                 transcriptResult.Decision,
                 researchToRebalance.LatestDecision))
         {
@@ -130,5 +130,97 @@ public sealed class TranscriptResearchToRebalanceDemoService
         return new TranscriptResearchToRebalanceDemoResult(
             transcriptResult,
             researchToRebalance);
+    }
+
+    private static bool AreSemanticallyEqual(
+        ResearchDecision left,
+        ResearchDecision right)
+    {
+        if (!string.Equals(
+                left.DecisionId,
+                right.DecisionId,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                left.StrategyId,
+                right.StrategyId,
+                StringComparison.Ordinal) ||
+            !Equals(
+                left.Instrument,
+                right.Instrument) ||
+            left.Action !=
+                right.Action ||
+            !left.GeneratedAt.EqualsExact(
+                right.GeneratedAt) ||
+            left.TargetWeight !=
+                right.TargetWeight ||
+            left.Confidence !=
+                right.Confidence ||
+            !string.Equals(
+                left.SourceEventId,
+                right.SourceEventId,
+                StringComparison.Ordinal) ||
+            !string.Equals(
+                left.Reason,
+                right.Reason,
+                StringComparison.Ordinal) ||
+            !NullableTimestampEqualsExact(
+                left.ValidUntil,
+                right.ValidUntil))
+        {
+            return false;
+        }
+
+        return MetadataEquals(
+            left.Metadata,
+            right.Metadata);
+    }
+
+    private static bool NullableTimestampEqualsExact(
+        DateTimeOffset? left,
+        DateTimeOffset? right)
+    {
+        if (!left.HasValue ||
+            !right.HasValue)
+        {
+            return left.HasValue ==
+                right.HasValue;
+        }
+
+        return left.Value.EqualsExact(
+            right.Value);
+    }
+
+    private static bool MetadataEquals(
+        IReadOnlyDictionary<string, string>? left,
+        IReadOnlyDictionary<string, string>? right)
+    {
+        if (left is null ||
+            right is null)
+        {
+            return left is null &&
+                right is null;
+        }
+
+        if (left.Count !=
+            right.Count)
+        {
+            return false;
+        }
+
+        foreach (var item in left)
+        {
+            if (!right.TryGetValue(
+                    item.Key,
+                    out var value) ||
+                !string.Equals(
+                    item.Value,
+                    value,
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
