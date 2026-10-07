@@ -43,6 +43,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             options.Provider);
         Assert.Null(
             options.DotNetExecutable);
+        Assert.Null(
+            options.RebalanceInputPath);
 
         var root =
             Path.GetFullPath(
@@ -128,6 +130,40 @@ public sealed class ProviderTranscriptResearchDemoTests
                             "--model",
                             "explicit-model",
                             "--dotnet"
+                        }));
+    }
+
+    [Fact]
+    public void Options_parse_rebalance_input_and_missing_value_fails_closed()
+    {
+        var options =
+            ProviderTranscriptResearchDemoOptions
+                .Parse(
+                    new[]
+                    {
+                        "--docflow-root",
+                        "docflow",
+                        "--model",
+                        "explicit-model",
+                        "--rebalance-input",
+                        "samples/rebalance.json"
+                    });
+
+        Assert.Equal(
+            "samples/rebalance.json",
+            options.RebalanceInputPath);
+
+        Assert.Throws<ArgumentException>(
+            () =>
+                ProviderTranscriptResearchDemoOptions
+                    .Parse(
+                        new[]
+                        {
+                            "--docflow-root",
+                            "docflow",
+                            "--model",
+                            "explicit-model",
+                            "--rebalance-input"
                         }));
     }
 
@@ -511,6 +547,38 @@ public sealed class ProviderTranscriptResearchDemoTests
             result.ExitCode);
         Assert.Empty(
             runner.Invocations);
+    }
+
+    [Fact]
+    public void Missing_rebalance_input_stops_before_dotnet_preflight_and_provider_work()
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            new RecordingRunner();
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    rebalanceInputPath:
+                        Path.Combine(
+                            "samples",
+                            "research",
+                            "provider-transcript-demo",
+                            "missing-rebalance-input.json")),
+                runner);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Empty(
+            runner.PreflightInvocations);
+        Assert.Empty(
+            runner.Invocations);
+        Assert.Contains(
+            "Rebalance input file was not found",
+            result.Error,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1045,6 +1113,114 @@ public sealed class ProviderTranscriptResearchDemoTests
     }
 
     [Fact]
+    public void Rebalance_mode_preserves_docflow_stages_and_invokes_vs13_once_with_exact_arguments()
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            fixture.SuccessfulRunner();
+        var relativeRebalanceInput =
+            Path.Combine(
+                "samples",
+                "research",
+                "provider-transcript-demo",
+                "rebalance-input.json");
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    rebalanceInputPath:
+                        relativeRebalanceInput),
+                runner);
+
+        Assert.Equal(
+            0,
+            result.ExitCode);
+        Assert.Equal(
+            3,
+            runner.Invocations.Count);
+
+        var prior =
+            runner.Invocations[0];
+        var current =
+            runner.Invocations[1];
+
+        Assert.Equal(
+            "python",
+            prior.FileName);
+        Assert.Equal(
+            "python",
+            current.FileName);
+        Assert.Equal(
+            fixture.PriorRaw,
+            prior.Arguments[
+                prior.Arguments
+                    .ToList()
+                    .IndexOf(
+                        "--input-raw-json") +
+                1]);
+        Assert.Equal(
+            fixture.CurrentRaw,
+            current.Arguments[
+                current.Arguments
+                    .ToList()
+                    .IndexOf(
+                        "--input-raw-json") +
+                1]);
+
+        var runtimeManifest =
+            Path.Combine(
+                fixture.WorkDirectory,
+                "manifest.json");
+        var rebalanceResult =
+            Path.Combine(
+                fixture.WorkDirectory,
+                "transcript-research-rebalance-result.json");
+        var consumer =
+            runner.Invocations[2];
+
+        Assert.Equal(
+            new[]
+            {
+                "run",
+                "--project",
+                "tools/TradeOps.TranscriptResearchDemo",
+                "--",
+                "--manifest",
+                runtimeManifest,
+                "--policy",
+                fixture.Policy,
+                "--rebalance-input",
+                fixture.RebalanceInput,
+                "--json",
+                rebalanceResult
+            },
+            consumer.Arguments);
+        Assert.True(
+            File.Exists(
+                rebalanceResult));
+        Assert.True(
+            new FileInfo(
+                    rebalanceResult)
+                .Length >
+            0);
+        Assert.False(
+            File.Exists(
+                Path.Combine(
+                    fixture.WorkDirectory,
+                    "transcript-research-result.json")));
+        Assert.Contains(
+            "PROVIDER TRANSCRIPT RESEARCH DEMO: PASS",
+            result.Output,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Result JSON: " +
+            rebalanceResult,
+            result.Output,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Vs08_failure_propagates_nonzero()
     {
         using var fixture =
@@ -1239,6 +1415,18 @@ public sealed class ProviderTranscriptResearchDemoTests
             StringComparison.Ordinal);
         Assert.DoesNotContain(
             "TranscriptResearchDecisionDemoService",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "TranscriptResearchToRebalanceDemoService",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "EventDrivenBacktester",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "PortfolioRebalancePlanner",
             source,
             StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -1760,6 +1948,12 @@ public sealed class ProviderTranscriptResearchDemoTests
                     "provider-transcript-demo",
                     "consumer-manifest.json",
                     "{\n  \"schemaVersion\": 1\n}\n");
+            RebalanceInput =
+                CreateTradeOpsFile(
+                    "samples",
+                    "research",
+                    "provider-transcript-demo",
+                    "rebalance-input.json");
             SchemaRequest =
                 CreateTradeOpsFile(
                     "schemas",
@@ -1826,6 +2020,11 @@ public sealed class ProviderTranscriptResearchDemoTests
             get;
         }
 
+        public string RebalanceInput
+        {
+            get;
+        }
+
         public string SchemaRequest
         {
             get;
@@ -1843,7 +2042,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             string? workDirectory = null,
             ProviderTranscriptResearchProvider provider =
                 ProviderTranscriptResearchProvider.OpenAi,
-            string? dotNetExecutable = null) =>
+            string? dotNetExecutable = null,
+            string? rebalanceInputPath = null) =>
             new(
                 docFlowRoot
                 ?? DocFlowRoot,
@@ -1852,7 +2052,8 @@ public sealed class ProviderTranscriptResearchDemoTests
                 workDirectory
                 ?? WorkDirectory,
                 provider,
-                dotNetExecutable);
+                dotNetExecutable,
+                rebalanceInputPath);
 
         public string CreateDotNetHost(
             string directoryName)
