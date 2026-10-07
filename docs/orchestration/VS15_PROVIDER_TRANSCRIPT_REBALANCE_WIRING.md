@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -318,3 +318,158 @@ Before handoff:
 Do not merge independently.
 
 Stop after this bounded slice.
+
+
+## Completion handoff
+
+### Validated implementation head
+
+The exact code-and-test HEAD validated by GitHub Actions is:
+
+```text
+dfcb4c599301dcd7022aa476dcf5acfe7ee94f11
+```
+
+At implementation validation time:
+
+```text
+TradeOps main: 7e91388ec81d4b9ae2c27f7cc2d321d56f867088
+DocFlow main: be957f139cae0eafff3cd47241a5d7dd6beca855
+```
+
+TradeOps main advanced by one orchestration-only SEC-01 registration commit after the VS-15 branch was created. There is no VS-15 production/test ownership overlap with that main change, so the worker branch was not broadened by merging unrelated orchestration state.
+
+Compare versus current TradeOps main at validation:
+
+```text
+status: diverged
+ahead: 3
+behind: 1
+merge base: 015fce4aa8f0cebaf3cccda2c6f74dd64523fa05
+```
+
+### Changed files
+
+VS-15 changes remain inside the assigned slice:
+
+```text
+tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs
+tests/TradeOps.UnitTests/ProviderTranscriptResearchDemoTests.cs
+docs/orchestration/VS15_PROVIDER_TRANSCRIPT_REBALANCE_WIRING.md
+```
+
+The following VS-13/application/sample files were verified blob-identical to current main and were not modified:
+
+```text
+tools/TradeOps.TranscriptResearchDemo/TranscriptResearchDemo.cs
+tools/TradeOps.TranscriptResearchDemo/TranscriptResearchRebalanceDemo.cs
+src/TradeOps.Application/Services/TranscriptResearchToRebalanceDemoService.cs
+samples/research/provider-transcript-demo/rebalance-input.json
+samples/research/provider-transcript-demo/consumer-manifest.json
+samples/research/transcript-research/policy.json
+```
+
+No frozen shared/domain contract, DocFlow code, provider SDK/HTTP code, credential mapping, fallback behavior, broker code, or IBKR code changed.
+
+### CLI behavior
+
+The provider harness now accepts the additive option:
+
+```text
+--rebalance-input <path>
+```
+
+Without the option, the existing research-only path is unchanged and continues to invoke the integrated consumer with:
+
+```text
+--manifest <runtime-manifest>
+--policy <policy>
+--json <workdir>/transcript-research-result.json
+```
+
+With the option, the input path is resolved relative to the TradeOps repository root when relative, must exist before dotnet preflight/provider child work, and the same prior/current DocFlow stages plus unchanged runtime manifest are reused. The TradeOps child receives:
+
+```text
+--manifest <runtime-manifest>
+--policy <policy>
+--rebalance-input <resolved-path>
+--json <workdir>/transcript-research-rebalance-result.json
+```
+
+The final result must exist and be non-empty. The provider harness continues to emit only bounded safe stage/status information plus the concise PASS/result path; provider child stdout/stderr remains suppressed.
+
+The production wiring contains no direct `EventDrivenBacktester`, `PortfolioRebalancePlanner`, `TranscriptResearchToRebalanceDemoService`, or duplicate VS-13 composition call. VS-13 remains the sole consumer/composition boundary.
+
+### VS-14 guarantees
+
+VS-14 process hardening is preserved unchanged:
+
+- explicit `--dotnet`;
+- `DOTNET_HOST_PATH`;
+- `DOTNET_ROOT`;
+- `DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR`;
+- PATH fallback only behind the existing preflight;
+- repository `global.json` SDK validation;
+- bounded concurrent stdout/stderr drain;
+- `UseShellExecute = false`;
+- `ArgumentList`;
+- no shell command concatenation;
+- provider child output suppression;
+- bounded safe diagnostics and credential redaction.
+
+### Tests / CI
+
+Existing provider-harness regression tests plus VS-15 coverage verify:
+
+- research-only compatibility and legacy result filename;
+- `--rebalance-input` parsing and missing-value failure;
+- missing rebalance file fails before dotnet preflight/provider child execution;
+- prior/current DocFlow stages remain on the existing path;
+- exactly one TradeOps consumer invocation in rebalance mode;
+- exact resolved `--rebalance-input` child argument;
+- rebalance result filename and non-empty artifact requirement;
+- unchanged provider credential selection;
+- unchanged dotnet host/preflight semantics;
+- provider output suppression and diagnostic redaction;
+- no direct backtester/rebalance planner calls in production wiring;
+- unchanged VS-13 consumer/service/sample contracts.
+
+Exact validated implementation CI:
+
+```text
+37662668640 — SUCCESS
+head: dfcb4c599301dcd7022aa476dcf5acfe7ee94f11
+519 / 519 tests passed
+```
+
+The same workflow also passed build, API/PostgreSQL smoke, signed-webhook demo, customer TradingView demo, client starter-kit validation, Docker Compose validation, gateway deployment validation, and Docker image build.
+
+No separate network/provider test is part of CI; CI remains secret-free and provider-network-free for this slice.
+
+### Privacy / secret scan
+
+Changed files were scanned for private-key/JWT/live OpenAI-key/live Groq-key patterns and credential-like bearer literals.
+
+Result:
+
+```text
+PASS — no real credentials, provider payloads, raw transcript bodies, environment dumps, account/broker data, or private client data introduced.
+```
+
+Occurrences of credential variable names and Authorization/Bearer terminology are limited to existing redaction/safety logic and synthetic tests/specification text.
+
+### Real Groq rebalance smoke
+
+```text
+real Groq rebalance smoke: NOT RUN — local operator credential required
+```
+
+No real provider credential is available to this worker execution environment. This is not a CI blocker.
+
+### Blockers
+
+None in the bounded VS-15 implementation/CI scope.
+
+### Next integration action
+
+Create a draft PR only as the integration/CI surface. The Development Orchestrator should review changed-file ownership, current-main divergence, exact PR-head CI and this handoff, then decide integration. Do not merge from the worker chat.
