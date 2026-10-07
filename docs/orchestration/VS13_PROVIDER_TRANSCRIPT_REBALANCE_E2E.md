@@ -580,3 +580,134 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+
+---
+
+## Worker handoff — 2026-10-07
+
+### State
+
+**READY FOR DEVELOPMENT ORCHESTRATOR REVIEW. DO NOT MERGE FROM THIS WORKER.**
+
+The authoritative `VS13_SCOPE_OVERRIDE.md` split the original broad slice while implementation was in progress. This worker therefore implemented only the VS-13-owned transcript consumer mode, deterministic rebalance input, audit JSON, focused tests, and this handoff. Provider-process hardening is owned by VS-14; provider-to-consumer wiring is deferred to VS-15.
+
+### Git state
+
+- Original TradeOps baseline at assignment: `ddaf8558f908dd68ff39aeb5eb71ff5cb5bf878b`.
+- Initial VS-13 branch HEAD: `5558262eb20dc7159c5e4a905a5deb777664271b`.
+- Authoritative scope-override commit observed during the worker lease: `a7062501badf3029f65b298677861a9e4c962306`.
+- Validated implementation HEAD: `e4dea633f2becd78d3f481d647c4f20ab6ecf3bc`.
+- Current live `main` at handoff preparation: `99013d7f5f7551f3abf1d342c46d3e48dbbfb68f` (`Register parallel VS-14 process hardening slice`, docs-only `ORCHESTRATION.md` change).
+- Compare validated implementation vs current `main`: diverged, ahead 4 / behind 1. The behind-main commit is the VS-14 registration docs change and does not overlap VS-13-owned implementation files.
+
+### Changed files
+
+Relative to current `main` before this handoff update:
+
+- `docs/orchestration/VS13_PROVIDER_TRANSCRIPT_REBALANCE_E2E.md`
+- `docs/orchestration/VS13_SCOPE_OVERRIDE.md`
+- `samples/research/provider-transcript-demo/rebalance-input.json`
+- `tests/TradeOps.UnitTests/ProviderTranscriptResearchRebalanceEndToEndTests.cs`
+- `tools/TradeOps.TranscriptResearchDemo/TranscriptResearchDemo.cs`
+- `tools/TradeOps.TranscriptResearchDemo/TranscriptResearchRebalanceDemo.cs`
+
+No solution/project file, shared/domain contract, VS-11 service, backtester, planner, provider harness, or DocFlow file was changed.
+
+### Bounded composition implemented
+
+The existing `TradeOps.TranscriptResearchDemo` CLI remains research-only by default. Supplying explicit `--rebalance-input <path>` selects the new VS-13 consumer path:
+
+```text
+existing manifest + policy + prior/current DocFlow artifacts
+-> strict demo-only rebalance input loader
+-> existing TranscriptResearchToRebalanceDemoService
+-> existing transcript research assessment / ResearchDecision
+-> existing ResearchToRebalanceDemoService
+-> existing EventDrivenBacktester
+-> existing BacktestPerformanceMetrics
+-> existing PortfolioRebalancePlanner
+-> existing RebalancePlan / RebalanceOrderIntent
+-> deterministic JSON audit artifact
+```
+
+CLI/harness-owned VS-13 code does not directly call `EventDrivenBacktester` or `PortfolioRebalancePlanner`.
+
+The synthetic rebalance input contains market bars, initial cash, current portfolio/reference price, and optional existing execution/rebalance constraints. It deliberately contains **no target weight**; target weight still originates from the existing policy -> `ResearchDecision` path.
+
+### Audit JSON semantics
+
+Schema version 1 contains:
+
+- input file name + SHA-256 content fingerprint;
+- existing policy identity/fingerprint;
+- instrument;
+- prior/current DocFlow artifact audit fields, facts/evidence metadata, extraction engine/confidence;
+- transcript assessment;
+- the existing `ResearchDecision`;
+- backtest period;
+- the existing `BacktestPerformanceMetrics`;
+- final backtest `PortfolioSnapshot`;
+- the existing current `RebalancePlan`, including nested `RebalanceOrderIntent` when produced.
+
+The focused deterministic fixture produces the existing policy result `SetTargetWeight / 0.40 / confidence 1`; those values are asserted as acceptance evidence and are not duplicated as VS-13 decision logic.
+
+The consumer accepts an explicit `--json` destination. VS-15 is responsible for provider-harness wiring to the canonical runtime destination `.tradeops/provider-transcript-demo/transcript-research-rebalance-result.json`.
+
+### Validation
+
+GitHub Actions implementation-head run:
+
+- Run: `37657606919`
+- HEAD: `e4dea633f2becd78d3f481d647c4f20ab6ecf3bc`
+- Conclusion: **SUCCESS**
+- Build: SUCCESS
+- Unit tests: **500 passed / 500 total**
+- API + PostgreSQL smoke: SUCCESS
+- Signed webhook end-to-end demo: SUCCESS
+- Customer TradingView demo: SUCCESS
+- client pilot starter validation: SUCCESS
+- Docker Compose / gateway validation / Docker image build: SUCCESS
+
+The 10 focused VS-13 tests and the existing VS-08 / VS-11 / VS-12 regression coverage all execute inside the same full `TradeOps.sln` unit-test gate. A worker-local checkout was unavailable in this environment, so separate local targeted commands were not used; the exact branch-head GitHub Actions gate is the validation source of truth.
+
+An earlier implementation run `37657307561` correctly failed 6 new tests because the strict transport loader omitted the camelCase naming policy. Commit `e4dea633...` fixed that transport binding defect; the full rerun above is green.
+
+### Privacy / secret boundary
+
+Static diff scan: **PASS**.
+
+- no OpenAI/Groq credential literal found;
+- no private-key material found;
+- no credential assignment found;
+- no raw provider response/transcript payload field added to the audit result;
+- no `.tradeops/` runtime artifact is committed;
+- `rebalance-input.json` contains no `targetWeight`.
+
+No real Groq/OpenAI call was made by the worker or CI.
+
+### VS-14 / VS-15 split
+
+Per `VS13_SCOPE_OVERRIDE.md`, this worker did **not** modify or implement:
+
+- `tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs`;
+- `tests/TradeOps.UnitTests/ProviderTranscriptResearchDemoTests.cs`;
+- explicit `--dotnet` host resolution;
+- `global.json` SDK preflight;
+- bounded provider-child stdout/stderr capture;
+- provider-harness child diagnostics.
+
+Those are VS-14 ownership. Provider harness -> VS-13 consumer argument/result wiring is VS-15 ownership after VS-13 and VS-14 integration.
+
+### Blockers / integration action
+
+No blocker remains inside the revised VS-13 scope.
+
+Recommended orchestration action:
+
+1. review and integrate this VS-13 consumer slice;
+2. integrate VS-14 process hardening;
+3. run VS-15 provider-harness -> VS-13 consumer wiring;
+4. only after those integrations, perform the separate local real-Groq VS-13 smoke with local environment-only `GROQ_API_KEY`.
+
+Do not perform the real provider smoke in GitHub Actions and do not place credentials in GitHub/chat.
