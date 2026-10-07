@@ -121,6 +121,50 @@ public sealed class ResearchToRebalanceDemoTests
     }
 
     [Fact]
+    public void Run_default_timing_mode_preserves_observed_retrieval_behavior()
+    {
+        var request =
+            CreateRequest();
+
+        var result =
+            new ResearchToRebalanceDemoService()
+                .Run(request);
+        var latestEvent =
+            request.HistoricalEarningsEvents[^1];
+
+        Assert.Equal(
+            latestEvent.Provenance.RetrievedAt,
+            result.LatestDecision.GeneratedAt);
+    }
+
+    [Fact]
+    public void Run_historical_timing_mode_generates_at_published_availability()
+    {
+        var request =
+            CreateRequest(
+                ResearchDecisionTimingMode
+                    .HistoricalPublishedAvailability);
+        var latestEvent =
+            request.HistoricalEarningsEvents[^1];
+        var actualRetrievedAt =
+            latestEvent.Provenance.RetrievedAt;
+
+        var result =
+            new ResearchToRebalanceDemoService()
+                .Run(request);
+
+        Assert.Equal(
+            latestEvent.PublishedAt,
+            result.LatestDecision.GeneratedAt);
+        Assert.True(
+            actualRetrievedAt >
+            result.LatestDecision.GeneratedAt);
+        Assert.Equal(
+            actualRetrievedAt,
+            latestEvent.Provenance.RetrievedAt);
+    }
+
+    [Fact]
     public void Run_same_fixture_is_deterministic()
     {
         var request =
@@ -175,7 +219,10 @@ public sealed class ResearchToRebalanceDemoTests
     }
 
     private static ResearchToRebalanceDemoRequest
-        CreateRequest()
+        CreateRequest(
+            ResearchDecisionTimingMode timingMode =
+                ResearchDecisionTimingMode
+                    .ObservedRetrieval)
     {
         var earnings =
             new[]
@@ -307,7 +354,9 @@ public sealed class ResearchToRebalanceDemoTests
             CurrentReferencePrice: 100m,
             CurrentRebalanceConstraints:
                 new RebalanceConstraints(
-                    MaxTargetWeight: 0.50m));
+                    MaxTargetWeight: 0.50m),
+            DecisionTimingMode:
+                timingMode);
     }
 
     private static EarningsEvent Earnings(

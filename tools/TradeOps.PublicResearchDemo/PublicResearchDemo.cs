@@ -121,12 +121,9 @@ public static class PublicResearchDemoComposer
                             SecStructuredFilingNormalizer
                                 .Normalize(filing);
 
-                        // Reconstruct the historical observation boundary
-                        // from official SEC metadata. The current network
-                        // snapshot retrieval time remains in cache manifest.
                         return SecEarningsEventFactory.Create(
                             facts,
-                            filing.AcceptedAt);
+                            snapshot.RetrievedAt);
                     })
                 .OrderBy(
                     item =>
@@ -175,10 +172,7 @@ public static class PublicResearchDemoComposer
         }
 
         var decisionAvailability =
-            currentEvent.Provenance.RetrievedAt >
-            currentEvent.PublishedAt
-                ? currentEvent.Provenance.RetrievedAt
-                : currentEvent.PublishedAt;
+            currentEvent.PublishedAt;
 
         if (!bars.Any(
                 bar =>
@@ -239,7 +233,10 @@ public static class PublicResearchDemoComposer
                     new RebalanceConstraints(
                         MaxTargetWeight: 0.50m),
                 StrategyId:
-                    "public-data-demo-earnings-policy-v1");
+                    "public-data-demo-earnings-policy-v1",
+                DecisionTimingMode:
+                    ResearchDecisionTimingMode
+                        .HistoricalPublishedAvailability);
 
         var result =
             new ResearchToRebalanceDemoService()

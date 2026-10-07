@@ -4,6 +4,12 @@ using TradeOps.Domain.Enums;
 
 namespace TradeOps.Application.Services;
 
+public enum ResearchDecisionTimingMode
+{
+    ObservedRetrieval = 0,
+    HistoricalPublishedAvailability = 1
+}
+
 public sealed record ResearchToRebalanceDemoRequest(
     IReadOnlyList<EarningsEvent> HistoricalEarningsEvents,
     IReadOnlyList<MarketDataBar> HistoricalDailyMarketBars,
@@ -15,7 +21,9 @@ public sealed record ResearchToRebalanceDemoRequest(
     BacktestExecutionCosts? ExecutionCosts = null,
     RebalanceConstraints? BacktestConstraints = null,
     RebalanceConstraints? CurrentRebalanceConstraints = null,
-    string StrategyId = "sample-earnings-research-policy-v1");
+    string StrategyId = "sample-earnings-research-policy-v1",
+    ResearchDecisionTimingMode DecisionTimingMode =
+        ResearchDecisionTimingMode.ObservedRetrieval);
 
 public sealed record ResearchToRebalanceDemoResult(
     InstrumentReference Instrument,
@@ -132,7 +140,8 @@ public sealed class ResearchToRebalanceDemoService
 
             var generatedAt =
                 GetDeterministicGeneratedAt(
-                    current);
+                    current,
+                    request.DecisionTimingMode);
 
             var decision =
                 DeterministicEarningsDecisionRule
@@ -237,18 +246,39 @@ public sealed class ResearchToRebalanceDemoService
 
     private static DateTimeOffset
         GetDeterministicGeneratedAt(
-            EarningsEvent earningsEvent)
+            EarningsEvent earningsEvent,
+            ResearchDecisionTimingMode timingMode)
     {
         var publishedAt =
             earningsEvent.PublishedAt
                 .ToUniversalTime();
-        var retrievedAt =
-            earningsEvent.Provenance
-                .RetrievedAt
-                .ToUniversalTime();
 
-        return retrievedAt > publishedAt
-            ? retrievedAt
-            : publishedAt;
+        return timingMode switch
+        {
+            ResearchDecisionTimingMode
+                .ObservedRetrieval =>
+                LaterOf(
+                    publishedAt,
+                    earningsEvent.Provenance
+                        .RetrievedAt
+                        .ToUniversalTime()),
+
+            ResearchDecisionTimingMode
+                .HistoricalPublishedAvailability =>
+                publishedAt,
+
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(timingMode),
+                    timingMode,
+                    "Unsupported research-decision timing mode.")
+        };
     }
+
+    private static DateTimeOffset LaterOf(
+        DateTimeOffset left,
+        DateTimeOffset right) =>
+        right > left
+            ? right
+            : left;
 }
