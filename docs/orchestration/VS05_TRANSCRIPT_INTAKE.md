@@ -1,6 +1,13 @@
 # VS-05 — Earnings Transcript Intake Boundary
 
-State: READY_FOR_INTEGRATION
+State: HOLD_ARCHITECTURE
+
+Merge status: DO_NOT_MERGE
+
+Architecture reason:
+generic transcript/document normalization overlaps with the existing DocFlow document-intelligence responsibility.
+
+Preserve current implementation as reference prototype pending repository-boundary decision.
 
 Repository / branch:
 
@@ -15,17 +22,26 @@ TradeOps/vs05-earnings-transcript-intake
 2d1aed28a778dafba4729187c6ac3a87996d6b7a
 ```
 
-## Exact CI-validated implementation HEAD
+## Implementation HEAD
 
 ```text
 e71ac9209463087f6175dd40c16be9e6dd1dcc8a
 ```
 
-This status file is a documentation-only handoff written after the successful full CI run above. The implementation HEAD is the exact commit whose code, tests and sample fixture were validated.
+## Validated CI
+
+```text
+workflow: build
+run id: 37599164325
+conclusion: SUCCESS
+tests: 385/385 passed
+```
+
+The implementation HEAD above is the exact commit whose code, tests and sample fixture were validated. The current branch is intentionally held as an architecture prototype/reference implementation and must not be merged until Development Orchestrator resolves the repository boundary.
 
 ## Goal
 
-Create a bounded deterministic consumer-side intake boundary for already acquired earnings-call transcripts:
+The original bounded slice implemented a deterministic consumer-side intake boundary for already acquired earnings-call transcripts:
 
 ```text
 raw transcript input
@@ -38,7 +54,76 @@ raw transcript input
 -> machine-readable JSON
 ```
 
-The slice ends at the normalized transcript document. It does not perform investment analysis, fact extraction, sentiment, summarization, ResearchDecision generation, portfolio mapping, backtesting, broker integration, scraping, provider acquisition, audio transcription or LLM work.
+The implementation remains preserved for architectural review. No further VS-05 feature development is authorized while this hold is active.
+
+## Architecture hold
+
+The current prototype spans two conceptual responsibility categories.
+
+### GENERIC DOCUMENT / TRANSCRIPT PROCESSING — candidate for DocFlow
+
+```text
+RawEarningsTranscriptInput-like raw document intake
+text normalization
+line-ending / whitespace normalization
+participant/speaker normalization
+segment normalization
+segment ordering
+generic JSON serialization/deserialization
+deterministic document fingerprinting
+deterministic segment fingerprinting/identity
+generic transcript validation
+generic normalized transcript representation
+```
+
+These concerns overlap with the existing DocFlow document-intelligence responsibility and should not automatically become a second generic document-processing engine inside TradeOps.
+
+### TRADEOPS / EARNINGS-RESEARCH CONSUMER CONCERNS
+
+```text
+InstrumentReference mapping
+fiscal-period association
+earnings-event association
+ResearchSourceProvenance mapping at the TradeOps boundary
+future mapping from extracted earnings research facts into the existing TradeOps research pipeline
+```
+
+`ResearchDecision`, portfolio, backtest and rebalance remain downstream concerns and are not part of transcript normalization.
+
+### Intended target architecture
+
+Preferred direction:
+
+```text
+DocFlow
+-> generic document/transcript normalization
+-> structured extraction result
+
+-> separate earnings-research adapter / boundary
+-> earnings-specific structured facts
+-> existing TradeOps research contracts
+-> ResearchDecision
+-> portfolio / backtest / rebalance
+```
+
+TradeOps should not independently become a generic document-processing platform.
+
+DocFlow must not depend on TradeOps contracts. In particular, do not build:
+
+```text
+DocFlow
+-> dependency on TradeOps.Application
+```
+
+Preferred dependency direction:
+
+```text
+DocFlow generic output
+-> adapter / earnings-research boundary
+-> TradeOps consumer contracts
+```
+
+No repository split, code move, shared package extraction or DocFlow branch is part of this VS-05 hold action. Those changes require a separate orchestrated slice after DocFlow review.
 
 ## Changed files
 
@@ -90,7 +175,7 @@ EventDrivenBacktester
 SecEarningsEventFactory
 ```
 
-## Models added
+## Models added in the prototype
 
 ```text
 TranscriptParticipantRole
@@ -101,6 +186,8 @@ RawTranscriptParticipant
 RawTranscriptSegment
 RawEarningsTranscriptInput
 ```
+
+These models are retained as prototype/reference material pending the architecture decision. Their current location in TradeOps is not an approval of final repository ownership.
 
 Participant roles are intentionally bounded to:
 
@@ -113,9 +200,9 @@ Operator
 
 Explicit participant IDs are authoritative. Duplicate display names are allowed and do not merge distinct participants.
 
-## Normalization semantics
+## Normalization semantics in the prototype
 
-The normalizer:
+The current normalizer:
 
 - validates required provider, source document, instrument, fiscal period, title, extraction method, participants and segments;
 - reuses the existing `InstrumentReference`;
@@ -130,6 +217,8 @@ The normalizer:
 - rejects empty transcripts and segments without meaningful text;
 - does not infer identities or merge participants by display name;
 - uses no random GUIDs, clock reads, network, NLP or LLM.
+
+These semantics are preserved for review only. Do not extend `EarningsTranscriptNormalizer` while VS-05 is on architecture hold.
 
 ## Time / provenance semantics
 
@@ -151,7 +240,7 @@ All accepted timestamps are normalized to UTC.
 
 `PublishedAt` must be supplied explicitly by the caller from evidence-backed availability. The normalizer does not derive publication availability from an earnings event time and does not call `DateTime.UtcNow`.
 
-The normalized document reuses `ResearchSourceProvenance` with transcript semantics:
+The prototype maps transcript source metadata into the existing `ResearchSourceProvenance` at the TradeOps consumer boundary:
 
 ```text
 Provider          = transcript source/provider
@@ -163,7 +252,9 @@ SourceDocumentId  = provider/source transcript document identifier
 IssuerId          = optional provider issuer identifier
 ```
 
-## Deterministic identity semantics
+Whether generic provenance normalization belongs upstream in DocFlow versus the earnings-research adapter remains part of the repository-boundary decision. The TradeOps-specific mapping into `ResearchSourceProvenance` remains a TradeOps consumer concern.
+
+## Deterministic identity semantics in the prototype
 
 `DocumentId` is deterministic and is derived from canonical:
 
@@ -190,7 +281,9 @@ It uses the prefix `segment:` followed by a lowercase SHA-256 digest.
 
 The same logical input therefore produces the same document and segment IDs. A meaningful segment text change changes that segment identity.
 
-## Fingerprint semantics
+These mechanisms are candidates for generic DocFlow responsibility rather than final TradeOps ownership.
+
+## Fingerprint semantics in the prototype
 
 The document fingerprint is a 64-character lowercase SHA-256 hex value over a length-prefixed canonical representation that includes:
 
@@ -210,7 +303,9 @@ The fingerprint does not depend on JSON property order. CRLF vs LF and semantica
 
 Meaningful transcript text changes or changes in the sequence/content association change the fingerprint.
 
-## JSON serialization
+Generic document/segment fingerprinting is explicitly part of the DocFlow-candidate responsibility under architecture review.
+
+## JSON serialization in the prototype
 
 `EarningsTranscriptJson` uses `System.Text.Json` only.
 
@@ -224,7 +319,7 @@ DeserializeNormalized
 
 Normalized JSON deserialization validates the complete normalized document fail closed, including deterministic DocumentId, SegmentId values, canonical ordering and the document fingerprint. Unknown JSON members are rejected.
 
-Normalized document -> JSON -> normalized document preserves meaningful fields and fingerprint semantics.
+Generic JSON serialization/deserialization of normalized transcript documents is a DocFlow-candidate responsibility under architecture review.
 
 ## Sample fixture
 
@@ -242,11 +337,11 @@ network dependency: none
 copyrighted transcript text: none
 ```
 
-It is a format/normalization example only and is not a financial recommendation.
+It remains preserved as prototype/reference material only.
 
 ## Tests
 
-VS-05 adds 17 deterministic tests covering:
+The preserved VS-05 prototype tests cover:
 
 - valid raw transcript -> normalized document;
 - reuse of existing `InstrumentReference`;
@@ -270,7 +365,7 @@ VS-05 adds 17 deterministic tests covering:
 - duplicate display names with different explicit participant IDs remain distinct;
 - synthetic sample fixture normalizes successfully.
 
-Full solution CI result:
+Validated full solution result:
 
 ```text
 Total tests: 385
@@ -282,42 +377,62 @@ Failed: 0
 
 ```text
 workflow: build
-run number: 678
 run id: 37599164325
 commit: e71ac9209463087f6175dd40c16be9e6dd1dcc8a
 conclusion: SUCCESS
 ```
 
-Validated stages:
+Validated stages included restore/build, 385/385 unit tests, API + PostgreSQL smoke, signed webhook E2E, customer TradingView demo, client starter-kit validation, Docker Compose/gateway validation and Docker image build.
+
+## Hold constraints
+
+While State is `HOLD_ARCHITECTURE`:
 
 ```text
-restore
-build
-385/385 unit tests
-API + PostgreSQL smoke test
-signed webhook end-to-end demo
-customer TradingView demo
-client pilot starter-kit validation
-Docker Compose validation
-TradingView gateway deployment validation
-Docker image build
+DO NOT MERGE this branch into main.
+DO NOT synchronize/rebase/merge new main into this branch without an explicit Orchestrator command.
+DO NOT revert or delete the current prototype.
+DO NOT cherry-pick the prototype into another branch.
+DO NOT create a DocFlow branch from VS-05.
+DO NOT copy this code into DocFlow.
+DO NOT create a new shared package.
+DO NOT extend EarningsTranscriptNormalizer.
+DO NOT start a new transcript feature slice.
+```
+
+Explicitly out of scope while held:
+
+```text
+LLM
+NLP
+sentiment
+summary
+guidance extraction
+fact extraction
+provider API
+HTTP acquisition
+scraping
+audio
+speech-to-text
+CLI
+database storage
+ResearchDecision integration
+backtest integration
+portfolio integration
 ```
 
 ## Blockers
 
-None for integration review of this bounded slice.
+Architecture ownership is intentionally unresolved.
 
-No provider acquisition, transcript extraction/classification or LLM dependency is required for this slice.
+The blocker is repository-boundary review between the existing DocFlow document-intelligence responsibility and the TradeOps earnings-research consumer boundary.
 
-## Next integration action
+The current code is therefore a reference prototype, not an approved production boundary for TradeOps.
 
-Development Orchestrator should:
+## Next action
 
-1. compare VS-05 against current `main`;
-2. verify the diff remains limited to the transcript intake model/service/tests/sample plus this status file;
-3. confirm no frozen/shared contract or VS-04-owned file changed;
-4. review the deterministic identity, availability/provenance and fingerprint semantics;
-5. integrate VS-05 if review remains green;
-6. only after a separate orchestration decision start any transcript extraction/classification/LLM slice.
+Development Orchestrator should review DocFlow and decide the repository boundary for generic transcript/document processing.
 
-Do not extend VS-05 into ResearchDecision, policy mapping, portfolio/rebalance, backtest, IBKR, scraping, transcript-provider API, audio transcription or real-time transcript streaming.
+No merge or refactor action is authorized from VS-05 until that decision is made.
+
+After the architecture decision, a separate orchestrated slice may define the generic DocFlow output and the earnings-research adapter into TradeOps consumer contracts.
