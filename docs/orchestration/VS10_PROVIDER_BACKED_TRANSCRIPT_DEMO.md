@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -468,3 +468,109 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+
+## Worker handoff
+
+### Current implementation HEAD
+
+```text
+4e05a5476e20e6e6f4d6b65aacd5bfe234a8dcc0
+```
+
+This is the CI-validated implementation commit. The branch may have a later documentation-only handoff commit; the worker final response must report the live branch HEAD.
+
+### Changed files
+
+```text
+TradeOps.sln
+samples/research/provider-transcript-demo/consumer-manifest.json
+tests/TradeOps.UnitTests/ProviderTranscriptResearchDemoTests.cs
+tests/TradeOps.UnitTests/TradeOps.UnitTests.csproj
+tools/TradeOps.ProviderTranscriptResearchDemo/Program.cs
+tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs
+tools/TradeOps.ProviderTranscriptResearchDemo/TradeOps.ProviderTranscriptResearchDemo.csproj
+docs/orchestration/VS10_PROVIDER_BACKED_TRANSCRIPT_DEMO.md
+```
+
+### Runnable command
+
+```text
+dotnet run --project tools/TradeOps.ProviderTranscriptResearchDemo -- \
+  --docflow-root <path-to-DocFlow-checkout> \
+  --model <explicit-openai-model>
+```
+
+Optional overrides remain:
+
+```text
+--python <python-executable>
+--work-dir <path>
+```
+
+The model is mandatory. The API credential is environment-only.
+
+### Process boundary
+
+The new tool has no ProjectReference or PackageReference to DocFlow and contains no HTTP/provider SDK integration.
+
+Runtime composition is strictly:
+
+```text
+TradeOps synthetic raw/schema inputs
+-> injected child-process runner
+-> external DocFlow DF-06 CLI (prior)
+-> external DocFlow DF-06 CLI (current)
+-> copied VS-08-compatible consumer manifest
+-> existing TradeOps VS-08 CLI
+-> transcript-research-result.json
+```
+
+Production process execution uses `ProcessStartInfo`, `UseShellExecute = false`, and `ArgumentList`. It invokes Python directly for DF-06 and `dotnet` directly for VS-08. No shell executable or shell command string is used. Child processes inherit the environment; the credential value is neither copied into arguments/configuration nor emitted to the console. Child stdout/stderr is discarded by the process runner so provider/transcript payloads are not forwarded.
+
+### Tests
+
+Network-free fake-runner coverage verifies the VS-10 contract, including:
+
+- required explicit model, Python/work-directory defaults and explicit overrides;
+- DocFlow root/entry-point validation and credential preflight before process execution;
+- exact prior/current DF-06 argument lists, model forwarding, working directory and no credential argument;
+- `ArgumentList`/no-shell process construction;
+- prior/current failure short-circuit behavior, including DF-06 exit code 2 and partial-artifact preservation;
+- unchanged manifest copy, exact VS-08 CLI arguments and result target;
+- VS-08 failure propagation and complete success-artifact requirements;
+- prevention of generated output in committed sample/schema directories;
+- no provider SDK/HTTP/DocFlow project dependency and no duplicate earnings/ResearchDecision logic;
+- console/secret/transcript leakage guards.
+
+Existing VS-08 and VS-09 regression tests remain in the full TradeOps unit-test step.
+
+CI-validated result:
+
+```text
+37625253084 — SUCCESS
+```
+
+The workflow completed restore, build, unit tests, existing integration/smoke stages and Docker build successfully.
+
+### Privacy / secret scan
+
+All implementation changed files were scanned before handoff. No prohibited personal/client-name hits and no embedded API-key value pattern were found. The handoff document contains only synthetic/provider-neutral project data.
+
+### Real-provider smoke
+
+```text
+real-provider smoke: NOT RUN — external credential/model required
+```
+
+No explicit provider model was supplied to this worker, so the optional real-provider smoke was not run and is not an integration blocker.
+
+### Blockers
+
+No blocker for the bounded VS-10 implementation.
+
+The optional real-provider smoke remains externally gated by an explicit model and operator credential environment.
+
+### Next integration action
+
+Development Orchestrator should review the VS-10 branch diff and exact-head CI, then integrate the branch if accepted. This worker must not merge it independently.
