@@ -124,7 +124,7 @@ public sealed class TranscriptResearchToRebalanceDemoTests
             result.ResearchToRebalance
                 .Backtest
                 .Metrics);
-        Assert.Equal(
+        AssertPortfolioEquivalent(
             downstreamExpected.Backtest
                 .FinalPortfolio,
             result.ResearchToRebalance
@@ -639,6 +639,27 @@ public sealed class TranscriptResearchToRebalanceDemoTests
                     policy.StrategyId,
                     ResearchDecisionTimingMode
                         .ObservedRetrieval));
+    }
+
+    private static void AssertPortfolioEquivalent(
+        PortfolioSnapshot expected,
+        PortfolioSnapshot actual)
+    {
+        Assert.Equal(
+            expected.BaseCurrency,
+            actual.BaseCurrency);
+        Assert.Equal(
+            expected.NetAssetValue,
+            actual.NetAssetValue);
+        Assert.Equal(
+            expected.Cash,
+            actual.Cash);
+        Assert.Equal(
+            expected.AsOf,
+            actual.AsOf);
+        Assert.Equal(
+            expected.Positions.ToArray(),
+            actual.Positions.ToArray());
     }
 
     private static void AssertRebalancePlanEquivalent(
