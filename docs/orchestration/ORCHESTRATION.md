@@ -12,10 +12,12 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: 974b7821a2049af4458b6243625d07239d671c5f
+main: b27ebdde88c8671815f363500abaf01a4622daa1
 latest production merge: VS-12 — Provider-Selectable Two-Repository Demo Harness (PR #64)
 VS-12 merge commit: c0d222a5399b0a112e072d232351dccb55a548ac
 VS-12 post-merge CI: 37640969754 — SUCCESS
+runtime-artifact ignore fix: fc6abc8dc73af6088886cc5259f51b8663fc70c7; CI 37651592492 — SUCCESS
+real Groq smoke record: b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 — SUCCESS
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
@@ -31,6 +33,7 @@ main: be957f139cae0eafff3cd47241a5d7dd6beca855
 latest integrated slice: DF-07 — Groq Schema-Driven Text Extraction Backend (PR #7)
 DF-07 merge commit: 211f890625712a161eadad09e56962ad69a759f5
 post-merge CI: 37640516860 — SUCCESS
+current main HEAD be957f139cae0eafff3cd47241a5d7dd6beca855 is docs-only and has no separate workflow run
 DF-02 Generic Text/Transcript Normalization integrated via PR #2
 legacy QBO work: HOLD / maintenance unless business priority changes
 ```
@@ -93,6 +96,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-10 | Provider-Backed Two-Repository Transcript Research Demo | TradeOps/vs10-provider-backed-transcript-demo | INTEGRATED | PR #63; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS; real-provider smoke externally gated |
 | VS-11 | Transcript Research-to-Backtest/Rebalance Composition | TradeOps/vs11-transcript-research-rebalance-demo | INTEGRATED | PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; fail-closed research equivalence gate |
 | VS-12 | Provider-Selectable Two-Repository Demo Harness | TradeOps/vs12-provider-selectable-transcript-demo | INTEGRATED | PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS; local real Groq run is next |
+| VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Harness | TradeOps/vs13-provider-transcript-rebalance-e2e | READY | compose integrated provider transcript artifacts through existing VS-11; auditable JSON; bounded child-process hardening; no new research/backtest/rebalance/broker contracts |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -161,8 +165,9 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 26. WAITING_EXTERNAL — OpenAI real-provider smoke remains optional and blocked by separate OpenAI API billing; do not require it for progress.
 27. DONE — DF-07 Groq Schema-Driven Text Extraction Backend integrated via PR #7; exact-head CI 37639935357 SUCCESS; 116/116 tests; post-merge CI 37640516860 SUCCESS.
 28. DONE — VS-12 Provider-Selectable Two-Repository Demo Harness integrated via PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS.
-29. NEXT — execute one real Groq provider end-to-end verification locally from Visual Studio 2022 on the existing synthetic VS-09 inputs using GROQ_API_KEY and an explicit strict-structured-output model; then record the generated artifacts/result and proceed to provider -> research -> backtest/rebalance evidence via integrated VS-11.
-30. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+29. DONE — local real Groq smoke completed on integrated mains with environment-only GROQ_API_KEY and model openai/gpt-oss-20b; DocFlow prior/current and TradeOps VS-08 all exited 0; provider transcript research demo passed; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS.
+30. NEXT — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Harness: compose the provider-generated normalized/structured artifacts through existing VS-11 into existing backtest metrics and current RebalancePlan/RebalanceOrderIntent, emit auditable JSON, and harden TradeOps child-process .NET host/output diagnostics without expanding domain or broker scope.
+31. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -265,8 +270,8 @@ DONE VS-11 Transcript Research-to-Backtest/Rebalance Composition — PR #62; pos
 WAIT OpenAI real-provider smoke — separate API billing unavailable; not a blocker
 DONE DF-07 Groq Schema-Driven Text Extraction Backend — PR #7; post-merge CI 37640516860 SUCCESS; 116/116 tests
 DONE VS-12 Provider-Selectable Two-Repository Demo Harness — PR #64; post-merge CI 37640969754 SUCCESS; 490/490 tests
-P0 LOCAL VALIDATION  Run the integrated Groq path from Visual Studio 2022 using locally configured GROQ_API_KEY and an explicit strict-mode model
-NEXT After successful local run, capture provider -> research -> backtest/rebalance evidence via integrated VS-11
+DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow prior/current + TradeOps VS-08 exit 0; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS
+P0 VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Harness — compose the real-provider-compatible transcript path through existing VS-11 and emit auditable JSON; include bounded .NET child-host/output hardening
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
