@@ -14,13 +14,13 @@ TradeOps/vs07-structured-earnings-facts
 ## Baseline
 
 ```text
-e85f7ff07a1e75e0bea9c5d3baa88490d32b03a5
+c6e50fe3285346cbe1318e3d26270fc00a3b5883
 ```
 
 Baseline CI:
 
 ```text
-37607168006 — SUCCESS
+37607668804 — IN_PROGRESS (documentation-only orchestration launch commit)
 ```
 
 ## Purpose
