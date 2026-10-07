@@ -20,5 +20,6 @@
     <ProjectReference Include="..\..\src\TradeOps.Application\TradeOps.Application.csproj" />
     <ProjectReference Include="..\..\src\TradeOps.Infrastructure\TradeOps.Infrastructure.csproj" />
     <ProjectReference Include="..\..\tools\TradeOps.PublicResearchDemo\TradeOps.PublicResearchDemo.csproj" />
+    <ProjectReference Include="..\..\tools\TradeOps.TranscriptResearchDemo\TradeOps.TranscriptResearchDemo.csproj" />
   </ItemGroup>
 </Project>
