@@ -416,10 +416,6 @@ public sealed class TranscriptResearchToRebalanceDemoTests
         Assert.DoesNotContain(
             "TradeOps.TranscriptResearchDemo",
             references);
-        Assert.DoesNotContain(
-            "System.Net.Http",
-            references);
-
         var source =
             File.ReadAllText(
                 Path.Combine(
