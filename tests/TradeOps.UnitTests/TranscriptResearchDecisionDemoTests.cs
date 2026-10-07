@@ -586,7 +586,9 @@ public sealed class TranscriptResearchDecisionDemoTests
                 document.RootElement
                     .GetProperty("current")
                     .GetProperty("evidence")
-                    .GetProperty("revenue")[0]
+                    .GetProperty("revenue")
+                    .EnumerateArray()
+                    .Single()
                     .GetString());
         }
         finally
