@@ -41,6 +41,8 @@ public sealed class ProviderTranscriptResearchDemoTests
         Assert.Equal(
             ProviderTranscriptResearchProvider.OpenAi,
             options.Provider);
+        Assert.Null(
+            options.DotNetExecutable);
 
         var root =
             Path.GetFullPath(
@@ -93,6 +95,374 @@ public sealed class ProviderTranscriptResearchDemoTests
                 explicitWork),
             options.ResolveWorkDirectory(
                 fixture.TradeOpsRoot));
+    }
+
+    [Fact]
+    public void Options_parse_explicit_dotnet_and_missing_value_fails_closed()
+    {
+        var options =
+            ProviderTranscriptResearchDemoOptions
+                .Parse(
+                    new[]
+                    {
+                        "--docflow-root",
+                        "docflow",
+                        "--model",
+                        "explicit-model",
+                        "--dotnet",
+                        "custom-dotnet"
+                    });
+
+        Assert.Equal(
+            "custom-dotnet",
+            options.DotNetExecutable);
+
+        Assert.Throws<ArgumentException>(
+            () =>
+                ProviderTranscriptResearchDemoOptions
+                    .Parse(
+                        new[]
+                        {
+                            "--docflow-root",
+                            "docflow",
+                            "--model",
+                            "explicit-model",
+                            "--dotnet"
+                        }));
+    }
+
+    [Fact]
+    public void Explicit_dotnet_host_wins_over_environment_hints()
+    {
+        using var fixture =
+            new Fixture();
+        var explicitHost =
+            fixture.CreateDotNetHost(
+                "explicit-host");
+        var environmentHost =
+            fixture.CreateDotNetHost(
+                "environment-host");
+        var rootHost =
+            fixture.CreateDotNetHost(
+                "environment-root");
+        var environment =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>
+                {
+                    [DotNetHostResolver
+                        .DotNetHostPathEnvironmentVariable] =
+                        environmentHost,
+                    [DotNetHostResolver
+                        .DotNetRootEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            rootHost)
+                });
+
+        var selection =
+            DotNetHostResolver.Resolve(
+                explicitHost,
+                environment);
+
+        Assert.Equal(
+            explicitHost,
+            selection.Executable);
+        Assert.Equal(
+            "explicit --dotnet",
+            selection.Source);
+        Assert.Empty(
+            environment.Requests);
+    }
+
+    [Fact]
+    public void Environment_dotnet_hint_precedence_is_deterministic()
+    {
+        using var fixture =
+            new Fixture();
+        var hostPath =
+            fixture.CreateDotNetHost(
+                "host-path");
+        var rootHost =
+            fixture.CreateDotNetHost(
+                "root-host");
+        var resolverHost =
+            fixture.CreateDotNetHost(
+                "resolver-host");
+
+        var allHints =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>
+                {
+                    [DotNetHostResolver
+                        .DotNetHostPathEnvironmentVariable] =
+                        hostPath,
+                    [DotNetHostResolver
+                        .DotNetRootEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            rootHost),
+                    [DotNetHostResolver
+                        .DotNetMsBuildSdkResolverCliDirEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            resolverHost)
+                });
+
+        Assert.Equal(
+            hostPath,
+            DotNetHostResolver
+                .Resolve(
+                    null,
+                    allHints)
+                .Executable);
+
+        var rootHints =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>
+                {
+                    [DotNetHostResolver
+                        .DotNetRootEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            rootHost),
+                    [DotNetHostResolver
+                        .DotNetMsBuildSdkResolverCliDirEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            resolverHost)
+                });
+
+        Assert.Equal(
+            rootHost,
+            DotNetHostResolver
+                .Resolve(
+                    null,
+                    rootHints)
+                .Executable);
+
+        var resolverHints =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>
+                {
+                    [DotNetHostResolver
+                        .DotNetMsBuildSdkResolverCliDirEnvironmentVariable] =
+                        Path.GetDirectoryName(
+                            resolverHost)
+                });
+
+        Assert.Equal(
+            resolverHost,
+            DotNetHostResolver
+                .Resolve(
+                    null,
+                    resolverHints)
+                .Executable);
+
+        var fallback =
+            DotNetHostResolver.Resolve(
+                null,
+                new RecordingEnvironmentReader(
+                    new Dictionary<string, string?>()));
+
+        Assert.Equal(
+            DotNetHostResolver.PlatformExecutableName,
+            fallback.Executable);
+        Assert.Equal(
+            "PATH fallback",
+            fallback.Source);
+    }
+
+    [Fact]
+    public void Invalid_explicit_dotnet_host_fails_before_any_child_process()
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            new RecordingRunner();
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    dotNetExecutable:
+                        Path.Combine(
+                            fixture.Root,
+                            "missing",
+                            DotNetHostResolver
+                                .PlatformExecutableName)),
+                runner);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Empty(
+            runner.PreflightInvocations);
+        Assert.Empty(
+            runner.Invocations);
+        Assert.Contains(
+            "explicit --dotnet",
+            result.Error,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Global_json_latest_patch_policy_accepts_compatible_dotnet_8_sdk()
+    {
+        using var fixture =
+            new Fixture();
+        var policy =
+            DotNetSdkPolicy.Load(
+                fixture.TradeOpsRoot);
+
+        Assert.Equal(
+            "8.0.400",
+            policy.RequestedVersion);
+        Assert.Equal(
+            "latestPatch",
+            policy.RollForward);
+        Assert.False(
+            policy.AllowPrerelease);
+
+        policy.ValidateResolvedVersion(
+            "8.0.421");
+    }
+
+    [Theory]
+    [InlineData("7.0.410")]
+    [InlineData("8.1.400")]
+    [InlineData("8.0.399")]
+    [InlineData("8.0.500")]
+    [InlineData("8.0.421-preview.1")]
+    public void Global_json_policy_rejects_incompatible_or_prerelease_sdk(
+        string version)
+    {
+        using var fixture =
+            new Fixture();
+        var policy =
+            DotNetSdkPolicy.Load(
+                fixture.TradeOpsRoot);
+
+        Assert.Throws<InvalidOperationException>(
+            () =>
+                policy.ValidateResolvedVersion(
+                    version));
+    }
+
+    [Fact]
+    public void Dotnet_preflight_failure_stops_before_provider_and_reports_safe_host_diagnostics()
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            new RecordingRunner(
+                preflightResult:
+                    new ChildProcessResult(
+                        131,
+                        "untrusted stdout payload",
+                        "A fatal error occurred. The .NET SDK could not be resolved from global.json."));
+
+        var result =
+            fixture.Run(
+                fixture.Options(),
+                runner);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Single(
+            runner.PreflightInvocations);
+        Assert.Empty(
+            runner.Invocations);
+        Assert.Contains(
+            "dotnet preflight failed",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "exit code 131",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "SDK",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "untrusted stdout payload",
+            result.Error,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Incompatible_preflight_sdk_stops_before_provider()
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            new RecordingRunner(
+                preflightResult:
+                    new ChildProcessResult(
+                        0,
+                        "9.0.100\n",
+                        string.Empty));
+
+        var result =
+            fixture.Run(
+                fixture.Options(),
+                runner);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Single(
+            runner.PreflightInvocations);
+        Assert.Empty(
+            runner.Invocations);
+        Assert.Contains(
+            "incompatible with global.json",
+            result.Error,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Explicit_valid_host_is_preflighted_and_used_for_tradeops_consumer()
+    {
+        using var fixture =
+            new Fixture();
+        var host =
+            fixture.CreateDotNetHost(
+                "operator-host");
+        var runner =
+            fixture.SuccessfulRunner();
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    dotNetExecutable:
+                        host),
+                runner);
+
+        Assert.Equal(
+            0,
+            result.ExitCode);
+        Assert.Single(
+            runner.PreflightInvocations);
+        Assert.Equal(
+            host,
+            runner.PreflightInvocations[0]
+                .FileName);
+        Assert.Equal(
+            new[]
+            {
+                "--version"
+            },
+            runner.PreflightInvocations[0]
+                .Arguments);
+        Assert.Equal(
+            host,
+            runner.Invocations[2]
+                .FileName);
+        Assert.Contains(
+            "Dotnet host: " +
+            host,
+            result.Output,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Dotnet SDK: 8.0.421",
+            result.Output,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -365,6 +735,156 @@ public sealed class ProviderTranscriptResearchDemoTests
     }
 
     [Fact]
+    public void Bounded_diagnostics_are_deterministic_and_never_exceed_limit()
+    {
+        var input =
+            new string(
+                'x',
+                SystemChildProcessRunner
+                    .MaxCapturedCharactersPerStream +
+                512);
+
+        var first =
+            SystemChildProcessRunner
+                .BoundForDiagnostics(
+                    input);
+        var second =
+            SystemChildProcessRunner
+                .BoundForDiagnostics(
+                    input);
+
+        Assert.Equal(
+            SystemChildProcessRunner
+                .MaxCapturedCharactersPerStream,
+            first.Length);
+        Assert.Equal(
+            first,
+            second);
+        Assert.EndsWith(
+            SystemChildProcessRunner
+                .TruncationMarker,
+            first,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Provider_failure_does_not_forward_provider_stdout_or_stderr()
+    {
+        using var fixture =
+            new Fixture();
+        const string secret =
+            "provider-secret-marker";
+        var runner =
+            new RecordingRunner(
+                (_, index) =>
+                index == 0
+                    ? new ChildProcessResult(
+                        2,
+                        "RAW_PROVIDER_TRANSCRIPT_MARKER " +
+                        secret,
+                        "Authorization: Bearer " +
+                        secret)
+                    : 0);
+
+        var result =
+            fixture.Run(
+                fixture.Options(),
+                runner,
+                apiKey:
+                    secret);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.DoesNotContain(
+            "RAW_PROVIDER_TRANSCRIPT_MARKER",
+            result.Output,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "RAW_PROVIDER_TRANSCRIPT_MARKER",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            secret,
+            result.Output,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            secret,
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Provider child output is suppressed",
+            result.Error,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Tradeops_failure_reports_only_safe_redacted_dotnet_diagnostics()
+    {
+        using var fixture =
+            new Fixture();
+        const string secret =
+            "tradeops-secret-marker";
+        var runner =
+            new RecordingRunner(
+                (invocation, index) =>
+                {
+                    if (index < 2)
+                    {
+                        WriteProviderArtifacts(
+                            invocation);
+                        return 0;
+                    }
+
+                    return new ChildProcessResult(
+                        5,
+                        "RAW_TRANSCRIPT_BODY_MARKER " +
+                        secret,
+                        "The .NET SDK failed. Authorization: Bearer " +
+                        secret);
+                });
+
+        var result =
+            fixture.Run(
+                fixture.Options(),
+                runner,
+                apiKey:
+                    secret);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Contains(
+            "Safe dotnet diagnostics:",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            ".NET SDK",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "failed. Authorization",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "exit code 5",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            secret,
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "RAW_TRANSCRIPT_BODY_MARKER",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "RAW_TRANSCRIPT_BODY_MARKER",
+            result.Output,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Prior_failure_stops_current_and_vs08()
     {
         using var fixture =
@@ -500,7 +1020,7 @@ public sealed class ProviderTranscriptResearchDemoTests
             runner.Invocations[2];
 
         Assert.Equal(
-            "dotnet",
+            DotNetHostResolver.PlatformExecutableName,
             consumer.FileName);
         Assert.Equal(
             fixture.TradeOpsRoot,
@@ -741,6 +1261,22 @@ public sealed class ProviderTranscriptResearchDemoTests
             "ProcessStartInfo.Environment",
             source,
             StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            @"D:DotNet",
+            source,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            @"C:Program Filesdotnet",
+            source,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            "ReadToEnd",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "CaptureBoundedAsync",
+            source,
+            StringComparison.Ordinal);
     }
 
 
@@ -855,12 +1391,23 @@ public sealed class ProviderTranscriptResearchDemoTests
         Assert.Equal(
             0,
             result.ExitCode);
-        Assert.Equal(
-            new[]
-            {
-                selectedEnvironmentVariable
-            },
+        Assert.NotEmpty(
             environment.Requests);
+        Assert.Equal(
+            selectedEnvironmentVariable,
+            environment.Requests[0]);
+        Assert.DoesNotContain(
+            environment.Requests,
+            name =>
+                string.Equals(
+                    name,
+                    provider ==
+                    ProviderTranscriptResearchProvider.OpenAi
+                        ? ProviderTranscriptResearchDemoHarness
+                            .GroqApiKeyEnvironmentVariable
+                        : ProviderTranscriptResearchDemoHarness
+                            .OpenAiApiKeyEnvironmentVariable,
+                    StringComparison.Ordinal));
 
         Assert.Equal(
             3,
@@ -1036,16 +1583,30 @@ public sealed class ProviderTranscriptResearchDemoTests
     private sealed class RecordingRunner :
         IChildProcessRunner
     {
-        private readonly Func<ChildProcessInvocation, int, int> _handler;
+        private readonly Func<ChildProcessInvocation, int, ChildProcessResult> _handler;
+        private readonly ChildProcessResult _preflightResult;
 
         public RecordingRunner(
-            Func<ChildProcessInvocation, int, int>? handler = null)
+            Func<ChildProcessInvocation, int, ChildProcessResult>? handler = null,
+            ChildProcessResult? preflightResult = null)
         {
             _handler =
                 handler
                 ?? ((_, _) =>
                     0);
+            _preflightResult =
+                preflightResult
+                ?? new ChildProcessResult(
+                    0,
+                    "8.0.421\n",
+                    string.Empty);
         }
+
+        public List<ChildProcessInvocation> PreflightInvocations
+        {
+            get;
+        } =
+            new();
 
         public List<ChildProcessInvocation> Invocations
         {
@@ -1053,9 +1614,21 @@ public sealed class ProviderTranscriptResearchDemoTests
         } =
             new();
 
-        public int Run(
+        public ChildProcessResult Run(
             ChildProcessInvocation invocation)
         {
+            if (invocation.Arguments.Count == 1
+                && string.Equals(
+                    invocation.Arguments[0],
+                    "--version",
+                    StringComparison.Ordinal))
+            {
+                PreflightInvocations.Add(
+                    invocation);
+
+                return _preflightResult;
+            }
+
             var index =
                 Invocations.Count;
             Invocations.Add(
@@ -1154,6 +1727,19 @@ public sealed class ProviderTranscriptResearchDemoTests
                     TradeOpsRoot,
                     "TradeOps.sln"),
                 string.Empty);
+            File.WriteAllText(
+                Path.Combine(
+                    TradeOpsRoot,
+                    "global.json"),
+                """
+                {
+                  "sdk": {
+                    "version": "8.0.400",
+                    "rollForward": "latestPatch",
+                    "allowPrerelease": false
+                  }
+                }
+                """);
 
             PriorRaw =
                 CreateTradeOpsFile(
@@ -1256,7 +1842,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             string python = "python",
             string? workDirectory = null,
             ProviderTranscriptResearchProvider provider =
-                ProviderTranscriptResearchProvider.OpenAi) =>
+                ProviderTranscriptResearchProvider.OpenAi,
+            string? dotNetExecutable = null) =>
             new(
                 docFlowRoot
                 ?? DocFlowRoot,
@@ -1264,7 +1851,31 @@ public sealed class ProviderTranscriptResearchDemoTests
                 python,
                 workDirectory
                 ?? WorkDirectory,
-                provider);
+                provider,
+                dotNetExecutable);
+
+        public string CreateDotNetHost(
+            string directoryName)
+        {
+            var directory =
+                Path.Combine(
+                    Root,
+                    directoryName);
+            Directory.CreateDirectory(
+                directory);
+
+            var path =
+                Path.Combine(
+                    directory,
+                    DotNetHostResolver
+                        .PlatformExecutableName);
+            File.WriteAllText(
+                path,
+                string.Empty);
+
+            return Path.GetFullPath(
+                path);
+        }
 
         public RecordingRunner SuccessfulRunner() =>
             new(
