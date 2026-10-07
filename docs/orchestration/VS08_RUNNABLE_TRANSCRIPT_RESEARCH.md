@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -454,3 +454,167 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+
+## Completion handoff
+
+### Validated implementation HEAD
+
+```text
+795ef1bc7c554cc390a64e0aa50eec27d80ea107
+```
+
+This is the exact implementation HEAD validated by CI. The status-file commit that records this handoff is documentation-only and therefore advances the branch after the validated implementation commit.
+
+### Changed files
+
+```text
+TradeOps.sln
+docs/orchestration/VS08_RUNNABLE_TRANSCRIPT_RESEARCH.md
+samples/research/transcript-research/current-normalized.json
+samples/research/transcript-research/current-structured.json
+samples/research/transcript-research/manifest.json
+samples/research/transcript-research/policy.json
+samples/research/transcript-research/prior-normalized.json
+samples/research/transcript-research/prior-structured.json
+src/TradeOps.Application/Services/TranscriptResearchDecisionDemoService.cs
+tests/TradeOps.UnitTests/TradeOps.UnitTests.csproj
+tests/TradeOps.UnitTests/TranscriptResearchDecisionDemoTests.cs
+tools/TradeOps.TranscriptResearchDemo/Program.cs
+tools/TradeOps.TranscriptResearchDemo/TradeOps.TranscriptResearchDemo.csproj
+tools/TradeOps.TranscriptResearchDemo/TranscriptResearchDemo.cs
+tools/TradeOps.TranscriptResearchDemo/TranscriptResearchDemoManifest.cs
+```
+
+### Completed
+
+- added the bounded `TranscriptResearchDecisionDemoService` composition;
+- prior/current normalized artifacts flow through `DocFlowEarningsResearchAdapter.Adapt`;
+- prior/current structured artifacts flow through `DocFlowStructuredEarningsFactsAdapter.Adapt`;
+- both events are created through `EarningsTranscriptEventFactory.Create`;
+- full `InstrumentReference` value identity is required across prior/current inputs;
+- prior `PublishedAt` must be strictly earlier than current `PublishedAt`;
+- policy mapping uses `EarningsResearchPolicyConfiguration.ToDecisionRuleSettings` and `ToTargetWeightPolicy`;
+- assessment uses `DeterministicEarningsDecisionRule.Assess`;
+- final decision uses `DeterministicEarningsDecisionRule.Evaluate`;
+- `GeneratedAt` is deterministic and equals the later UTC value of current `PublishedAt` and current provenance `RetrievedAt`;
+- added the offline file-driven `TradeOps.TranscriptResearchDemo` tool;
+- added strict schema-version-1 manifest transport with fail-closed unknown members and manifest-relative artifact paths;
+- added deterministic auditable JSON output including policy fingerprint, event/provenance identity, DocFlow document identity, extraction engine, compact fact/evidence summaries, assessment and existing `ResearchDecision`;
+- added fully synthetic prior/current normalized and structured artifacts plus manifest and existing-format policy;
+- no backtest, rebalance, execution, persistence, provider acquisition, HTTP, Python process, or DocFlow project/package dependency was added.
+
+### Public/shared contracts
+
+No frozen shared contract was changed.
+
+The slice reuses the existing:
+
+```text
+InstrumentReference
+ResearchDecision
+EarningsTranscriptResearchInput
+EarningsTranscriptFactSet
+EarningsEvent
+EarningsResearchPolicyDefinition
+```
+
+The manifest/output transport types are scoped to the runnable tool. The application composition introduces no replacement `ResearchDecision` or alternate earnings parsing contract.
+
+### Runnable command
+
+From the repository root:
+
+```bash
+dotnet run --project tools/TradeOps.TranscriptResearchDemo -- \
+  --manifest samples/research/transcript-research/manifest.json \
+  --policy samples/research/transcript-research/policy.json \
+  --json artifacts/transcript-research-result.json
+```
+
+No network access is required.
+
+### Synthetic sample artifacts
+
+```text
+samples/research/transcript-research/prior-normalized.json
+samples/research/transcript-research/prior-structured.json
+samples/research/transcript-research/current-normalized.json
+samples/research/transcript-research/current-structured.json
+samples/research/transcript-research/manifest.json
+samples/research/transcript-research/policy.json
+```
+
+The fixtures use generic synthetic identities and `example.test` source URLs only.
+
+### Tests
+
+CI regression result at the validated implementation HEAD:
+
+```text
+446 / 446 tests passed
+```
+
+VS-08 coverage includes:
+
+- valid prior/current composition through the real VS-06 and VS-07 adapters;
+- existing event factory usage and instrument/context preservation;
+- DocFlow document ID and fingerprint preservation;
+- extraction-engine and evidence-segment preservation;
+- policy loading/mapping through the existing configuration layer;
+- policy fingerprint preservation;
+- direct equivalence with existing `Assess` and `Evaluate` outputs;
+- deterministic current-event `GeneratedAt`;
+- invalid normalized and structured artifacts rejected;
+- fingerprint/identity mismatch rejected;
+- unknown evidence rejected;
+- instrument mismatch rejected;
+- non-increasing event time rejected;
+- invalid policy rejected;
+- unknown manifest members and unsupported schema version rejected;
+- manifest-relative path resolution;
+- missing artifact returns non-zero CLI status;
+- successful CLI produces byte-stable deterministic JSON across repeated runs;
+- console output excludes full transcript text;
+- architecture guards cover clock/network/process/project coupling and the existing `ResearchDecision` type boundary;
+- full TradeOps build, unit-test, PostgreSQL/API smoke, existing E2E/demo validation, deployment validation and Docker-image build remained green.
+
+### Exact CI
+
+```text
+37614919273 — SUCCESS
+workflow: build
+run number: 741
+validated HEAD: 795ef1bc7c554cc390a64e0aa50eec27d80ea107
+unit tests: 446 / 446 passed
+```
+
+An earlier run exposed one test-only compile import omission; it was corrected before the successful exact-head run above.
+
+### Privacy scan
+
+All changed files were scanned before handoff.
+
+Result:
+
+```text
+PASS
+```
+
+Only generic synthetic sample identities and `example.test` URLs are present in the VS-08 fixtures. No secrets were added.
+
+### Blockers
+
+None for the bounded VS-08 slice.
+
+### Pull request
+
+```text
+PR #60 — VS-08: Runnable transcript-to-research integration
+```
+
+The worker has not merged the branch.
+
+### Next integration action
+
+Development Orchestrator should review PR #60 against current `main`, confirm the validated implementation HEAD/CI and merge only if the branch remains compatible with the integration order.
