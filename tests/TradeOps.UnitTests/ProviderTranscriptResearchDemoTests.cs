@@ -859,7 +859,11 @@ public sealed class ProviderTranscriptResearchDemoTests
             result.Error,
             StringComparison.Ordinal);
         Assert.Contains(
-            ".NET SDK failed",
+            ".NET SDK",
+            result.Error,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "failed. Authorization",
             result.Error,
             StringComparison.Ordinal);
         Assert.Contains(
