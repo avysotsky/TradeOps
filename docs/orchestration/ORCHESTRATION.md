@@ -99,6 +99,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | INTEGRATED | PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca; combined post-merge CI 37660656844 SUCCESS |
 | VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS |
 | VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | READY | backward-compatible provider harness wiring into integrated VS-13 consumer; no new provider/domain contracts; local real Groq smoke after CI |
+| SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | READY | audit-only parallel slice; inspect public history/branches/Actions/privacy boundaries; no production-code changes |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -171,7 +172,8 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 30. DONE — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer integrated via PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca.
 31. DONE — VS-14 .NET Child Host & Process Diagnostics Hardening integrated via PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS.
 32. READY — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring: add a backward-compatible provider-harness rebalance mode that passes the integrated VS-13 `--rebalance-input` consumer option and emits the deterministic rebalance audit artifact; real Groq smoke remains an explicit local/operator validation.
-33. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+33. PARALLEL — SEC-01 Public Repository Security & Privacy Audit: audit TradeOps public history, branch tips, Actions logs/artifacts, credential/privacy-sensitive paths and commit metadata; report findings only, no production-code changes.
+34. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -278,6 +280,7 @@ DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow p
 DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR #66; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca
 DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS
 P0 READY VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — provider harness -> VS-13 consumer mode + local real Groq E2E validation
+P0 PARALLEL SEC-01 Public Repository Security & Privacy Audit — audit-only; no production-code ownership; report blockers/must-fix/acceptable/public-safe findings
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
