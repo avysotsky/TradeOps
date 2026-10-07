@@ -14,13 +14,13 @@ TradeOps/vs08-runnable-transcript-research
 ## Baseline
 
 ```text
-b7a7cfb1330d4c7a122dc3b003cd1b833f40f9e9
+c5173250bcf05772eddbeeda47f3ed3b096339fc
 ```
 
 Baseline CI:
 
 ```text
-37612484682 — SUCCESS
+37613154563 — IN_PROGRESS (documentation-only orchestration launch commit)
 ```
 
 ## Purpose
