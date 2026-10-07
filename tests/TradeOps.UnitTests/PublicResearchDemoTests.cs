@@ -346,7 +346,8 @@ public sealed class PublicResearchDemoTests
                     snapshotRetrievedAt,
                     SubmissionsJson,
                     CompanyFactsJson,
-                    MarketJson));
+                    MarketJson),
+                CreatePolicy());
 
         var result =
             composition.Result;
@@ -408,7 +409,8 @@ public sealed class PublicResearchDemoTests
                         TimeSpan.Zero),
                     SubmissionsJson,
                     CompanyFactsJson,
-                    MarketJson));
+                    MarketJson),
+                CreatePolicy());
 
         var latestEvent =
             composition.EarningsEvents[^1];
@@ -452,6 +454,384 @@ public sealed class PublicResearchDemoTests
     }
 
     [Fact]
+    public void Sample_policy_file_loads_and_maps_to_existing_pipeline_types()
+    {
+        var path =
+            Path.Combine(
+                FindRepositoryRoot(),
+                "samples",
+                "research",
+                "earnings-policy.sample.json");
+
+        var loaded =
+            PublicResearchDemoCli.LoadPolicyFromFile(
+                path);
+
+        Assert.True(
+            loaded.IsValid);
+        Assert.NotNull(
+            loaded.Policy);
+        Assert.Equal(
+            1,
+            loaded.Policy.SchemaVersion);
+        Assert.Equal(
+            "sample-earnings-policy-v1",
+            loaded.Policy.StrategyId);
+        Assert.Equal(
+            64,
+            loaded.Policy.Fingerprint.Length);
+        Assert.Equal(
+            0.05m,
+            loaded.Policy.DecisionRuleSettings
+                .RevenueGrowthThreshold);
+        Assert.Equal(
+            0.40m,
+            loaded.Policy.TargetWeightPolicy
+                .PositiveTargetWeight);
+    }
+
+    [Fact]
+    public void Missing_policy_file_is_structured()
+    {
+        var path =
+            Path.Combine(
+                Path.GetTempPath(),
+                $"tradeops-missing-policy-{Guid.NewGuid():N}.json");
+
+        var loaded =
+            PublicResearchDemoCli.LoadPolicyFromFile(
+                path);
+
+        Assert.False(
+            loaded.IsValid);
+        var error =
+            Assert.Single(
+                loaded.Errors);
+        Assert.Equal(
+            "policy_file_not_found",
+            error.Code);
+        Assert.Equal(
+            "$.policy",
+            error.Path);
+
+        var formatted =
+            PublicResearchDemoCli
+                .FormatPolicyValidationFailure(
+                    loaded.Errors);
+
+        Assert.Contains(
+            "POLICY VALIDATION: FAIL",
+            formatted,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "code=policy_file_not_found",
+            formatted,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "path=$.policy",
+            formatted,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "message=",
+            formatted,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Malformed_policy_json_is_structured()
+    {
+        var path =
+            Path.Combine(
+                Path.GetTempPath(),
+                $"tradeops-malformed-policy-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            File.WriteAllText(
+                path,
+                "{ \"schemaVersion\": 1 ");
+
+            var loaded =
+                PublicResearchDemoCli.LoadPolicyFromFile(
+                    path);
+
+            Assert.False(
+                loaded.IsValid);
+            var error =
+                Assert.Single(
+                    loaded.Errors);
+            Assert.Equal(
+                EarningsResearchPolicyValidationCodes
+                    .InvalidJson,
+                error.Code);
+            Assert.Equal(
+                "$",
+                error.Path);
+            Assert.DoesNotContain(
+                "JsonException",
+                PublicResearchDemoCli
+                    .FormatPolicyValidationFailure(
+                        loaded.Errors),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Invalid_policy_prevents_cache_mutation_and_composition()
+    {
+        var root =
+            Path.Combine(
+                Path.GetTempPath(),
+                $"tradeops-invalid-policy-{Guid.NewGuid():N}");
+        var policyPath =
+            Path.Combine(
+                Path.GetTempPath(),
+                $"tradeops-invalid-policy-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            File.WriteAllText(
+                policyPath,
+                ValidPolicyJson.Replace(
+                    "\"schemaVersion\": 1",
+                    "\"schemaVersion\": 2",
+                    StringComparison.Ordinal));
+
+            var exitCode =
+                await PublicResearchDemoCli.RunAsync(
+                    new[]
+                    {
+                        "--policy",
+                        policyPath,
+                        "--cache",
+                        root
+                    });
+
+            Assert.NotEqual(
+                0,
+                exitCode);
+            Assert.False(
+                Directory.Exists(root));
+        }
+        finally
+        {
+            File.Delete(policyPath);
+
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(
+                    root,
+                    recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Strategy_id_and_fingerprint_flow_to_output()
+    {
+        var policy =
+            CreatePolicy();
+        var composition =
+            PublicResearchDemoComposer.Compose(
+                CreateSnapshot(),
+                policy);
+        var output =
+            PublicResearchDemoComposer.ToOutput(
+                composition);
+
+        Assert.Equal(
+            policy.StrategyId,
+            composition.Result.LatestDecision
+                .StrategyId);
+        Assert.Equal(
+            policy.Fingerprint,
+            output.Policy.Fingerprint);
+        Assert.Equal(
+            policy.StrategyId,
+            output.Policy.StrategyId);
+        Assert.Equal(
+            policy.SchemaVersion,
+            output.Policy.SchemaVersion);
+    }
+
+    [Fact]
+    public void Same_logical_policy_produces_same_run_identity_and_results()
+    {
+        const string reordered =
+            """
+            {"targetWeights":{"negative":0,"positive":0.4000,"neutral":0.2},"thresholds":{"minimumDirectionalSignals":2,"operatingMarginDelta":0.0100,"dilutedEpsGrowth":0.050,"revenueGrowth":0.05},"strategyId":"sample-earnings-policy-v1","schemaVersion":1}
+            """;
+
+        var firstPolicy =
+            CreatePolicy(
+                ValidPolicyJson);
+        var secondPolicy =
+            CreatePolicy(
+                reordered);
+        var snapshot =
+            CreateSnapshot();
+
+        var first =
+            PublicResearchDemoComposer.Compose(
+                snapshot,
+                firstPolicy);
+        var second =
+            PublicResearchDemoComposer.Compose(
+                snapshot,
+                secondPolicy);
+
+        Assert.Equal(
+            firstPolicy.Fingerprint,
+            secondPolicy.Fingerprint);
+        Assert.Equal(
+            first.Result.LatestDecision.DecisionId,
+            second.Result.LatestDecision.DecisionId);
+        Assert.Equal(
+            first.Result.Assessment,
+            second.Result.Assessment);
+        Assert.Equal(
+            first.Result.TargetWeight,
+            second.Result.TargetWeight);
+        Assert.Equal(
+            first.Result.TotalReturn,
+            second.Result.TotalReturn);
+        Assert.Equal(
+            first.Result.RebalanceQuantity,
+            second.Result.RebalanceQuantity);
+    }
+
+    [Fact]
+    public void Different_valid_target_weight_policy_changes_decision_and_rebalance()
+    {
+        var firstPolicy =
+            CreatePolicy(
+                ValidPolicyJson);
+        var secondPolicy =
+            CreatePolicy(
+                ValidPolicyJson.Replace(
+                    "\"positive\": 0.40",
+                    "\"positive\": 0.20",
+                    StringComparison.Ordinal));
+        var snapshot =
+            CreateSnapshot();
+
+        var first =
+            PublicResearchDemoComposer.Compose(
+                snapshot,
+                firstPolicy);
+        var second =
+            PublicResearchDemoComposer.Compose(
+                snapshot,
+                secondPolicy);
+
+        Assert.NotEqual(
+            firstPolicy.Fingerprint,
+            secondPolicy.Fingerprint);
+        Assert.NotEqual(
+            first.Result.LatestDecision.DecisionId,
+            second.Result.LatestDecision.DecisionId);
+        Assert.Equal(
+            0.40m,
+            first.Result.TargetWeight);
+        Assert.Equal(
+            0.20m,
+            second.Result.TargetWeight);
+        Assert.NotEqual(
+            first.Result.RebalanceQuantity,
+            second.Result.RebalanceQuantity);
+        Assert.NotEqual(
+            first.Result.RebalanceNotional,
+            second.Result.RebalanceNotional);
+    }
+
+    [Fact]
+    public async Task Fingerprint_is_written_to_machine_readable_json_artifact()
+    {
+        var root =
+            Path.Combine(
+                Path.GetTempPath(),
+                $"tradeops-policy-artifact-{Guid.NewGuid():N}");
+        var jsonPath =
+            Path.Combine(
+                root,
+                "result.json");
+        var policyPath =
+            Path.Combine(
+                FindRepositoryRoot(),
+                "samples",
+                "research",
+                "earnings-policy.sample.json");
+
+        try
+        {
+            PublicDemoCache.Save(
+                root,
+                CreateSnapshot(),
+                new[]
+                {
+                    "0000051143-26-000010",
+                    "0000051143-26-000020"
+                },
+                new DateOnly(
+                    2026,
+                    7,
+                    21),
+                new DateOnly(
+                    2026,
+                    10,
+                    1));
+
+            var loadedPolicy =
+                PublicResearchDemoCli
+                    .LoadPolicyFromFile(
+                        policyPath);
+
+            var exitCode =
+                await PublicResearchDemoCli.RunAsync(
+                    new[]
+                    {
+                        "--policy",
+                        policyPath,
+                        "--cache",
+                        root,
+                        "--json",
+                        jsonPath
+                    });
+
+            Assert.Equal(
+                0,
+                exitCode);
+            Assert.True(
+                File.Exists(jsonPath));
+
+            using var document =
+                JsonDocument.Parse(
+                    File.ReadAllText(
+                        jsonPath));
+
+            Assert.Equal(
+                loadedPolicy.Policy!.Fingerprint,
+                document.RootElement
+                    .GetProperty("policy")
+                    .GetProperty("fingerprint")
+                    .GetString());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(
+                    root,
+                    recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Network_gate_fails_closed_without_explicit_confirmation()
     {
         var oldConfirmation =
@@ -490,6 +870,89 @@ public sealed class PublicResearchDemoTests
                 oldUserAgent);
         }
     }
+
+    private static PublicDemoRawSnapshot CreateSnapshot() =>
+        new(
+            new DateTimeOffset(
+                2026,
+                10,
+                7,
+                8,
+                0,
+                0,
+                TimeSpan.Zero),
+            SubmissionsJson,
+            CompanyFactsJson,
+            MarketJson);
+
+    private static PublicResearchDemoPolicy CreatePolicy(
+        string json = ValidPolicyJson)
+    {
+        var loaded =
+            EarningsResearchPolicyConfiguration.Load(
+                json);
+
+        Assert.True(
+            loaded.IsValid);
+        Assert.NotNull(
+            loaded.Definition);
+        Assert.NotNull(
+            loaded.Fingerprint);
+
+        return new PublicResearchDemoPolicy(
+            loaded.Definition.SchemaVersion,
+            loaded.Definition.StrategyId,
+            loaded.Fingerprint,
+            EarningsResearchPolicyConfiguration
+                .ToDecisionRuleSettings(
+                    loaded.Definition),
+            EarningsResearchPolicyConfiguration
+                .ToTargetWeightPolicy(
+                    loaded.Definition));
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory =
+            new DirectoryInfo(
+                AppContext.BaseDirectory);
+
+        while (directory is not null)
+        {
+            if (File.Exists(
+                    Path.Combine(
+                        directory.FullName,
+                        "TradeOps.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory =
+                directory.Parent;
+        }
+
+        throw new InvalidOperationException(
+            "TradeOps repository root was not found.");
+    }
+
+    private const string ValidPolicyJson =
+        """
+        {
+          "schemaVersion": 1,
+          "strategyId": "sample-earnings-policy-v1",
+          "thresholds": {
+            "revenueGrowth": 0.05,
+            "dilutedEpsGrowth": 0.05,
+            "operatingMarginDelta": 0.01,
+            "minimumDirectionalSignals": 2
+          },
+          "targetWeights": {
+            "positive": 0.40,
+            "neutral": 0.20,
+            "negative": 0.00
+          }
+        }
+        """;
 
     private const string SubmissionsJson =
         """

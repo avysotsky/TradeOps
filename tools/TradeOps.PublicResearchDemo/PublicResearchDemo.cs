@@ -6,7 +6,29 @@ using TradeOps.Domain.Enums;
 
 namespace TradeOps.PublicResearchDemo;
 
+public sealed record PublicResearchDemoPolicy(
+    int SchemaVersion,
+    string StrategyId,
+    string Fingerprint,
+    EarningsDecisionRuleSettings DecisionRuleSettings,
+    EarningsTargetWeightPolicy TargetWeightPolicy);
+
+public sealed record PublicResearchDemoPolicyLoadResult(
+    PublicResearchDemoPolicy? Policy,
+    IReadOnlyList<EarningsResearchPolicyValidationError> Errors)
+{
+    public bool IsValid =>
+        Policy is not null &&
+        Errors.Count == 0;
+}
+
+public sealed record PublicDemoPolicyOutput(
+    int SchemaVersion,
+    string StrategyId,
+    string Fingerprint);
+
 public sealed record PublicDemoComposition(
+    PublicResearchDemoPolicy Policy,
     ResearchToRebalanceDemoResult Result,
     IReadOnlyList<EarningsEvent> EarningsEvents,
     IReadOnlyList<MarketDataBar> MarketDataBars,
@@ -37,6 +59,7 @@ public sealed record PublicDemoRebalanceOutput(
     string Status);
 
 public sealed record PublicDemoOutput(
+    PublicDemoPolicyOutput Policy,
     string Instrument,
     string EventId,
     string AccessionNumber,
@@ -57,25 +80,12 @@ public static class PublicResearchDemoComposer
     public const decimal DemoPositionQuantity =
         10m;
 
-    private static readonly EarningsDecisionRuleSettings
-        RuleSettings =
-        new(
-            RevenueGrowthThreshold: 0.05m,
-            DilutedEpsGrowthThreshold: 0.05m,
-            OperatingMarginDeltaThreshold: 0.005m,
-            MinimumDirectionalSignals: 2);
-
-    private static readonly EarningsTargetWeightPolicy
-        TargetWeightPolicy =
-        new(
-            PositiveTargetWeight: 0.40m,
-            NeutralTargetWeight: 0.20m,
-            NegativeTargetWeight: 0m);
-
     public static PublicDemoComposition Compose(
-        PublicDemoRawSnapshot snapshot)
+        PublicDemoRawSnapshot snapshot,
+        PublicResearchDemoPolicy policy)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(policy);
 
         var submissionFilings =
             SecSubmissionParser.Parse(
@@ -218,8 +228,8 @@ public static class PublicResearchDemoComposer
             new ResearchToRebalanceDemoRequest(
                 earningsEvents,
                 bars,
-                RuleSettings,
-                TargetWeightPolicy,
+                policy.DecisionRuleSettings,
+                policy.TargetWeightPolicy,
                 InitialCash:
                     DemoInitialNav,
                 CurrentPortfolio:
@@ -233,7 +243,7 @@ public static class PublicResearchDemoComposer
                     new RebalanceConstraints(
                         MaxTargetWeight: 0.50m),
                 StrategyId:
-                    "public-data-demo-earnings-policy-v1",
+                    policy.StrategyId,
                 DecisionTimingMode:
                     ResearchDecisionTimingMode
                         .HistoricalPublishedAvailability);
@@ -243,6 +253,7 @@ public static class PublicResearchDemoComposer
                 .Run(request);
 
         return new PublicDemoComposition(
+            policy,
             result,
             earningsEvents,
             bars,
@@ -273,6 +284,11 @@ public static class PublicResearchDemoComposer
                 : composition.AccessionNumbers[^1];
 
         return new PublicDemoOutput(
+            Policy:
+                new PublicDemoPolicyOutput(
+                    composition.Policy.SchemaVersion,
+                    composition.Policy.StrategyId,
+                    composition.Policy.Fingerprint),
             Instrument:
                 result.Instrument.Symbol,
             EventId:
@@ -346,6 +362,24 @@ public static class PublicResearchDemoCli
         var options =
             ParseArgs(args);
 
+        var policyLoad =
+            LoadPolicyFromFile(
+                options.PolicyPath);
+
+        if (!policyLoad.IsValid)
+        {
+            Console.Error.WriteLine(
+                FormatPolicyValidationFailure(
+                    policyLoad.Errors));
+            return 2;
+        }
+
+        var policy =
+            policyLoad.Policy!;
+
+        Console.WriteLine(
+            "POLICY VALIDATION: PASS");
+
         PublicDemoRawSnapshot snapshot;
         PublicDemoCacheManifest? manifest =
             null;
@@ -377,7 +411,8 @@ public static class PublicResearchDemoCli
 
         var composition =
             PublicResearchDemoComposer.Compose(
-                snapshot);
+                snapshot,
+                policy);
 
         if (manifest is null)
         {
@@ -437,6 +472,17 @@ public static class PublicResearchDemoCli
         Console.WriteLine();
         Console.WriteLine(
             "TradeOps public-data demo — IBM");
+        Console.WriteLine(
+            "Policy:");
+        Console.WriteLine(
+            $"  SchemaVersion: {output.Policy.SchemaVersion}");
+        Console.WriteLine(
+            $"  StrategyId: {output.Policy.StrategyId}");
+        Console.WriteLine(
+            $"  Fingerprint: {output.Policy.Fingerprint}");
+        Console.WriteLine();
+        Console.WriteLine(
+            "Research result:");
         Console.WriteLine(
             $"Instrument: {output.Instrument}");
         Console.WriteLine(
@@ -519,6 +565,8 @@ public static class PublicResearchDemoCli
             PublicDemoCache.DefaultRoot;
         string? jsonPath =
             null;
+        string? policyPath =
+            null;
 
         for (var index = 0;
              index < args.Length;
@@ -546,17 +594,136 @@ public static class PublicResearchDemoCli
                             "--json");
                     break;
 
+                case "--policy":
+                    policyPath =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--policy");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        $"Unknown argument '{args[index]}'. Supported: --refresh, --cache <path>, --json <path>.");
+                        $"Unknown argument '{args[index]}'. Supported: --policy <path>, --refresh, --cache <path>, --json <path>.");
             }
         }
 
         return new CliOptions(
             refresh,
             cacheRoot,
-            jsonPath);
+            jsonPath,
+            policyPath);
     }
+
+    public static PublicResearchDemoPolicyLoadResult LoadPolicyFromFile(
+        string? policyPath)
+    {
+        if (string.IsNullOrWhiteSpace(
+                policyPath))
+        {
+            return PolicyFailure(
+                "policy_required",
+                "$.policy",
+                "Client-ready execution requires --policy <path>.");
+        }
+
+        if (!File.Exists(
+                policyPath))
+        {
+            return PolicyFailure(
+                "policy_file_not_found",
+                "$.policy",
+                $"Policy file was not found: {policyPath}");
+        }
+
+        string json;
+
+        try
+        {
+            json =
+                File.ReadAllText(
+                    policyPath);
+        }
+        catch (Exception exception)
+            when (exception is IOException
+                  or UnauthorizedAccessException)
+        {
+            return PolicyFailure(
+                "policy_file_read_failed",
+                "$.policy",
+                $"Policy file could not be read: {exception.Message}");
+        }
+
+        var loaded =
+            EarningsResearchPolicyConfiguration.Load(
+                json);
+
+        if (!loaded.IsValid
+            || loaded.Definition is null
+            || string.IsNullOrWhiteSpace(
+                loaded.Fingerprint))
+        {
+            return new PublicResearchDemoPolicyLoadResult(
+                null,
+                loaded.Validation.Errors);
+        }
+
+        var definition =
+            loaded.Definition;
+
+        return new PublicResearchDemoPolicyLoadResult(
+            new PublicResearchDemoPolicy(
+                definition.SchemaVersion,
+                definition.StrategyId,
+                loaded.Fingerprint,
+                EarningsResearchPolicyConfiguration
+                    .ToDecisionRuleSettings(
+                        definition),
+                EarningsResearchPolicyConfiguration
+                    .ToTargetWeightPolicy(
+                        definition)),
+            Array.Empty<EarningsResearchPolicyValidationError>());
+    }
+
+    public static string FormatPolicyValidationFailure(
+        IReadOnlyList<EarningsResearchPolicyValidationError> errors)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        var lines =
+            new List<string>
+            {
+                "POLICY VALIDATION: FAIL"
+            };
+
+        foreach (var error in errors)
+        {
+            lines.Add(
+                $"code={error.Code}");
+            lines.Add(
+                $"path={error.Path}");
+            lines.Add(
+                $"message={error.Message}");
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            lines);
+    }
+
+    private static PublicResearchDemoPolicyLoadResult PolicyFailure(
+        string code,
+        string path,
+        string message) =>
+        new(
+            null,
+            new[]
+            {
+                new EarningsResearchPolicyValidationError(
+                    code,
+                    path,
+                    message)
+            });
 
     private static string RequireValue(
         string[] args,
@@ -578,5 +745,6 @@ public static class PublicResearchDemoCli
     private sealed record CliOptions(
         bool Refresh,
         string CacheRoot,
-        string? JsonPath);
+        string? JsonPath,
+        string? PolicyPath);
 }
