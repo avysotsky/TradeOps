@@ -302,7 +302,7 @@ Do not merge independently.
 ### Validated implementation head
 
 ```text
-75a35244a9e70d56db57dae9354796d8cf8032b8
+5cac6ab024c24e3bd517ba10fe80e6ebfccc6e65
 ```
 
 This is the exact code-and-test HEAD validated by GitHub Actions before this status-file bookkeeping update.
@@ -357,7 +357,7 @@ This is intentionally not a generic .NET SDK resolver.
 
 Provider/DocFlow child output is never forwarded to the console. Provider failures expose only stage and exit status.
 
-Dotnet preflight / TradeOps consumer failures may expose only narrowly filtered runtime/SDK diagnostic lines. Known selected credential values, API-key assignment forms, Authorization Bearer data and Bearer token forms are redacted before display.
+Dotnet preflight / TradeOps consumer failures never quote child stdout/stderr text. The captured output is inspected only to emit fixed runtime/SDK classification labels (for example `.NET SDK`, `global.json`, `hostfxr`); arbitrary child payload text cannot cross the console boundary. Known selected credential values, API-key assignment forms, Authorization Bearer data and Bearer token forms are also redacted from exception/error text before display.
 
 Success output remains concise and may show provider, model, selected dotnet host, resolved SDK version, stage and exit status.
 
@@ -382,11 +382,11 @@ Full TradeOps GitHub Actions unit suite:
 Exact validated implementation CI:
 
 ```text
-37657954260 — SUCCESS
-head: 75a35244a9e70d56db57dae9354796d8cf8032b8
+37659035569 — SUCCESS
+head: 5cac6ab024c24e3bd517ba10fe80e6ebfccc6e65
 ```
 
-The workflow also passed build, API/PostgreSQL smoke, signed-webhook demo, customer TradingView demo, deployment validation and Docker image build.
+The workflow also passed build, API/PostgreSQL smoke, signed-webhook demo, customer TradingView demo, deployment validation and Docker image build. A final hardening review additionally replaced line-level child-output filtering with fixed diagnostic labels so transcript/provider text cannot be echoed merely because it contains an SDK/runtime keyword.
 
 A separate local filtered test invocation was not available in this worker environment; the exact-head GitHub Actions full suite is the execution authority and includes both the VS-14 targeted cases and the retained VS-12 regression cases.
 
