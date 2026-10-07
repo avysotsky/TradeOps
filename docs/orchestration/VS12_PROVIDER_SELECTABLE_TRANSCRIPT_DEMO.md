@@ -499,4 +499,27 @@ default provider: openai
 
 Architecture/privacy/secret review passed.
 
-The next action is a local Groq smoke from Visual Studio 2022 using the user's locally configured `GROQ_API_KEY`, an explicit supported model, TradeOps main, and DocFlow main.
+## Real Groq smoke record — 2026-10-07
+
+Local operator validation completed successfully from Visual Studio 2022 using integrated TradeOps/DocFlow mains, local environment-only `GROQ_API_KEY`, and explicit model `openai/gpt-oss-20b`.
+
+Observed bounded pipeline result:
+
+```text
+Stage: DocFlow prior   -> exit 0
+Stage: DocFlow current -> exit 0
+Stage: TradeOps VS-08  -> exit 0
+PROVIDER TRANSCRIPT RESEARCH DEMO: PASS
+```
+
+The produced research result identified extraction engine:
+
+```text
+schema_driven_text_v1:groq_chat_completions_v1:openai/gpt-oss-20b
+```
+
+and produced the existing TradeOps `ResearchDecision` contract with `Action = SetTargetWeight`.
+
+No credential value, provider payload, or runtime artifact is committed.
+
+Next orchestration action: compose the successful provider-backed transcript artifacts through the already integrated VS-11 research -> backtest/rebalance path.
