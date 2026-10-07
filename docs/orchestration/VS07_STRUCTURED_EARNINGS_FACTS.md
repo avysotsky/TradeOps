@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -590,8 +590,18 @@ Production code contains no `HttpClient`, clock access (`Now`/`UtcNow`), random/
 
 None.
 
-### Next integration action
+### Integration result
 
-Development Orchestrator should review draft PR #59, confirm changed-file scope and CI, and merge VS-07 into `main` if accepted.
+VS-07 was accepted and integrated.
 
-Do not start DF-04 from this worker. DF-04 should be defined only after VS-07 integration and must remain generic/domain-neutral.
+```text
+final PR head: 7d32eb860808e09e43b084b9d801741327952a06
+exact-head CI: 37609374812 — SUCCESS
+PR: #59
+merge commit: 4e9aaa6633607a22173634a0b21516bec8ddd504
+post-merge CI: 37609652431 — SUCCESS
+```
+
+Architecture review passed. Frozen existing contracts remained unchanged. A privacy issue in the handoff documentation was corrected before merge, and the final changed-file privacy scan passed.
+
+Next cross-repository step: DF-04 in DocFlow — generic schema-driven text extraction over the integrated DF-03 boundary, domain-neutral and free of earnings/trading models.
