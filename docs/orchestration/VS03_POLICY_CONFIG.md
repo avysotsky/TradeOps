@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -159,7 +159,7 @@ This slice does not modify or add:
 State:
 
 ```text
-READY_FOR_INTEGRATION
+INTEGRATED
 ```
 
 Baseline:
@@ -252,3 +252,18 @@ Next integration action:
 Development Orchestrator should review the bounded diff and current-main compatibility, then integrate if still green.
 Do not integrate this configuration into VS-02 tooling from this branch.
 ```
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #55
+pre-sync worker HEAD: 59214ecae27ef06b016df83dc02f18033493f322
+synchronized worker HEAD: fe9ae05fa257ca683fab1ed08555f71e288a7264
+merge commit: de3f15f0dbf5968dd1fc34f0fb4b499ba058b924
+exact-head CI: 37596078515 — success
+```
+
+The versioned JSON policy configuration layer is now part of main.

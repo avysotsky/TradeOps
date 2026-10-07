@@ -29,7 +29,9 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-ef1690203929a5c0c4adafd3fd0f33d55b088170
+de3f15f0dbf5968dd1fc34f0fb4b499ba058b924
+VS-03 Configurable Research Policy integrated via PR #55
+VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
 WS-01 manual Paper smoke harness integrated via PR #53
 WS-04 Event-driven Backtester integrated via PR #52
@@ -56,6 +58,7 @@ TradeOps/ws03-signal-portfolio-engine
 TradeOps/ws04-backtester-contracts
 TradeOps/vs01-research-to-rebalance-demo
 TradeOps/vs02-public-data-runnable-demo
+TradeOps/vs03-configurable-research-policy
 ```
 
 ## Worker chats
@@ -93,14 +96,28 @@ earnings/research facts
 -> WS-03 rebalance
 ```
 
+Integrated client-ready extensions:
+
+```text
+VS-02
+public SEC earnings inputs
++ public daily price inputs
+-> VS-01 service
+-> runnable demo output
+
+VS-03
+client policy JSON
+-> strict validation
+-> deterministic fingerprint
+-> existing earnings settings / target-weight policy
+```
+
 Next product focus:
 
 ```text
-VS-02 Public-Data Runnable Demo
-real public SEC earnings inputs
-+ public daily price inputs
--> integrated VS-01 service
--> runnable client demo output
+public-data demo
++ validated client policy JSON
+-> one runnable client workflow
 ```
 
 Initial public-data choice for the bounded slice:
@@ -222,3 +239,28 @@ exact-head CI: 37524381672 success
 ```
 
 Reuse ResearchToRebalanceDemoService for subsequent client-facing slices. Do not create parallel research, portfolio or backtest contracts.
+
+
+## VS-02
+
+Integrated via PR #56.
+
+```text
+worker HEAD: 278fe0540846d8a474debaf5ae1c11b4f193268a
+merge commit: c52746ee451f222e0f4440c5a8e451dbd66a9c28
+exact-head CI: 37594048247 success
+```
+
+Historical SEC availability/provenance correction is integrated. External public-data smoke remains manual/opt-in and was not simulated.
+
+## VS-03
+
+Integrated via PR #55.
+
+```text
+synchronized worker HEAD: fe9ae05fa257ca683fab1ed08555f71e288a7264
+merge commit: de3f15f0dbf5968dd1fc34f0fb4b499ba058b924
+exact-head CI: 37596078515 success
+```
+
+Reuse EarningsResearchPolicyConfiguration for subsequent client-facing policy input. Do not introduce a parallel strategy configuration contract.
