@@ -78,8 +78,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
 | VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | INTEGRATED | public IBM SEC/market-data runnable demo integrated via PR #56 |
 | VS-03 | Configurable Research Policy | TradeOps/vs03-configurable-research-policy | INTEGRATED | strict versioned JSON policy layer integrated via PR #55 |
-| VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | READY | connect VS-02 public data with VS-03 validated policy JSON |
-| VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | prototype complete but do not merge; generic document/transcript normalization likely belongs in DocFlow |
+| VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | READY_FOR_INTEGRATION | implementation reviewed; exact-head CI green; synchronize with current main before merge |
+| VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | READY | generic offline text/transcript normalization; no TradeOps dependency |
 
@@ -126,7 +126,7 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 9. WAIT — execute real authenticated IBKR Paper smoke only when a real Paper account becomes available.
 10. DONE — VS-02 Public-Data Runnable Demo integrated (PR #56).
 11. DONE — VS-03 Configurable Research Policy integrated (PR #55).
-12. START — VS-04 Configurable Public-Data Client Demo: public IBM data + validated policy JSON -> one runnable workflow with policy fingerprint in output.
+12. READY — VS-04 Configurable Public-Data Client Demo: reviewed and ready for synchronized integration.
 13. HOLD — VS-05 TradeOps transcript intake prototype: preserve branch, do not merge; reassess boundary against DocFlow document-processing engine.
 14. START PARALLEL — DF-02 DocFlow Generic Text/Transcript Normalization: generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
 15. After DF-02, define the minimal earnings-research adapter from DocFlow output into TradeOps consumer contracts.
