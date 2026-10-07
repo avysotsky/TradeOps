@@ -43,6 +43,8 @@ public static class TranscriptResearchRebalanceInputLoader
     private static readonly JsonSerializerOptions JsonOptions =
         new()
         {
+            PropertyNamingPolicy =
+                JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = false,
             AllowTrailingCommas = false,
             ReadCommentHandling = JsonCommentHandling.Disallow,
