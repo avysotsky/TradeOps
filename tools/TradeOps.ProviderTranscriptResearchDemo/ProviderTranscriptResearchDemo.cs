@@ -2,11 +2,19 @@ using System.Diagnostics;
 
 namespace TradeOps.ProviderTranscriptResearchDemo;
 
+public enum ProviderTranscriptResearchProvider
+{
+    OpenAi,
+    Groq
+}
+
 public sealed record ProviderTranscriptResearchDemoOptions(
     string DocFlowRoot,
     string Model,
     string PythonExecutable,
-    string? WorkDirectory)
+    string? WorkDirectory,
+    ProviderTranscriptResearchProvider Provider =
+        ProviderTranscriptResearchProvider.OpenAi)
 {
     public const string DefaultPythonExecutable =
         "python";
@@ -25,6 +33,9 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             DefaultPythonExecutable;
         string? workDirectory =
             null;
+        var provider =
+            ProviderTranscriptResearchProvider
+                .OpenAi;
 
         for (var index = 0;
              index < args.Length;
@@ -38,6 +49,15 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                             args,
                             ref index,
                             "--docflow-root");
+                    break;
+
+                case "--provider":
+                    provider =
+                        ParseProvider(
+                            RequireValue(
+                                args,
+                                ref index,
+                                "--provider"));
                     break;
 
                 case "--model":
@@ -66,7 +86,7 @@ public sealed record ProviderTranscriptResearchDemoOptions(
 
                 default:
                     throw new ArgumentException(
-                        "Unknown argument '" + args[index] + "'. Supported: --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>.");
+                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>.");
             }
         }
 
@@ -81,15 +101,29 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                 model))
         {
             throw new ArgumentException(
-                "--model <explicit-openai-model> is required; no default model is configured.");
+                "--model <explicit-model> is required; no default model is configured.");
         }
 
         return new ProviderTranscriptResearchDemoOptions(
             docFlowRoot,
             model,
             python,
-            workDirectory);
+            workDirectory,
+            provider);
     }
+
+    private static ProviderTranscriptResearchProvider ParseProvider(
+        string value) =>
+        value switch
+        {
+            "openai" =>
+                ProviderTranscriptResearchProvider.OpenAi,
+            "groq" =>
+                ProviderTranscriptResearchProvider.Groq,
+            _ =>
+                throw new ArgumentException(
+                    "--provider must be one of: openai, groq.")
+        };
 
     public string ResolveWorkDirectory(
         string tradeOpsRoot)
@@ -271,8 +305,14 @@ public static class TradeOpsRepositoryLocator
 
 public sealed class ProviderTranscriptResearchDemoHarness
 {
-    public const string ApiKeyEnvironmentVariable =
+    public const string OpenAiApiKeyEnvironmentVariable =
         "OPENAI_API_KEY";
+
+    public const string GroqApiKeyEnvironmentVariable =
+        "GROQ_API_KEY";
+
+    public const string ApiKeyEnvironmentVariable =
+        OpenAiApiKeyEnvironmentVariable;
 
     public const string PriorDocumentName =
         "Synthetic Example Company Q1 2026 earnings call";
@@ -354,6 +394,12 @@ public sealed class ProviderTranscriptResearchDemoHarness
         var workDirectory =
             options.ResolveWorkDirectory(
                 resolvedTradeOpsRoot);
+        var providerName =
+            GetProviderName(
+                options.Provider);
+        var apiKeyEnvironmentVariable =
+            GetApiKeyEnvironmentVariable(
+                options.Provider);
 
         ValidateDocFlow(
             docFlowRoot,
@@ -409,10 +455,10 @@ public sealed class ProviderTranscriptResearchDemoHarness
 
         if (string.IsNullOrWhiteSpace(
                 _environmentReader.Get(
-                    ApiKeyEnvironmentVariable)))
+                    apiKeyEnvironmentVariable)))
         {
             throw new InvalidOperationException(
-                ApiKeyEnvironmentVariable +
+                apiKeyEnvironmentVariable +
                 " is required in the environment.");
         }
 
@@ -447,6 +493,9 @@ public sealed class ProviderTranscriptResearchDemoHarness
         output.WriteLine(
             "Stage: initialize");
         output.WriteLine(
+            "Provider: " +
+            providerName);
+        output.WriteLine(
             "Model: " +
             options.Model);
         output.WriteLine(
@@ -463,6 +512,7 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 BuildDocFlowInvocation(
                     options.PythonExecutable,
                     docFlowWorkerDirectory,
+                    providerName,
                     priorRaw,
                     schemaRequest,
                     options.Model,
@@ -485,6 +535,7 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 BuildDocFlowInvocation(
                     options.PythonExecutable,
                     docFlowWorkerDirectory,
+                    providerName,
                     currentRaw,
                     schemaRequest,
                     options.Model,
@@ -593,6 +644,7 @@ public sealed class ProviderTranscriptResearchDemoHarness
     private static ChildProcessInvocation BuildDocFlowInvocation(
         string pythonExecutable,
         string docFlowWorkerDirectory,
+        string provider,
         string inputRawJson,
         string schemaRequest,
         string model,
@@ -604,6 +656,8 @@ public sealed class ProviderTranscriptResearchDemoHarness
             new[]
             {
                 "text_artifact_main.py",
+                "--provider",
+                provider,
                 "--input-raw-json",
                 inputRawJson,
                 "--schema-request",
@@ -618,6 +672,36 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 documentName
             },
             docFlowWorkerDirectory);
+
+    private static string GetProviderName(
+        ProviderTranscriptResearchProvider provider) =>
+        provider switch
+        {
+            ProviderTranscriptResearchProvider.OpenAi =>
+                "openai",
+            ProviderTranscriptResearchProvider.Groq =>
+                "groq",
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(provider),
+                    provider,
+                    "Unsupported provider.")
+        };
+
+    private static string GetApiKeyEnvironmentVariable(
+        ProviderTranscriptResearchProvider provider) =>
+        provider switch
+        {
+            ProviderTranscriptResearchProvider.OpenAi =>
+                OpenAiApiKeyEnvironmentVariable,
+            ProviderTranscriptResearchProvider.Groq =>
+                GroqApiKeyEnvironmentVariable,
+            _ =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(provider),
+                    provider,
+                    "Unsupported provider.")
+        };
 
     private static void ValidateDocFlow(
         string docFlowRoot,
