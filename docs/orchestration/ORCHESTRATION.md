@@ -97,6 +97,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | DF-04 | Generic Schema-Driven Text Extraction | DocFlow/df04-schema-driven-text-extraction | INTEGRATED | PR #4; exact-head CI 37611510368 SUCCESS; post-merge CI 37612364691 SUCCESS |
 | DF-05 | OpenAI Schema-Driven Text Extraction Backend | DocFlow/df05-openai-schema-backend | INTEGRATED | PR #5; exact-head CI 37614234502 SUCCESS; post-merge CI 37615744590 SUCCESS; optional real-provider smoke not run |
 | DF-06 | OpenAI Text Artifact CLI | DocFlow/df06-openai-text-artifact-cli | INTEGRATED | PR #6; exact final-head CI 37620734092 SUCCESS; post-merge CI 37621390275 SUCCESS; 86 tests |
+| DF-07 | Groq Schema-Driven Text Extraction Backend | DocFlow/df07-groq-schema-backend | READY | free-tier cloud provider path; Groq Chat Completions strict JSON Schema + existing DF-04/DF-06 artifacts; no TradeOps dependency |
 
 ## Dependency graph
 
@@ -155,9 +156,11 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 23. DONE — VS-09 Provider-Compatible Earnings Extraction Schema integrated via PR #61; synchronized-head CI 37621698229 SUCCESS; post-merge CI 37622030289 SUCCESS; implementation suite 453/453.
 24. DONE — VS-11 Transcript Research-to-Backtest/Rebalance Composition integrated via PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; transcript and existing VS-01 research semantics are fail-closed equivalent.
 25. DONE — VS-10 Provider-Backed Two-Repository Transcript Research Demo integrated via PR #63 after synchronization with VS-11; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS.
-26. NEXT EXTERNAL GATE — execute one real-provider smoke on the integrated synthetic VS-09 inputs through VS-10 only when OPENAI_API_KEY is present and an explicit model is selected. Do not invent a model or commit credentials.
-27. NEXT CODE SLICE AFTER SMOKE (or explicit orchestrator waiver) — client-facing provider -> transcript research -> integrated VS-11 backtest/rebalance evidence, reusing existing contracts rather than introducing another research/backtest/planner model.
-28. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+26. WAITING_EXTERNAL — OpenAI real-provider smoke remains optional and blocked by separate OpenAI API billing; do not require it for progress.
+27. START — DF-07 Groq Schema-Driven Text Extraction Backend in DocFlow. Add a free-tier Groq provider implementation using the existing openai Python client against Groq's OpenAI-compatible endpoint, strict Chat Completions JSON Schema, and extend the text artifact CLI with backward-compatible --provider openai|groq. GROQ_API_KEY is environment-only.
+28. START PARALLEL — VS-12 Provider-Selectable Two-Repository Demo Harness in TradeOps. Extend integrated VS-10 only at the operator boundary so it can pass --provider openai|groq to DocFlow and preflight the matching environment credential without ever placing the credential in child arguments.
+29. AFTER DF-07 + VS-12 — execute one real Groq provider smoke locally on the existing synthetic VS-09 inputs using the user's locally configured GROQ_API_KEY and an explicit supported model; then compose the resulting artifacts through the integrated VS-11 research->backtest/rebalance path.
+30. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -257,8 +260,10 @@ DONE DF-06 OpenAI Text Artifact CLI — PR #6; post-merge CI 37621390275 SUCCESS
 DONE VS-09 Provider-Compatible Earnings Extraction Schema — PR #61; post-merge CI 37622030289 SUCCESS
 DONE VS-10 Provider-Backed Two-Repository Transcript Research Demo — PR #63; post-merge CI 37630315790 SUCCESS
 DONE VS-11 Transcript Research-to-Backtest/Rebalance Composition — PR #62; post-merge CI 37628959669 SUCCESS; 463/463 tests
-P0 EXTERNAL GATE  Real-provider smoke on integrated synthetic inputs — requires explicit model + OPENAI_API_KEY environment
-NEXT CODE  Client-facing provider -> research -> backtest/rebalance demo using integrated VS-10 + VS-11 boundaries after smoke or explicit orchestrator waiver
+WAIT OpenAI real-provider smoke — separate API billing unavailable; not a blocker
+P0  DF-07 Groq Schema-Driven Text Extraction Backend — DocFlow/df07-groq-schema-backend
+P1  VS-12 Provider-Selectable Two-Repository Demo Harness — parallel TradeOps slice; provider CLI/env selection only
+NEXT Real Groq smoke on synthetic VS-09 inputs using locally configured GROQ_API_KEY; then provider -> research -> backtest/rebalance evidence via integrated VS-11
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
