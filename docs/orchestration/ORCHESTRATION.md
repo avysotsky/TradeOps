@@ -74,7 +74,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further contract changes without orchestration |
 | WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | INTEGRATED | bounded v1 complete; no generic expansion without orchestration |
 | VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
-| VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | VALIDATION | correctness fix required: SEC acceptance time must not be mislabeled as public availability/retrieval time |
+| VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | READY_FOR_INTEGRATION | SEC availability/provenance fix reviewed; exact-head CI green |
+| VS-03 | Configurable Research Policy | TradeOps/vs03-configurable-research-policy | READY_FOR_INTEGRATION | bounded JSON policy/config layer reviewed; sync with current main during integration |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -118,9 +119,11 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 7. DONE — VS-01 client-ready research -> backtest -> rebalance vertical slice integrated (PR #54).
 8. DONE — WS-01 opt-in manual IBKR Paper read-path harness integrated (PR #53).
 9. WAIT — execute real authenticated IBKR Paper smoke only when a real Paper account becomes available.
-10. START — VS-02 Public-Data Runnable Demo: real public SEC earnings inputs + public daily market data -> integrated VS-01 -> runnable output.
-11. After VS-02, evaluate whether transcript/earnings-call ingestion is the next client-facing research extension.
-12. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+10. READY — VS-02 Public-Data Runnable Demo: corrected SEC availability/provenance + public IBM daily data -> integrated VS-01 -> runnable output.
+11. READY — VS-03 Configurable Research Policy: strict versioned JSON policy -> existing earnings settings/target-weight policy.
+12. Integrate VS-02 first, then synchronize and integrate VS-03; afterward connect public-data demo + policy JSON in a new bounded slice.
+13. After that, evaluate whether transcript/earnings-call ingestion is the next client-facing research extension.
+14. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -208,7 +211,7 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  VS-02 Public-Data Runnable Demo — validation fix for historical SEC availability/provenance before integration
+P0  integration queue — VS-02 first, then VS-03
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
 DONE WS-04 Event-driven Backtester — PR #52
