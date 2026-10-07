@@ -1,4 +1,5 @@
 using System.Text.Json;
+using TradeOps.Application.Models;
 using TradeOps.Application.Services;
 using TradeOps.Domain.Enums;
 using TradeOps.PublicResearchDemo;
