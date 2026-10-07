@@ -90,6 +90,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
+| DF-04 | Generic Schema-Driven Text Extraction | DocFlow/df04-schema-driven-text-extraction | READY | caller JSON Schema + injected backend -> deterministic schema validation -> existing StructuredExtractionResult; no provider/domain logic |
 
 ## Dependency graph
 
@@ -140,8 +141,9 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 15. DONE — VS-06 DocFlow Earnings Research Adapter integrated via PR #58; bounded serialized DocFlow transcript -> earnings research input adapter, with no generic normalization or fact extraction.
 16. DONE — DF-03 DocFlow Generic Text Structured Extraction Boundary integrated via PR #3; `NormalizedTextDocument -> TextStructuredExtractionEngine -> StructuredExtractionResult`, post-merge CI 37607059797 SUCCESS.
 17. DONE — VS-07 Structured Earnings Facts Boundary integrated via PR #59; strict versioned earnings-facts validation, evidence-segment audit trail, financial unit semantics, deterministic EarningsSnapshot/EarningsEvent mapping; post-merge CI 37609652431 SUCCESS.
-18. NEXT — DF-04 Generic Schema-Driven Text Extraction in DocFlow using caller-supplied schema/configuration; keep it domain-neutral and free of earnings/trading models.
-19. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+18. START — DF-04 Generic Schema-Driven Text Extraction in DocFlow. Implement provider-neutral request/backend/orchestration over DF-03, validate backend data with caller JSON Schema, reuse existing StructuredExtractionResult/validation contracts; no provider SDK or earnings/trading logic.
+19. AFTER DF-04 — define a runnable cross-repository transcript -> structured facts -> EarningsEvent -> deterministic research demo slice.
+20. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -234,7 +236,8 @@ DONE DF-02 DocFlow Generic Text/Transcript Normalization — PR #2; post-merge C
 DONE VS-06 DocFlow Earnings Research Adapter — PR #58; post-merge CI 37605867347 SUCCESS
 DONE DF-03 Generic Text Structured Extraction — PR #3; post-merge CI 37607059797 SUCCESS
 DONE VS-07 Structured Earnings Facts Boundary — PR #59; post-merge CI 37609652431 SUCCESS
-P0  DF-04 Generic Schema-Driven Text Extraction — DocFlow; define from integrated VS-07 consumer schema while remaining domain-neutral
+P0  DF-04 Generic Schema-Driven Text Extraction — DocFlow/df04-schema-driven-text-extraction
+NEXT Runnable transcript-to-research integration — only after DF-04 is integrated
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
