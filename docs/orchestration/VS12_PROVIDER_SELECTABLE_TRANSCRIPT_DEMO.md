@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -365,3 +365,111 @@ Before handoff update this file with:
 Stop after the bounded slice.
 
 Do not merge independently.
+
+## Worker handoff — 2026-10-07
+
+Validated implementation HEAD:
+
+```text
+0f9fb0b2e23dd91ea4485efe07f7aa7627590621
+```
+
+Changed files in the bounded VS-12 slice:
+
+```text
+tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs
+tests/TradeOps.UnitTests/ProviderTranscriptResearchDemoTests.cs
+docs/orchestration/VS12_PROVIDER_SELECTABLE_TRANSCRIPT_DEMO.md
+```
+
+Implemented operator contract:
+
+```text
+default provider: openai
+--provider openai -> OPENAI_API_KEY
+--provider groq   -> GROQ_API_KEY
+model: explicit and mandatory
+```
+
+Only the selected provider credential is read. Credential values are not accepted by CLI, not placed in child arguments, not copied into runtime manifest/config, and not written to bounded console output. Child processes inherit the environment normally; `ProcessStartInfo.Environment` is not modified.
+
+Both prior/current DocFlow invocations now contain exactly:
+
+```text
+--provider <selected-provider>
+```
+
+All existing VS-10 artifact paths, document names, model forwarding, Python executable/workdir behavior, bounded child-output behavior, `UseShellExecute = false`, `ArgumentList`, no-shell execution, and the VS-08 child invocation remain unchanged.
+
+Public/shared TradeOps contracts changed:
+
+```text
+none
+```
+
+TradeOps provider SDK/HTTP/domain changes:
+
+```text
+none
+```
+
+Validation:
+
+```text
+CI: 37639424120 — SUCCESS
+full TradeOps tests: 490/490 passed
+restore/build: SUCCESS
+API + PostgreSQL smoke: SUCCESS
+signed webhook demo: SUCCESS
+customer TradingView demo: SUCCESS
+client pilot starter validation: SUCCESS
+Docker/deployment validation: SUCCESS
+Docker image build: SUCCESS
+```
+
+Privacy/secret scan:
+
+```text
+PASS
+- no OPENAI_API_KEY/GROQ_API_KEY values committed
+- no bearer/key-shaped secret values introduced
+- no provider HTTP endpoint introduced into TradeOps
+- no personal/client data introduced
+- existing synthetic fixtures only
+```
+
+Live DF-07 integration check at handoff:
+
+```text
+DocFlow branch: DocFlow/df07-groq-schema-backend
+DF-07 HEAD: 171830b97174e55824de280eef280daa8f7b8b96
+DF-07 CI: 37639653424 — SUCCESS
+CLI contract verified in live code:
+  --provider choices=("openai", "groq")
+  default="openai"
+```
+
+Real Groq smoke:
+
+```text
+NOT RUN
+```
+
+Reason: it is intentionally outside CI and must use the user's local `GROQ_API_KEY` only after orchestrated DF-07 + VS-12 integration.
+
+Blockers:
+
+```text
+No implementation blocker.
+Real Groq smoke remains gated on orchestrated integration of DF-07 and VS-12.
+```
+
+Next integration action:
+
+```text
+Development Orchestrator reviews VS-12 against the integrated/final DF-07 CLI contract,
+then merges in orchestrated order. After both are integrated, run one local Groq smoke
+with synthetic VS-09 inputs and an explicit supported model, then compose the produced
+artifacts through the existing VS-11 research -> backtest/rebalance path.
+```
+
