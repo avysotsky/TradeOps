@@ -12,17 +12,15 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: b27ebdde88c8671815f363500abaf01a4622daa1
-latest production merge: VS-12 — Provider-Selectable Two-Repository Demo Harness (PR #64)
-VS-12 merge commit: c0d222a5399b0a112e072d232351dccb55a548ac
-VS-12 post-merge CI: 37640969754 — SUCCESS
-runtime-artifact ignore fix: fc6abc8dc73af6088886cc5259f51b8663fc70c7; CI 37651592492 — SUCCESS
-real Groq smoke record: b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 — SUCCESS
-VS-03 Configurable Research Policy integrated via PR #55
-VS-02 Public-Data Runnable Demo integrated via PR #56
-VS-01 Research-to-Rebalance Client Demo integrated via PR #54
-WS-01 manual Paper smoke harness integrated via PR #53
-previous integrated workstreams: WS-04 PR #52, WS-02 PR #51, WS-01 PR #50, WS-03 PR #49
+main: 3e70999cb281eb682426bce20b3ac9880b23a0ab
+latest production merge: VS-15 — Provider Transcript → Research → Backtest/Rebalance Wiring (PR #67)
+VS-15 merge commit: 54e981d51bc7de5746371106509cc92030767916
+VS-15 post-merge CI: 37669861416 — SUCCESS
+full suite: 519 / 519 tests passed
+CodeQL default setup on current main: 37670319399 — SUCCESS
+current-main build: 37670318847 — SUCCESS
+SEC-01 integrated via PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX
+prior real Groq research-only validation record: b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 — SUCCESS
 ```
 
 DocFlow repository:
@@ -100,6 +98,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS |
 | VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | INTEGRATED | PR #67; exact-head CI 37663139885 SUCCESS; merge 54e981d51bc7de5746371106509cc92030767916; post-merge CI 37669861416 SUCCESS; 519/519 tests |
 | SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | INTEGRATED | PR #68; 101/101 public branch tips audited; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX |
+| OP-01 | Real Groq Provider → Research → Backtest/Rebalance Validation | operator/local | READY | run integrated VS-15 against local DocFlow with environment-only GROQ_API_KEY; no repository mutation except later validation record |
+| SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | READY | plan-only analysis of SEC-001 refs/blast radius; no history rewrite, force-push, branch deletion or code changes |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -281,8 +281,8 @@ DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR 
 DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS
 DONE VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — PR #67; post-merge CI 37669861416 SUCCESS; 519/519 tests
 DONE SEC-01 Public Repository Security & Privacy Audit — PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 remains MUST FIX
-NEXT OPERATOR VALIDATION — run one real Groq provider -> research -> backtest/rebalance smoke using environment-only GROQ_API_KEY
-NEXT SECURITY — coordinate SEC-001 Git-history/ref remediation; do not rewrite active/public history casually
+P0 READY OP-01 — run one real Groq provider -> research -> backtest/rebalance smoke on integrated main using environment-only GROQ_API_KEY
+P0 PARALLEL SEC-02 — map SEC-001 affected refs and produce a safe history/ref remediation plan only; no rewrite yet
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
