@@ -29,7 +29,8 @@ DocFlow:  avysotsky/DocFlow
 
 ```text
 main product integration
-de3f15f0dbf5968dd1fc34f0fb4b499ba058b924
+ee5cce50391c3ad844ecf2ae46e79718ae671418
+VS-04 Configurable Public-Data Client Demo integrated via PR #57
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
@@ -59,6 +60,8 @@ TradeOps/ws04-backtester-contracts
 TradeOps/vs01-research-to-rebalance-demo
 TradeOps/vs02-public-data-runnable-demo
 TradeOps/vs03-configurable-research-policy
+TradeOps/vs04-configurable-public-demo
+TradeOps/vs05-earnings-transcript-intake
 ```
 
 ## Worker chats
@@ -112,12 +115,22 @@ client policy JSON
 -> existing earnings settings / target-weight policy
 ```
 
+Integrated client-ready workflow:
+
+```text
+VS-04
+public SEC / market data
++ validated client policy JSON
+-> deterministic research decision
+-> backtest
+-> current rebalance output
+```
+
 Next product focus:
 
 ```text
-public-data demo
-+ validated client policy JSON
--> one runnable client workflow
+DF-02 DocFlow generic text/transcript normalization
+-> then define a thin earnings-research adapter into TradeOps
 ```
 
 Initial public-data choice for the bounded slice:
@@ -264,3 +277,16 @@ exact-head CI: 37596078515 success
 ```
 
 Reuse EarningsResearchPolicyConfiguration for subsequent client-facing policy input. Do not introduce a parallel strategy configuration contract.
+
+
+## VS-04
+
+Integrated via PR #57.
+
+```text
+synchronized worker HEAD: 0b6977ac5406e4a48cb9c5932c40773ff65d78dd
+merge commit: ee5cce50391c3ad844ecf2ae46e79718ae671418
+exact-head CI: 37600975847 success
+```
+
+The runnable public-data demo now requires validated policy JSON and carries StrategyId/policy fingerprint into the auditable output. VS-05 remains on architecture hold and must not be merged.

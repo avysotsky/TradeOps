@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -416,3 +416,18 @@ Development Orchestrator should:
 7. only after integration decide whether to start VS-05 / transcript or earnings-call ingestion.
 
 Do not start VS-05 from this worker branch.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #57
+pre-sync branch HEAD: 504e89410175880f5f098c5b588ef08e0d2332bc
+synchronized worker HEAD: 0b6977ac5406e4a48cb9c5932c40773ff65d78dd
+exact-head CI: 37600975847 — SUCCESS
+merge commit: ee5cce50391c3ad844ecf2ae46e79718ae671418
+```
+
+VS-04 is now part of main. External SEC / Alpha Vantage network smoke remains manual/opt-in and was not simulated.
