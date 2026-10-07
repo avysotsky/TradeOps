@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -20,7 +20,7 @@ TradeOps/vs09-earnings-extraction-schema
 Baseline CI:
 
 ```text
-37618585251 — IN_PROGRESS (documentation-only orchestration launch commit)
+37618585251 — SUCCESS (documentation-only orchestration launch commit)
 ```
 
 ## Purpose
@@ -327,3 +327,136 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+
+## Completion handoff
+
+### Validated implementation HEAD
+
+```text
+372c52191d4ce32d93dda902eb9ed716fb43e9ec
+```
+
+This is the exact implementation HEAD validated by GitHub Actions. The documentation-only status commit recording this handoff advances the branch after the validated implementation commit.
+
+### Pull request
+
+```text
+PR #61 — VS-09: Provider-compatible earnings extraction schema
+```
+
+The worker has not merged the branch.
+
+### Changed files
+
+```text
+docs/orchestration/VS09_EARNINGS_EXTRACTION_SCHEMA.md
+schemas/research/earnings-transcript-facts-v1.schema-request.json
+samples/research/provider-transcript-demo/prior-raw.json
+samples/research/provider-transcript-demo/current-raw.json
+tests/TradeOps.UnitTests/ProviderCompatibleEarningsExtractionSchemaTests.cs
+```
+
+### Schema request
+
+```text
+schemas/research/earnings-transcript-facts-v1.schema-request.json
+schema_name: tradeops_earnings_transcript_facts_v1
+schema_version: 1
+```
+
+The schema targets the DF-04 `SchemaDrivenTextExtractionRequest.json_schema` data payload, not the outer `StructuredExtractionResult`.
+
+It keeps every object closed with `additionalProperties: false`, requires every declared property, represents unsupported fact/guidance slots with explicit `null`, preserves the VS-07 field names, and uses the existing adapter constants:
+
+```text
+schema_version = 1
+amount_scale = base_units
+margin_scale = fraction
+```
+
+No provider, model, or API-key configuration is stored in the request artifact.
+
+### Provider-demo raw inputs
+
+```text
+samples/research/provider-transcript-demo/prior-raw.json
+samples/research/provider-transcript-demo/current-raw.json
+```
+
+Both inputs are DF-02-compatible raw transcript inputs with synthetic speakers/company identity, `example.test` source URLs, explicit timezone-aware source/published/retrieved timestamps, and no precomputed DocFlow document IDs, fingerprints, segment IDs, or evidence IDs.
+
+The prior/current financial values intentionally preserve the existing VS-08 positive-decision direction while remaining raw text:
+
+```text
+revenue: 100,000,000 USD -> 110,000,000 USD
+diluted EPS: 2.00 -> 2.20 USD/share
+operating margin: 20% -> 22%
+current guidance: raised; revenue 115,000,000-120,000,000 USD; diluted EPS 2.25-2.35 USD/share
+```
+
+DF-02 remains responsible for generating normalized document identity, fingerprint, and segment IDs.
+
+### Structured Outputs compatibility review
+
+Official OpenAI Structured Outputs constraints were rechecked before implementation on 2026-10-07.
+
+The schema uses a root object, explicit required fields, nullable unions for semantically optional values, and `additionalProperties: false` on every object. It avoids unsupported/provider-fragile composition constraints and leaves authoritative business validation in VS-07.
+
+### Tests
+
+New structural tests cover:
+
+- exact schema-request root shape and schema version;
+- exact VS-07 top-level/fact/guidance field names;
+- recursive `additionalProperties: false`;
+- recursive `required == properties`;
+- nullable fact/guidance slots;
+- adapter version/scale constants;
+- guidance direction enum;
+- absence of provider/model/API-key configuration fields in the schema request;
+- DF-02-compatible raw JSON structure;
+- timezone-aware timestamp ordering;
+- `example.test` source URLs;
+- explicit USD/revenue/EPS/operating-margin text;
+- current raised guidance;
+- absence of precomputed DocFlow identity/evidence fields in raw inputs.
+
+Exact GitHub Actions result:
+
+```text
+37620533715 — SUCCESS
+453 / 453 tests passed
+```
+
+Build, unit tests, API/PostgreSQL smoke, webhook/demo checks, deployment validations, and Docker image build all passed.
+
+### Public/shared contracts
+
+No frozen shared TradeOps contract was changed.
+
+No new adapter, provider client, JSON Schema runtime dependency, OpenAI SDK, DocFlow project/package dependency, normalization logic, extraction execution, backtest, rebalance, or execution behavior was added.
+
+### Privacy scan
+
+All changed files were scanned before handoff.
+
+Result:
+
+```text
+PASS
+synthetic provider-demo identity only
+sample URLs use example.test
+no secrets/API keys
+no prohibited personal/client identity
+```
+
+### Blockers
+
+None for the bounded VS-09 slice.
+
+### Next integration action
+
+Development Orchestrator should review PR #61 against the current TradeOps `main`, recheck exact-head CI and changed-file overlap, and merge only if integration criteria remain satisfied.
+
+The worker stops here and does not merge independently.
