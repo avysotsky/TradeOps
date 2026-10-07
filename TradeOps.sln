@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.PublicResearchDemo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.TranscriptResearchDemo", "tools\TradeOps.TranscriptResearchDemo\TradeOps.TranscriptResearchDemo.csproj", "{4E0F5C21-7A8B-4B6B-9D31-2B6F8E3C4A90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TradeOps.ProviderTranscriptResearchDemo", "tools\TradeOps.ProviderTranscriptResearchDemo\TradeOps.ProviderTranscriptResearchDemo.csproj", "{F82B8A96-1D2D-4E31-B0D7-8357B9F45110}"
+EndProject
 Global
     GlobalSection(SolutionConfigurationPlatforms) = preSolution
         Debug|Any CPU = Debug|Any CPU
@@ -86,6 +88,10 @@ Global
         {4E0F5C21-7A8B-4B6B-9D31-2B6F8E3C4A90}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {4E0F5C21-7A8B-4B6B-9D31-2B6F8E3C4A90}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {4E0F5C21-7A8B-4B6B-9D31-2B6F8E3C4A90}.Release|Any CPU.Build.0 = Release|Any CPU
+        {F82B8A96-1D2D-4E31-B0D7-8357B9F45110}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {F82B8A96-1D2D-4E31-B0D7-8357B9F45110}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {F82B8A96-1D2D-4E31-B0D7-8357B9F45110}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {F82B8A96-1D2D-4E31-B0D7-8357B9F45110}.Release|Any CPU.Build.0 = Release|Any CPU
 
     EndGlobalSection
 EndGlobal
