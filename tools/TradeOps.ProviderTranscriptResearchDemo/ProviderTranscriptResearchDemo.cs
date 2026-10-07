@@ -693,19 +693,19 @@ public sealed record DotNetSdkPolicy(
 
 public static class ChildProcessDiagnostics
 {
-    private static readonly string[] SafeDotNetMarkers =
-    {
-        ".NET",
-        "SDK",
-        "global.json",
-        "hostfxr",
-        "hostpolicy",
-        "framework",
-        "MSBuild",
-        "architecture",
-        "The command could not be loaded",
-        "Failed to resolve"
-    };
+    private static readonly (string Marker, string Label)[]
+        SafeDotNetMarkers =
+        {
+            (".NET SDK", ".NET SDK"),
+            ("global.json", "global.json"),
+            ("hostfxr", "hostfxr"),
+            ("hostpolicy", "hostpolicy"),
+            ("framework", ".NET framework/runtime"),
+            ("MSBuild", "MSBuild"),
+            ("architecture", "architecture"),
+            ("The command could not be loaded", "command-load failure"),
+            ("Failed to resolve", "resolution failure")
+        };
 
     public static string Redact(
         string value,
@@ -756,39 +756,33 @@ public static class ChildProcessDiagnostics
             result.StandardError +
             "\n" +
             result.StandardOutput;
-        var lines =
-            combined
-                .Split(
-                    new[]
-                    {
-                        '\r',
-                        '\n'
-                    },
-                    StringSplitOptions.RemoveEmptyEntries)
-                .Select(
-                    line =>
-                        line.Trim())
+
+        var labels =
+            SafeDotNetMarkers
                 .Where(
-                    line =>
-                        SafeDotNetMarkers.Any(
-                            marker =>
-                                line.Contains(
-                                    marker,
-                                    StringComparison.OrdinalIgnoreCase)))
+                    item =>
+                        combined.Contains(
+                            item.Marker,
+                            StringComparison.OrdinalIgnoreCase))
+                .Select(
+                    item =>
+                        item.Label)
+                .Distinct(
+                    StringComparer.Ordinal)
                 .Take(
                     12)
                 .ToArray();
 
-        if (lines.Length == 0)
+        if (labels.Length == 0)
         {
             return string.Empty;
         }
 
-        return Redact(
-            string.Join(
-                " | ",
-                lines),
-            selectedSecret);
+        // Never quote child output here. Fixed labels make diagnostics useful
+        // without allowing transcript/provider payload text to cross the boundary.
+        return string.Join(
+            ", ",
+            labels);
     }
 }
 
