@@ -96,8 +96,9 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-10 | Provider-Backed Two-Repository Transcript Research Demo | TradeOps/vs10-provider-backed-transcript-demo | INTEGRATED | PR #63; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS; real-provider smoke externally gated |
 | VS-11 | Transcript Research-to-Backtest/Rebalance Composition | TradeOps/vs11-transcript-research-rebalance-demo | INTEGRATED | PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; fail-closed research equivalence gate |
 | VS-12 | Provider-Selectable Two-Repository Demo Harness | TradeOps/vs12-provider-selectable-transcript-demo | INTEGRATED | PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS; local real Groq run is next |
-| VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | READY | consumer-only: existing artifacts -> VS-11 -> backtest/rebalance -> auditable JSON; must not touch provider process infrastructure |
-| VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | READY | provider-harness infrastructure only: dotnet host resolution/global.json preflight/bounded diagnostics; must not touch VS-13 consumer files |
+| VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | INTEGRATED | PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca; combined post-merge CI 37660656844 SUCCESS |
+| VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS |
+| VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | READY | backward-compatible provider harness wiring into integrated VS-13 consumer; no new provider/domain contracts; local real Groq smoke after CI |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -167,9 +168,9 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 27. DONE — DF-07 Groq Schema-Driven Text Extraction Backend integrated via PR #7; exact-head CI 37639935357 SUCCESS; 116/116 tests; post-merge CI 37640516860 SUCCESS.
 28. DONE — VS-12 Provider-Selectable Two-Repository Demo Harness integrated via PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS.
 29. DONE — local real Groq smoke completed on integrated mains with environment-only GROQ_API_KEY and model openai/gpt-oss-20b; DocFlow prior/current and TradeOps VS-08 all exited 0; provider transcript research demo passed; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS.
-30. PARALLEL — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer: add the deterministic existing-artifacts -> VS-11 -> backtest/rebalance consumer and auditable JSON. VS-13 does not touch provider process infrastructure.
-31. PARALLEL — VS-14 .NET Child Host & Process Diagnostics Hardening: harden the existing provider harness dotnet host resolution, global.json/SDK preflight and bounded safe diagnostics. VS-14 does not touch VS-13 consumer files.
-32. NEXT AFTER BOTH — VS-15 small wiring slice: connect integrated provider harness to integrated VS-13 consumer mode, then run one local real Groq provider -> research -> backtest/rebalance smoke.
+30. DONE — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer integrated via PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca.
+31. DONE — VS-14 .NET Child Host & Process Diagnostics Hardening integrated via PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS.
+32. READY — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring: add a backward-compatible provider-harness rebalance mode that passes the integrated VS-13 `--rebalance-input` consumer option and emits the deterministic rebalance audit artifact; real Groq smoke remains an explicit local/operator validation.
 33. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
@@ -274,9 +275,9 @@ WAIT OpenAI real-provider smoke — separate API billing unavailable; not a bloc
 DONE DF-07 Groq Schema-Driven Text Extraction Backend — PR #7; post-merge CI 37640516860 SUCCESS; 116/116 tests
 DONE VS-12 Provider-Selectable Two-Repository Demo Harness — PR #64; post-merge CI 37640969754 SUCCESS; 490/490 tests
 DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow prior/current + TradeOps VS-08 exit 0; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS
-P0 PARALLEL VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — consumer/audit JSON only
-P0 PARALLEL VS-14 .NET Child Host & Process Diagnostics Hardening — provider process boundary only
-NEXT VS-15 after both integrate — wire provider harness -> VS-13 consumer and run local real Groq end-to-end smoke
+DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR #66; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca
+DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS
+P0 READY VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — provider harness -> VS-13 consumer mode + local real Groq E2E validation
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
