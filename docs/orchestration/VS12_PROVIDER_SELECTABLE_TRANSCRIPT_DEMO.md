@@ -442,8 +442,8 @@ Live DF-07 integration check at handoff:
 
 ```text
 DocFlow branch: DocFlow/df07-groq-schema-backend
-DF-07 HEAD: 171830b97174e55824de280eef280daa8f7b8b96
-DF-07 CI: 37639653424 — SUCCESS
+DF-07 HEAD: 0dad44921bffeb5f7599daf4ea106270da584c24
+DF-07 latest branch-head CI: 37639935357 — SUCCESS
 CLI contract verified in live code:
   --provider choices=("openai", "groq")
   default="openai"
