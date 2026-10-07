@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\TradeOps.Api\TradeOps.Api.csproj" />
     <ProjectReference Include="..\..\src\TradeOps.Application\TradeOps.Application.csproj" />
-    <ProjectReference Include="..\..\src\TradeOps.Infrastructure\TradeOps.Infrastructure.csproj" />\n    <ProjectReference Include="..\..\tools\TradeOps.PublicResearchDemo\TradeOps.PublicResearchDemo.csproj" />
+    <ProjectReference Include="..\..\src\TradeOps.Infrastructure\TradeOps.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\tools\TradeOps.PublicResearchDemo\TradeOps.PublicResearchDemo.csproj" />
   </ItemGroup>
 </Project>
