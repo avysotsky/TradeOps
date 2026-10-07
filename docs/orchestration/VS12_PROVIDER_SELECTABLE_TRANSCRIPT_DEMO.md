@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -473,3 +473,30 @@ with synthetic VS-09 inputs and an explicit supported model, then compose the pr
 artifacts through the existing VS-11 research -> backtest/rebalance path.
 ```
 
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+final branch HEAD: bee9c880e388e4a219e32edceca4d2578fbfb39e
+exact-head CI: 37640551725 — SUCCESS
+full TradeOps tests: 490 / 490 passed
+PR: #64
+merge commit: c0d222a5399b0a112e072d232351dccb55a548ac
+post-merge CI: 37640969754 — SUCCESS
+```
+
+Final integrated DocFlow dependency:
+
+```text
+DF-07 main merge: 211f890625712a161eadad09e56962ad69a759f5
+DF-07 post-merge CI: 37640516860 — SUCCESS
+CLI contract: --provider openai|groq
+default provider: openai
+```
+
+Architecture/privacy/secret review passed.
+
+The next action is a local Groq smoke from Visual Studio 2022 using the user's locally configured `GROQ_API_KEY`, an explicit supported model, TradeOps main, and DocFlow main.
