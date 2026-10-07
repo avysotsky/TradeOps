@@ -625,7 +625,7 @@ The audit covered:
 | ID | Severity | Type | Surface | Classification | Required action |
 |---|---|---|---|---|---|
 | SEC-001 | MUST FIX | Commit author/committer privacy metadata | 3 public commits; SHAs below | Personal/custom email metadata; value = `REDACTED` | Stop future exposure with GitHub noreply identity; orchestrator must remove/rewrite affected public history/refs as appropriate |
-| SEC-002 | MUST FIX | Public mTLS client-certificate identity | PR #12 body | Email-like certificate CN, real-looking / unknown; value = `REDACTED` | Edit PR body to a neutral placeholder; review whether the operational certificate/allowlist identity should be reissued |
+| SEC-002 | MUST FIX → RESOLVED | Public mTLS client-certificate identity | PR #12 body | Email-like certificate CN was public at audit time; value = `REDACTED` | RESOLVED 2026-10-07: PR #12 body sanitized to a neutral placeholder; post-edit verification found no email-like value in the PR body |
 | SEC-003 | ACCEPTABLE | Config / CI credential-shaped values | current appsettings, build workflow, client env example | Synthetic CI/demo/local values, placeholders or variable references; values = `REDACTED` | No remediation required for audited values |
 | SEC-004 | ACCEPTABLE | Broker/exchange/provider credential plumbing | source/config/workflows and branch-only diffs | Environment/GitHub-Secret/config references; no live credential pattern found | Keep credentials environment/secret-store only |
 | SEC-005 | ACCEPTABLE | Transcript/provider samples | research/provider sample JSON and related docs | Synthetic repository fixtures; no real provider payload identified | Keep synthetic-only boundary |
@@ -990,17 +990,18 @@ SEC-01 remains documentation-only. A workflow result on the final report commit 
 
 ```text
 0 BLOCKER findings identified
-2 unresolved MUST FIX findings
+1 unresolved MUST FIX finding (SEC-001)
+1 MUST FIX finding resolved after audit (SEC-002)
 SAFE TO KEEP PUBLIC verdict: NOT GRANTED
 ```
 
-The repository is not eligible for the requested `SAFE TO KEEP PUBLIC` conclusion while SEC-001 and SEC-002 remain unresolved.
+The repository is not eligible for the requested `SAFE TO KEEP PUBLIC` conclusion while SEC-001 remains unresolved. SEC-002 was remediated after the audit by sanitizing PR #12.
 
 There is no evidence in the audited surfaces of a live credential/private-key leak requiring emergency credential rotation.
 
 ### Required remediation order
 
-1. Fix SEC-002 public PR-body deployment identity by replacing the value with a neutral placeholder; decide whether certificate/allowlist identity rotation is warranted.
+1. DONE — SEC-002 public PR-body deployment identity was replaced with a neutral placeholder and the PR body was rechecked for email-like values.
 2. Fix future Git author configuration immediately by using the GitHub noreply address.
 3. Decide the remediation strategy for the three SEC-001 commits:
    - rewrite the main-reachable commit if removal from public Git history is required;
@@ -1026,10 +1027,27 @@ Review this audit-only report. Do not merge remediation from SEC-01.
 
 The orchestrator should:
 
-1. remediate SEC-002 in PR #12;
+1. DONE — SEC-002 in PR #12 was remediated and verified by the orchestrator;
 2. choose and execute the SEC-001 history/ref remediation strategy;
 3. verify GitHub-native security controls with administrative access;
 4. request a fresh post-remediation audit;
 5. only then decide whether TradeOps can be declared `SAFE TO KEEP PUBLIC`.
 
 SEC-01 stops after this audit/report handoff.
+
+
+### Post-audit orchestrator remediation
+
+On 2026-10-07, after SEC-01 handoff, the Development Orchestrator remediated SEC-002 by editing the already-merged PR #12 body and replacing the email-like mTLS certificate CN with a neutral placeholder.
+
+Post-edit verification:
+
+```text
+PR #12 email-like values in body: 0
+neutral certificate-subject placeholder present: yes
+SEC-002 status: RESOLVED
+```
+
+No certificate value is reproduced in this report.
+
+SEC-001 remains unresolved and still prevents a `SAFE TO KEEP PUBLIC` verdict until the history/ref remediation strategy is executed and re-audited.
