@@ -439,6 +439,58 @@ public static class SecSubmissionParser
     }
 }
 
+public static class SecHistoricalAvailabilityPolicy
+{
+    public static DateTimeOffset Resolve(
+        SecFilingMetadata filing)
+    {
+        ArgumentNullException.ThrowIfNull(filing);
+
+        var eastern =
+            FindEasternTimeZone();
+
+        var localBoundary =
+            new DateTime(
+                filing.FilingDate.Year,
+                filing.FilingDate.Month,
+                filing.FilingDate.Day,
+                22,
+                0,
+                0,
+                DateTimeKind.Unspecified);
+
+        var utcBoundary =
+            new DateTimeOffset(
+                TimeZoneInfo.ConvertTimeToUtc(
+                    localBoundary,
+                    eastern),
+                TimeSpan.Zero);
+
+        if (utcBoundary <
+            filing.AcceptedAt.ToUniversalTime())
+        {
+            throw new InvalidOperationException(
+                $"The conservative SEC historical availability boundary for {filing.AccessionNumber} precedes its AcceptedAt source timestamp.");
+        }
+
+        return utcBoundary;
+    }
+
+    private static TimeZoneInfo FindEasternTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(
+                "America/New_York");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(
+                "Eastern Standard Time");
+        }
+    }
+}
+
 public static class SecCompanyFactsParser
 {
     private static readonly (string Concept, string Unit)[]
@@ -576,10 +628,9 @@ public static class SecCompanyFactsParser
                     period,
                     filing);
 
-            // Historical replay uses the official SEC acceptance
-            // timestamp as the reconstructed observation/availability
-            // boundary. The actual backfill download time is retained
-            // separately in the public-demo cache manifest.
+            // Historical replay deliberately uses a conservative
+            // availability boundary derived from SEC filing-date
+            // metadata. It is not an exact dissemination timestamp.
             result.Add(
                 new SecStructuredFiling(
                     $"sec:{symbol.ToUpperInvariant()}:{filing.AccessionNumber}",
@@ -595,7 +646,8 @@ public static class SecCompanyFactsParser
                     "USD",
                     structuredFacts,
                     PubliclyAvailableAt:
-                        filing.AcceptedAt));
+                        SecHistoricalAvailabilityPolicy
+                            .Resolve(filing)));
         }
 
         return result;

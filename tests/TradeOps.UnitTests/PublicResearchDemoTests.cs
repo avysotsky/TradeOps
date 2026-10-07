@@ -99,8 +99,11 @@ public sealed class PublicResearchDemoTests
     }
 
     [Fact]
-    public void Sec_projection_preserves_historical_provenance_without_today_time()
+    public void Sec_projection_separates_source_availability_and_actual_retrieval()
     {
+        var filingMetadata =
+            SecSubmissionParser.Parse(
+                SubmissionsJson)[^1];
         var filing =
             SecCompanyFactsParser
                 .CreateStructuredFilings(
@@ -108,6 +111,35 @@ public sealed class PublicResearchDemoTests
                     SecSubmissionParser.Parse(
                         SubmissionsJson),
                     "IBM")[^1];
+        var actualRetrievedAt =
+            new DateTimeOffset(
+                2026,
+                10,
+                7,
+                8,
+                0,
+                0,
+                TimeSpan.Zero);
+        var expectedAvailability =
+            new DateTimeOffset(
+                2026,
+                7,
+                23,
+                2,
+                0,
+                0,
+                TimeSpan.Zero);
+
+        Assert.Equal(
+            expectedAvailability,
+            SecHistoricalAvailabilityPolicy
+                .Resolve(filingMetadata));
+        Assert.Equal(
+            expectedAvailability,
+            filing.PubliclyAvailableAt);
+        Assert.NotEqual(
+            filing.AcceptedAt,
+            filing.PubliclyAvailableAt);
 
         var facts =
             SecStructuredFilingNormalizer
@@ -115,16 +147,22 @@ public sealed class PublicResearchDemoTests
         var earningsEvent =
             SecEarningsEventFactory.Create(
                 facts,
-                filing.AcceptedAt);
+                actualRetrievedAt);
 
-        Assert.Equal(
-            filing.AcceptedAt,
-            earningsEvent.PublishedAt);
         Assert.Equal(
             filing.AcceptedAt,
             earningsEvent.Provenance.SourceTimestamp);
         Assert.Equal(
-            filing.AcceptedAt,
+            expectedAvailability,
+            earningsEvent.PublishedAt);
+        Assert.Equal(
+            actualRetrievedAt,
+            earningsEvent.Provenance.RetrievedAt);
+        Assert.True(
+            earningsEvent.Provenance.SourceTimestamp <=
+            earningsEvent.PublishedAt);
+        Assert.True(
+            earningsEvent.PublishedAt <=
             earningsEvent.Provenance.RetrievedAt);
         Assert.Equal(
             filing.AccessionNumber,
@@ -293,17 +331,19 @@ public sealed class PublicResearchDemoTests
     [Fact]
     public void Full_composition_invokes_existing_VS01_pipeline()
     {
+        var snapshotRetrievedAt =
+            new DateTimeOffset(
+                2026,
+                10,
+                7,
+                8,
+                0,
+                0,
+                TimeSpan.Zero);
         var composition =
             PublicResearchDemoComposer.Compose(
                 new PublicDemoRawSnapshot(
-                    new DateTimeOffset(
-                        2026,
-                        10,
-                        7,
-                        8,
-                        0,
-                        0,
-                        TimeSpan.Zero),
+                    snapshotRetrievedAt,
                     SubmissionsJson,
                     CompanyFactsJson,
                     MarketJson));
@@ -330,6 +370,13 @@ public sealed class PublicResearchDemoTests
             ResearchDecisionAction.SetTargetWeight,
             result.LatestDecision.Action);
         Assert.Equal(
+            result.PublishedAt,
+            result.LatestDecision.GeneratedAt);
+        Assert.Equal(
+            snapshotRetrievedAt,
+            composition.EarningsEvents[^1]
+                .Provenance.RetrievedAt);
+        Assert.Equal(
             1,
             result.EventCount);
         Assert.Single(
@@ -343,6 +390,65 @@ public sealed class PublicResearchDemoTests
             result.CurrentRebalancePlan
                 .OrderIntent!
                 .RequiresRiskApproval);
+    }
+
+    [Fact]
+    public void Historical_after_hours_availability_executes_only_at_next_daily_open()
+    {
+        var composition =
+            PublicResearchDemoComposer.Compose(
+                new PublicDemoRawSnapshot(
+                    new DateTimeOffset(
+                        2026,
+                        10,
+                        7,
+                        8,
+                        0,
+                        0,
+                        TimeSpan.Zero),
+                    SubmissionsJson,
+                    CompanyFactsJson,
+                    MarketJson));
+
+        var latestEvent =
+            composition.EarningsEvents[^1];
+        var decision =
+            composition.Result.LatestDecision;
+        var fill =
+            Assert.Single(
+                composition.Result.Backtest.Fills);
+
+        Assert.Equal(
+            new DateTimeOffset(
+                2026,
+                7,
+                23,
+                2,
+                0,
+                0,
+                TimeSpan.Zero),
+            latestEvent.PublishedAt);
+        Assert.Equal(
+            latestEvent.PublishedAt,
+            decision.GeneratedAt);
+        Assert.Equal(
+            new DateTimeOffset(
+                2026,
+                7,
+                23,
+                13,
+                30,
+                0,
+                TimeSpan.Zero),
+            fill.ExecutedAt);
+        Assert.True(
+            fill.ExecutedAt >
+            decision.GeneratedAt);
+        Assert.DoesNotContain(
+            composition.Result.Backtest.Fills,
+            item =>
+                item.ExecutedAt <=
+                decision.GeneratedAt);
     }
 
     [Fact]
