@@ -574,3 +574,14 @@ The optional real-provider smoke remains externally gated by an explicit model a
 ### Next integration action
 
 Development Orchestrator should review the VS-10 branch diff and exact-head CI, then integrate the branch if accepted. This worker must not merge it independently.
+
+
+### Integration-time main advancement
+
+During VS-10 validation, TradeOps `main` advanced to:
+
+```text
+a763b4eda2906cdac5c551869f14005013a4b9ab
+```
+
+The new main commit changes only `docs/orchestration/ORCHESTRATION.md`, which is outside the VS-10 implementation changed-file set. The branch is therefore behind current main by one commit without implementation-file overlap. Per the workstream protocol, synchronization/merge remains an orchestrator decision; this worker did not rebase or merge `main`.
