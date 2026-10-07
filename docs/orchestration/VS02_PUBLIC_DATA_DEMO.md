@@ -1,6 +1,6 @@
 # VS-02 — Public-Data Runnable Demo
 
-State: READY_FOR_INTEGRATION
+State: INTEGRATED
 
 Repository / branch:
 
@@ -532,3 +532,17 @@ Next integration action: Development Orchestrator reviews the corrected bounded 
 ```
 
 Do not begin transcript ingestion, IBKR mutation, strategy optimization or another slice from this worker without a new Development Orchestrator decision.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+PR #56
+worker HEAD: 278fe0540846d8a474debaf5ae1c11b4f193268a
+merge commit: c52746ee451f222e0f4440c5a8e451dbd66a9c28
+exact-head CI: 37594048247 — success
+```
+
+The corrected SEC availability/provenance semantics and runnable public-data demo are now part of main.
