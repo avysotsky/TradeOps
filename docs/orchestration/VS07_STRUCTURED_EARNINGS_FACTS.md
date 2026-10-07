@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -501,3 +501,97 @@ generic schema-driven text extraction request
 ```
 
 DF-04 must remain domain-neutral. It may consume a caller-supplied schema/configuration, but must not contain earnings-specific models or trading logic.
+
+
+## Handoff status
+
+### Current HEAD
+
+CI-validated implementation HEAD:
+
+`4e302432fc1f90e6afbaab589b42f8a1e2e85d34`
+
+This handoff documentation update is docs-only and follows the validated implementation commit.
+
+### Changed files
+
+- `src/TradeOps.Application/Models/EarningsTranscriptFactSet.cs`
+- `src/TradeOps.Application/Services/DocFlowStructuredEarningsFactsAdapter.cs`
+- `src/TradeOps.Application/Services/EarningsTranscriptEventFactory.cs`
+- `tests/TradeOps.UnitTests/DocFlowStructuredEarningsFactsAdapterTests.cs`
+- `docs/orchestration/VS07_STRUCTURED_EARNINGS_FACTS.md`
+
+### Completed
+
+Implemented one bounded consumer-side slice:
+
+```text
+EarningsTranscriptResearchInput
++ serialized DocFlow StructuredExtractionResult
+-> strict earnings schema v1 validation
+-> auditable EarningsTranscriptFactSet
+-> existing EarningsSnapshot
+-> existing EarningsEvent
+```
+
+Validation is fail-closed for schema version, transcript/document identity, lowercase SHA-256 fingerprint, exact instrument currency, amount/margin scales, generic invalid/incomplete validation status, unsupported JSON members in the earnings transport DTOs, evidence presence/uniqueness/membership, guidance direction and guidance range ordering.
+
+The adapter performs no million/billion or percent conversion. Synthetic fixtures prove that already-normalized values such as `14300000000` revenue and `0.42` gross margin are preserved directly.
+
+The event factory reuses the exact input `InstrumentReference`, takes EventId/FiscalPeriod/PublishedAt only from the VS-06 input, preserves source provenance fields, enforces `SourceTimestamp <= PublishedAt <= RetrievedAt`, and sets semantic event extraction method to `docflow-structured-earnings-v1`.
+
+No network, clock, random IDs, LLM/provider clients, DocFlow dependency, ResearchDecision generation, portfolio/backtest/execution or persistence changes were added.
+
+### Public/shared contracts
+
+Frozen existing contracts were not modified.
+
+One narrow additive TradeOps earnings audit contract was added:
+
+- `EarningsTranscriptFactSet`
+- `EarningsTranscriptNumericFact`
+- `EarningsTranscriptGuidanceFactSet`
+- `EarningsTranscriptGuidanceDirectionFact`
+
+No DocFlow project/package dependency was added and no SEC/XBRL contract or semantics were changed.
+
+### Tests
+
+GitHub Actions full TradeOps suite:
+
+- Test Run Successful
+- Total tests: `431`
+- Passed: `431`
+- Failed: `0`
+
+The suite includes VS-07 positive/negative structured-fact tests plus existing SEC/XBRL and full repository regressions.
+
+### CI
+
+Exact CI-validated implementation HEAD:
+
+`4e302432fc1f90e6afbaab589b42f8a1e2e85d34`
+
+GitHub Actions:
+
+`build` run `37608501151` (run number `710`) — `success`.
+
+Draft integration PR: #59.
+
+### Privacy scan
+
+Changed files were reviewed for personal/prospective-client names. Project-prohibited personal name `Filip` is absent.
+
+Synthetic code/tests use only generic values such as `sample`, `Sample Company`, `Speaker A`, and `Analyst`.
+
+Production code contains no `HttpClient`, clock access (`Now`/`UtcNow`), random/GUID generation, OpenAI/Anthropic clients, or ResearchDecision generation. OpenAI/Anthropic and ResearchDecision mentions remain only in the orchestration out-of-scope text / negative boundary assertions.
+
+### Blockers
+
+None.
+
+### Next integration action
+
+Development Orchestrator should review draft PR #59, confirm changed-file scope and CI, and merge VS-07 into `main` if accepted.
+
+Do not start DF-04 from this worker. DF-04 should be defined only after VS-07 integration and must remain generic/domain-neutral.
