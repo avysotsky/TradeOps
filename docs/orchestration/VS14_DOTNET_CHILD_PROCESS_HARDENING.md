@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -296,3 +296,122 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+## Completion handoff
+
+### Validated implementation head
+
+```text
+75a35244a9e70d56db57dae9354796d8cf8032b8
+```
+
+This is the exact code-and-test HEAD validated by GitHub Actions before this status-file bookkeeping update.
+
+At validation time, current TradeOps `main` was:
+
+```text
+99013d7f5f7551f3abf1d342c46d3e48dbbfb68f
+```
+
+The implementation branch was intentionally not broadly merged or rebased because its one-commit main divergence was orchestration/docs-only and there was no implementation overlap.
+
+### Changed files
+
+The bounded VS-14 slice changes only:
+
+```text
+tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs
+tests/TradeOps.UnitTests/ProviderTranscriptResearchDemoTests.cs
+docs/orchestration/VS14_DOTNET_CHILD_PROCESS_HARDENING.md
+```
+
+`Program.cs`, VS-13-owned files, shared/domain contracts, backtester/rebalance code, DocFlow and broker/IBKR code are unchanged.
+
+### Host resolution precedence
+
+The TradeOps consumer host is selected deterministically:
+
+1. explicit `--dotnet <path>`; invalid explicit paths fail closed;
+2. valid `DOTNET_HOST_PATH`;
+3. valid `DOTNET_ROOT` plus the platform `dotnet` executable;
+4. valid `DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR` plus the platform `dotnet` executable;
+5. platform `dotnet` executable through PATH, but only after the same explicit preflight.
+
+No machine-local dotnet installation path is repository behavior.
+
+### global.json / SDK validation
+
+Before any provider/DocFlow child stage, the selected host runs `dotnet --version` from the TradeOps repository root.
+
+The narrow preflight reads repository `global.json` and enforces `sdk.version = 8.0.400`, `sdk.rollForward = latestPatch`, and `sdk.allowPrerelease = false`.
+
+Compatible 8.0.4xx SDK patches at or above 8.0.400 are accepted, including 8.0.421. Different major/minor versions, older requested feature-band versions, a later 8.0.5xx feature band, prerelease SDKs, malformed output, missing hosts and non-zero preflight exits are rejected before provider work.
+
+This is intentionally not a generic .NET SDK resolver.
+
+### Process-output safety
+
+`IChildProcessRunner` now returns a tool-local bounded result containing exit code, bounded stdout and bounded stderr.
+
+`SystemChildProcessRunner` keeps `UseShellExecute = false`, `ArgumentList`, redirected stdout/stderr and no shell concatenation. Both streams are drained concurrently. Capture is capped deterministically at 4096 characters per stream with a fixed truncation marker.
+
+Provider/DocFlow child output is never forwarded to the console. Provider failures expose only stage and exit status.
+
+Dotnet preflight / TradeOps consumer failures may expose only narrowly filtered runtime/SDK diagnostic lines. Known selected credential values, API-key assignment forms, Authorization Bearer data and Bearer token forms are redacted before display.
+
+Success output remains concise and may show provider, model, selected dotnet host, resolved SDK version, stage and exit status.
+
+### Tests
+
+Provider harness test coverage at validated implementation HEAD:
+
+```text
+existing VS-12 provider-harness regression cases: 27
+new VS-14 host/diagnostics cases: 16
+provider-harness cases total: 43
+```
+
+The existing 27 cases and new 16 cases were all executed by the full branch-head test suite.
+
+Full TradeOps GitHub Actions unit suite:
+
+```text
+506 / 506 tests passed
+```
+
+Exact validated implementation CI:
+
+```text
+37657954260 — SUCCESS
+head: 75a35244a9e70d56db57dae9354796d8cf8032b8
+```
+
+The workflow also passed build, API/PostgreSQL smoke, signed-webhook demo, customer TradingView demo, deployment validation and Docker image build.
+
+A separate local filtered test invocation was not available in this worker environment; the exact-head GitHub Actions full suite is the execution authority and includes both the VS-14 targeted cases and the retained VS-12 regression cases.
+
+### Public/shared contracts
+
+No frozen shared/domain contract changed.
+
+The additions are limited to the provider-demo tool-local CLI/process boundary.
+
+### Privacy / secret scan
+
+Changed implementation/test/status files were scanned for credential-like material.
+
+Result: no real API keys, private keys, JWTs, client/account/broker data, real transcripts, environment dump, or persisted provider request/response.
+
+Machine-local path examples occur only in the workstream specification/prohibition text; production behavior contains no hard-coded local installation path. Authorization/Bearer strings in source/tests are redaction logic and synthetic safety fixtures only.
+
+### Blockers
+
+None in VS-14 scope.
+
+Parallel VS-13 remains isolated under `VS13_SCOPE_OVERRIDE.md`; VS-14 does not wire the VS-13 rebalance consumer.
+
+### Next integration action
+
+Development Orchestrator should review the exact branch diff and CI, then integrate VS-14 without broadening scope. Do not merge this worker branch independently.
+
+After both VS-13 and VS-14 are integrated, use the separately planned VS-15 slice for provider-harness -> VS-13 consumer wiring.
