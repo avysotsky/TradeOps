@@ -12,9 +12,9 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: 761e32acb90094eae3b3d029dd6b5e69edb529fd
-main CI: 37622030289 — SUCCESS
-latest integrated slice: VS-09 — Provider-Compatible Earnings Extraction Schema (PR #61)
+main: 0e09d987e669c127fd2f26cb9f24aeb2073e27d3
+main CI: 37630315790 — SUCCESS
+latest integrated slices: VS-11 — Transcript Research-to-Backtest/Rebalance Composition (PR #62); VS-10 — Provider-Backed Two-Repository Transcript Research Demo (PR #63)
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
@@ -89,8 +89,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-07 | Structured Earnings Facts Boundary | TradeOps/vs07-structured-earnings-facts | INTEGRATED | PR #59; exact-head CI 37609374812 SUCCESS; post-merge CI 37609652431 SUCCESS |
 | VS-08 | Runnable Transcript-to-Research Integration | TradeOps/vs08-runnable-transcript-research | INTEGRATED | PR #60; synchronized-head CI 37616104229 SUCCESS; post-merge CI 37616617370 SUCCESS; 446/446 tests |
 | VS-09 | Provider-Compatible Earnings Extraction Schema | TradeOps/vs09-earnings-extraction-schema | INTEGRATED | PR #61; synchronized-head CI 37621698229 SUCCESS; post-merge CI 37622030289 SUCCESS; implementation suite 453/453 |
-| VS-10 | Provider-Backed Two-Repository Transcript Research Demo | TradeOps/vs10-provider-backed-transcript-demo | IN_PROGRESS | implementation HEAD 4e05a5476e20e6e6f4d6b65aacd5bfe234a8dcc0; exact-head CI 37625253084 SUCCESS; provider/process harness only |
-| VS-11 | Transcript Research-to-Backtest/Rebalance Composition | TradeOps/vs11-transcript-research-rebalance-demo | READY | application-only composition: existing VS-08 transcript research result/events -> existing VS-01/WS-04/WS-03 backtest + current rebalance; no provider/tool changes |
+| VS-10 | Provider-Backed Two-Repository Transcript Research Demo | TradeOps/vs10-provider-backed-transcript-demo | INTEGRATED | PR #63; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS; real-provider smoke externally gated |
+| VS-11 | Transcript Research-to-Backtest/Rebalance Composition | TradeOps/vs11-transcript-research-rebalance-demo | INTEGRATED | PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; fail-closed research equivalence gate |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -153,10 +153,11 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 21. DONE — VS-08 Runnable Transcript-to-Research Integration integrated via PR #60; 446/446 tests; post-merge CI 37616617370 SUCCESS.
 22. DONE — DF-06 OpenAI Text Artifact CLI integrated via PR #6; generic raw text + caller schema + explicit model -> normalized + StructuredExtractionResult artifacts; exact final-head CI 37620734092 SUCCESS; post-merge CI 37621390275 SUCCESS.
 23. DONE — VS-09 Provider-Compatible Earnings Extraction Schema integrated via PR #61; synchronized-head CI 37621698229 SUCCESS; post-merge CI 37622030289 SUCCESS; implementation suite 453/453.
-24. IN PROGRESS — VS-10 Provider-Backed Two-Repository Transcript Research Demo. Provider/process harness implementation HEAD 4e05a5476e20e6e6f4d6b65aacd5bfe234a8dcc0; exact-head CI 37625253084 SUCCESS. Worker still owns its bounded handoff/integration state.
-25. START PARALLEL — VS-11 Transcript Research-to-Backtest/Rebalance Composition. Compose existing TranscriptResearchDecisionDemoService with existing ResearchToRebalanceDemoService using the exact transcript-derived prior/current EarningsEvent pair and existing policy mappings; require decision/assessment equivalence; no provider/process/CLI work.
-26. AFTER VS-10 — perform one explicit real-provider smoke when OPENAI_API_KEY and an explicit model are available. AFTER VS-11 — use the composed application path for a later client-facing provider->research->backtest/rebalance demo without introducing duplicate contracts.
-27. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+24. DONE — VS-11 Transcript Research-to-Backtest/Rebalance Composition integrated via PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; transcript and existing VS-01 research semantics are fail-closed equivalent.
+25. DONE — VS-10 Provider-Backed Two-Repository Transcript Research Demo integrated via PR #63 after synchronization with VS-11; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS.
+26. NEXT EXTERNAL GATE — execute one real-provider smoke on the integrated synthetic VS-09 inputs through VS-10 only when OPENAI_API_KEY is present and an explicit model is selected. Do not invent a model or commit credentials.
+27. NEXT CODE SLICE AFTER SMOKE (or explicit orchestrator waiver) — client-facing provider -> transcript research -> integrated VS-11 backtest/rebalance evidence, reusing existing contracts rather than introducing another research/backtest/planner model.
+28. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -254,9 +255,10 @@ DONE VS-08 Runnable Transcript-to-Research Integration — PR #60; post-merge CI
 DONE DF-05 OpenAI Schema Backend — PR #5; post-merge CI 37615744590 SUCCESS
 DONE DF-06 OpenAI Text Artifact CLI — PR #6; post-merge CI 37621390275 SUCCESS
 DONE VS-09 Provider-Compatible Earnings Extraction Schema — PR #61; post-merge CI 37622030289 SUCCESS
-P0  VS-10 Provider-Backed Two-Repository Transcript Research Demo — TradeOps/vs10-provider-backed-transcript-demo; implementation CI 37625253084 SUCCESS
-P1  VS-11 Transcript Research-to-Backtest/Rebalance Composition — TradeOps/vs11-transcript-research-rebalance-demo (parallel; application-only; no VS-10 file ownership)
-NEXT Real-provider smoke on synthetic inputs after VS-10; then compose provider result with integrated VS-11 path for client-facing research->backtest/rebalance evidence
+DONE VS-10 Provider-Backed Two-Repository Transcript Research Demo — PR #63; post-merge CI 37630315790 SUCCESS
+DONE VS-11 Transcript Research-to-Backtest/Rebalance Composition — PR #62; post-merge CI 37628959669 SUCCESS; 463/463 tests
+P0 EXTERNAL GATE  Real-provider smoke on integrated synthetic inputs — requires explicit model + OPENAI_API_KEY environment
+NEXT CODE  Client-facing provider -> research -> backtest/rebalance demo using integrated VS-10 + VS-11 boundaries after smoke or explicit orchestrator waiver
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable

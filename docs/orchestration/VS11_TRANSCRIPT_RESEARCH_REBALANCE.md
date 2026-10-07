@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -564,3 +564,21 @@ None.
 ### Next integration action
 
 Development Orchestrator should review draft PR #62, branch diff, exact implementation CI, and current main/VS-10 integration ordering. If accepted, the orchestrator may integrate VS-11. This worker must not merge it independently.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+final PR HEAD: 61abd053d8905ca8d7975349719863e236d4767e
+exact final-head CI: 37627834233 — SUCCESS
+tests: 463 / 463 passed
+PR: #62
+merge commit: 2c800ce369e8456e360f93713faff4fe14afda06
+post-merge CI: 37628959669 — SUCCESS
+```
+
+Architecture/privacy review passed. The integrated composition preserves the existing transcript-research, research-decision, backtest, and rebalance contracts. The fail-closed equivalence gate verifies that transcript-derived assessment/ResearchDecision semantics match the existing VS-01 downstream path exactly, including timestamps and metadata.
+
+No provider/process/CLI wiring was introduced by VS-11.

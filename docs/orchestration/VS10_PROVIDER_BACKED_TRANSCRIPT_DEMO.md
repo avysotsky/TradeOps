@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -585,3 +585,27 @@ a763b4eda2906cdac5c551869f14005013a4b9ab
 ```
 
 The new main commit changes only `docs/orchestration/ORCHESTRATION.md`, which is outside the VS-10 implementation changed-file set. The branch is therefore behind current main by one commit without implementation-file overlap. Per the workstream protocol, synchronization/merge remains an orchestrator decision; this worker did not rebase or merge `main`.
+
+
+## Integration record
+
+Integrated by Development Orchestrator:
+
+```text
+synchronized final HEAD: 709172708ac9966cd8115b02d0f7fd41e83e3699
+synchronized exact-head CI: 37629377614 — SUCCESS
+PR-head CI: 37629904230 — SUCCESS
+PR: #63
+merge commit: 0e09d987e669c127fd2f26cb9f24aeb2073e27d3
+post-merge CI: 37630315790 — SUCCESS
+```
+
+Architecture/privacy/secret review passed. The integrated tool remains operator-only: it uses child-process CLI boundaries and JSON artifacts, has no DocFlow/OpenAI library dependency in TradeOps, and never accepts or logs an API key argument.
+
+Real-provider smoke remains:
+
+```text
+NOT RUN — explicit provider model and external OPENAI_API_KEY environment are required
+```
+
+The next orchestration gate is one synthetic real-provider smoke. After that, a separately bounded client-facing composition may connect the provider-produced transcript artifacts to the integrated VS-11 backtest/rebalance path.
