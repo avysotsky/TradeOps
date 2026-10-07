@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace TradeOps.ProviderTranscriptResearchDemo;
 
@@ -14,7 +17,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
     string PythonExecutable,
     string? WorkDirectory,
     ProviderTranscriptResearchProvider Provider =
-        ProviderTranscriptResearchProvider.OpenAi)
+        ProviderTranscriptResearchProvider.OpenAi,
+    string? DotNetExecutable = null)
 {
     public const string DefaultPythonExecutable =
         "python";
@@ -32,6 +36,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
         string python =
             DefaultPythonExecutable;
         string? workDirectory =
+            null;
+        string? dotNetExecutable =
             null;
         var provider =
             ProviderTranscriptResearchProvider
@@ -84,9 +90,17 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                             "--work-dir");
                     break;
 
+                case "--dotnet":
+                    dotNetExecutable =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--dotnet");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>.");
+                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>.");
             }
         }
 
@@ -109,7 +123,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             model,
             python,
             workDirectory,
-            provider);
+            provider,
+            dotNetExecutable);
     }
 
     private static ProviderTranscriptResearchProvider ParseProvider(
@@ -166,16 +181,35 @@ public sealed record ChildProcessInvocation(
     IReadOnlyList<string> Arguments,
     string WorkingDirectory);
 
+public sealed record ChildProcessResult(
+    int ExitCode,
+    string StandardOutput,
+    string StandardError)
+{
+    public static implicit operator ChildProcessResult(
+        int exitCode) =>
+        new(
+            exitCode,
+            string.Empty,
+            string.Empty);
+}
+
 public interface IChildProcessRunner
 {
-    int Run(
+    ChildProcessResult Run(
         ChildProcessInvocation invocation);
 }
 
 public sealed class SystemChildProcessRunner :
     IChildProcessRunner
 {
-    public int Run(
+    public const int MaxCapturedCharactersPerStream =
+        4096;
+
+    public const string TruncationMarker =
+        "\n...[truncated]";
+
+    public ChildProcessResult Run(
         ChildProcessInvocation invocation)
     {
         ArgumentNullException.ThrowIfNull(
@@ -189,26 +223,32 @@ public sealed class SystemChildProcessRunner :
                         invocation)
             };
 
-        process.OutputDataReceived +=
-            static (_, _) =>
-            {
-            };
-        process.ErrorDataReceived +=
-            static (_, _) =>
-            {
-            };
-
         if (!process.Start())
         {
             throw new InvalidOperationException(
                 "Child process could not be started.");
         }
 
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        process.WaitForExit();
+        var standardOutputTask =
+            CaptureBoundedAsync(
+                process.StandardOutput);
+        var standardErrorTask =
+            CaptureBoundedAsync(
+                process.StandardError);
+        var exitTask =
+            process.WaitForExitAsync();
 
-        return process.ExitCode;
+        Task.WhenAll(
+                standardOutputTask,
+                standardErrorTask,
+                exitTask)
+            .GetAwaiter()
+            .GetResult();
+
+        return new ChildProcessResult(
+            process.ExitCode,
+            standardOutputTask.Result,
+            standardErrorTask.Result);
     }
 
     public static ProcessStartInfo CreateStartInfo(
@@ -259,6 +299,81 @@ public sealed class SystemChildProcessRunner :
 
         return startInfo;
     }
+
+    public static string BoundForDiagnostics(
+        string value)
+    {
+        ArgumentNullException.ThrowIfNull(
+            value);
+
+        if (value.Length <=
+            MaxCapturedCharactersPerStream)
+        {
+            return value;
+        }
+
+        var prefixLength =
+            MaxCapturedCharactersPerStream -
+            TruncationMarker.Length;
+
+        return value[..prefixLength] +
+               TruncationMarker;
+    }
+
+    private static async Task<string> CaptureBoundedAsync(
+        TextReader reader)
+    {
+        var buffer =
+            new char[1024];
+        var captured =
+            new StringBuilder(
+                MaxCapturedCharactersPerStream);
+        var truncated =
+            false;
+
+        while (true)
+        {
+            var read =
+                await reader.ReadAsync(
+                    buffer.AsMemory(
+                        0,
+                        buffer.Length));
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            var remaining =
+                MaxCapturedCharactersPerStream -
+                captured.Length;
+
+            if (remaining > 0)
+            {
+                captured.Append(
+                    buffer,
+                    0,
+                    Math.Min(
+                        read,
+                        remaining));
+            }
+
+            if (read > remaining)
+            {
+                truncated =
+                    true;
+            }
+        }
+
+        if (!truncated)
+        {
+            return captured.ToString();
+        }
+
+        return BoundForDiagnostics(
+            captured.ToString() +
+            TruncationMarker);
+    }
 }
 
 public interface IEnvironmentReader
@@ -274,6 +389,407 @@ public sealed class SystemEnvironmentReader :
         string name) =>
         Environment.GetEnvironmentVariable(
             name);
+}
+
+public sealed record DotNetHostSelection(
+    string Executable,
+    string Source);
+
+public static class DotNetHostResolver
+{
+    public const string DotNetHostPathEnvironmentVariable =
+        "DOTNET_HOST_PATH";
+
+    public const string DotNetRootEnvironmentVariable =
+        "DOTNET_ROOT";
+
+    public const string DotNetMsBuildSdkResolverCliDirEnvironmentVariable =
+        "DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR";
+
+    public static string PlatformExecutableName =>
+        OperatingSystem.IsWindows()
+            ? "dotnet.exe"
+            : "dotnet";
+
+    public static DotNetHostSelection Resolve(
+        string? explicitHost,
+        IEnvironmentReader environmentReader)
+    {
+        ArgumentNullException.ThrowIfNull(
+            environmentReader);
+
+        if (!string.IsNullOrWhiteSpace(
+                explicitHost))
+        {
+            return new DotNetHostSelection(
+                RequireExistingHost(
+                    explicitHost,
+                    "explicit --dotnet"),
+                "explicit --dotnet");
+        }
+
+        var hostPath =
+            TryExistingHost(
+                environmentReader.Get(
+                    DotNetHostPathEnvironmentVariable));
+
+        if (hostPath is not null)
+        {
+            return new DotNetHostSelection(
+                hostPath,
+                DotNetHostPathEnvironmentVariable);
+        }
+
+        var dotNetRoot =
+            environmentReader.Get(
+                DotNetRootEnvironmentVariable);
+        var rootHost =
+            string.IsNullOrWhiteSpace(
+                dotNetRoot)
+                ? null
+                : TryExistingHost(
+                    Path.Combine(
+                        dotNetRoot,
+                        PlatformExecutableName));
+
+        if (rootHost is not null)
+        {
+            return new DotNetHostSelection(
+                rootHost,
+                DotNetRootEnvironmentVariable);
+        }
+
+        var resolverCliDirectory =
+            environmentReader.Get(
+                DotNetMsBuildSdkResolverCliDirEnvironmentVariable);
+        var resolverHost =
+            string.IsNullOrWhiteSpace(
+                resolverCliDirectory)
+                ? null
+                : TryExistingHost(
+                    Path.Combine(
+                        resolverCliDirectory,
+                        PlatformExecutableName));
+
+        if (resolverHost is not null)
+        {
+            return new DotNetHostSelection(
+                resolverHost,
+                DotNetMsBuildSdkResolverCliDirEnvironmentVariable);
+        }
+
+        return new DotNetHostSelection(
+            PlatformExecutableName,
+            "PATH fallback");
+    }
+
+    private static string RequireExistingHost(
+        string path,
+        string source)
+    {
+        var resolved =
+            TryExistingHost(
+                path);
+
+        if (resolved is null)
+        {
+            throw new FileNotFoundException(
+                "The " +
+                source +
+                " dotnet host was not found.",
+                path);
+        }
+
+        return resolved;
+    }
+
+    private static string? TryExistingHost(
+        string? path)
+    {
+        if (string.IsNullOrWhiteSpace(
+                path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var fullPath =
+                Path.GetFullPath(
+                    path);
+
+            return File.Exists(
+                    fullPath)
+                ? fullPath
+                : null;
+        }
+        catch (Exception exception)
+            when (exception is
+                  ArgumentException or
+                  NotSupportedException or
+                  PathTooLongException)
+        {
+            return null;
+        }
+    }
+}
+
+public sealed record DotNetSdkPolicy(
+    string RequestedVersion,
+    string RollForward,
+    bool AllowPrerelease)
+{
+    public static DotNetSdkPolicy Load(
+        string tradeOpsRoot)
+    {
+        var globalJsonPath =
+            Path.Combine(
+                Path.GetFullPath(
+                    tradeOpsRoot),
+                "global.json");
+
+        if (!File.Exists(
+                globalJsonPath))
+        {
+            throw new FileNotFoundException(
+                "TradeOps global.json was not found.",
+                globalJsonPath);
+        }
+
+        using var document =
+            JsonDocument.Parse(
+                File.ReadAllText(
+                    globalJsonPath));
+
+        if (!document.RootElement.TryGetProperty(
+                "sdk",
+                out var sdk)
+            || !sdk.TryGetProperty(
+                "version",
+                out var versionElement)
+            || versionElement.ValueKind !=
+            JsonValueKind.String
+            || string.IsNullOrWhiteSpace(
+                versionElement.GetString()))
+        {
+            throw new InvalidDataException(
+                "TradeOps global.json must define sdk.version.");
+        }
+
+        var version =
+            versionElement.GetString()!;
+        var rollForward =
+            sdk.TryGetProperty(
+                    "rollForward",
+                    out var rollForwardElement)
+                && rollForwardElement.ValueKind ==
+                JsonValueKind.String
+                ? rollForwardElement.GetString()
+                : null;
+        var allowPrerelease =
+            sdk.TryGetProperty(
+                    "allowPrerelease",
+                    out var allowPrereleaseElement)
+                && allowPrereleaseElement.ValueKind is
+                    JsonValueKind.True or
+                    JsonValueKind.False
+                ? allowPrereleaseElement.GetBoolean()
+                : true;
+
+        if (!string.Equals(
+                rollForward,
+                "latestPatch",
+                StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                "TradeOps global.json sdk.rollForward must be latestPatch for this narrow preflight.");
+        }
+
+        if (!Version.TryParse(
+                version,
+                out var parsedVersion)
+            || parsedVersion.Build < 0)
+        {
+            throw new InvalidDataException(
+                "TradeOps global.json sdk.version is not a supported three-part SDK version.");
+        }
+
+        return new DotNetSdkPolicy(
+            version,
+            rollForward,
+            allowPrerelease);
+    }
+
+    public void ValidateResolvedVersion(
+        string resolvedVersion)
+    {
+        if (string.IsNullOrWhiteSpace(
+                resolvedVersion))
+        {
+            throw new InvalidOperationException(
+                "dotnet --version returned no SDK version.");
+        }
+
+        var trimmed =
+            resolvedVersion.Trim();
+        var prereleaseSeparator =
+            trimmed.IndexOf(
+                "-",
+                StringComparison.Ordinal);
+        var numericVersion =
+            prereleaseSeparator >= 0
+                ? trimmed[..prereleaseSeparator]
+                : trimmed;
+
+        if (prereleaseSeparator >= 0
+            && !AllowPrerelease)
+        {
+            throw new InvalidOperationException(
+                "Selected dotnet host resolved prerelease SDK " +
+                trimmed +
+                ", but global.json disallows prerelease SDKs.");
+        }
+
+        if (!Version.TryParse(
+                RequestedVersion,
+                out var requested)
+            || !Version.TryParse(
+                numericVersion,
+                out var resolved)
+            || requested.Build < 0
+            || resolved.Build < 0)
+        {
+            throw new InvalidOperationException(
+                "Selected dotnet host returned an unrecognized SDK version.");
+        }
+
+        var requestedFeatureBand =
+            requested.Build /
+            100;
+        var resolvedFeatureBand =
+            resolved.Build /
+            100;
+
+        if (resolved.Major !=
+            requested.Major
+            || resolved.Minor !=
+            requested.Minor
+            || resolvedFeatureBand !=
+            requestedFeatureBand
+            || resolved.Build <
+            requested.Build)
+        {
+            throw new InvalidOperationException(
+                "Selected dotnet SDK " +
+                trimmed +
+                " is incompatible with global.json " +
+                RequestedVersion +
+                " + " +
+                RollForward +
+                ".");
+        }
+    }
+}
+
+public static class ChildProcessDiagnostics
+{
+    private static readonly string[] SafeDotNetMarkers =
+    {
+        ".NET",
+        "SDK",
+        "global.json",
+        "hostfxr",
+        "hostpolicy",
+        "framework",
+        "MSBuild",
+        "architecture",
+        "The command could not be loaded",
+        "Failed to resolve"
+    };
+
+    public static string Redact(
+        string value,
+        string? selectedSecret)
+    {
+        var redacted =
+            value;
+
+        if (!string.IsNullOrEmpty(
+                selectedSecret))
+        {
+            redacted =
+                redacted.Replace(
+                    selectedSecret,
+                    "[REDACTED]",
+                    StringComparison.Ordinal);
+        }
+
+        redacted =
+            Regex.Replace(
+                redacted,
+                @"(?i)\b(OPENAI_API_KEY|GROQ_API_KEY)\s*=\s*[^\s\r\n]+",
+                "$1=[REDACTED]");
+        redacted =
+            Regex.Replace(
+                redacted,
+                @"(?i)\bAuthorization\s*:\s*Bearer\s+[^\s\r\n]+",
+                "Authorization: Bearer [REDACTED]");
+        redacted =
+            Regex.Replace(
+                redacted,
+                @"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+",
+                "Bearer [REDACTED]");
+
+        return SystemChildProcessRunner
+            .BoundForDiagnostics(
+                redacted);
+    }
+
+    public static string ExtractSafeDotNetDiagnostics(
+        ChildProcessResult result,
+        string? selectedSecret)
+    {
+        ArgumentNullException.ThrowIfNull(
+            result);
+
+        var combined =
+            result.StandardError +
+            "\n" +
+            result.StandardOutput;
+        var lines =
+            combined
+                .Split(
+                    new[]
+                    {
+                        '\r',
+                        '\n'
+                    },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Select(
+                    line =>
+                        line.Trim())
+                .Where(
+                    line =>
+                        SafeDotNetMarkers.Any(
+                            marker =>
+                                line.Contains(
+                                    marker,
+                                    StringComparison.OrdinalIgnoreCase)))
+                .Take(
+                    12)
+                .ToArray();
+
+        if (lines.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return Redact(
+            string.Join(
+                " | ",
+                lines),
+            selectedSecret);
+    }
 }
 
 public static class TradeOpsRepositoryLocator
@@ -302,6 +818,11 @@ public static class TradeOpsRepositoryLocator
             "TradeOps repository root could not be resolved from the executable location.");
     }
 }
+
+public sealed record ResolvedDotNetHost(
+    string Executable,
+    string Version,
+    string Source);
 
 public sealed class ProviderTranscriptResearchDemoHarness
 {
@@ -351,12 +872,32 @@ public sealed class ProviderTranscriptResearchDemoHarness
         error ??=
             Console.Error;
 
+        string? selectedCredential =
+            null;
+
         try
         {
+            var apiKeyEnvironmentVariable =
+                GetApiKeyEnvironmentVariable(
+                    options.Provider);
+            selectedCredential =
+                _environmentReader.Get(
+                    apiKeyEnvironmentVariable);
+
+            if (string.IsNullOrWhiteSpace(
+                    selectedCredential))
+            {
+                throw new InvalidOperationException(
+                    apiKeyEnvironmentVariable +
+                    " is required in the environment.");
+            }
+
             return RunCore(
                 options,
                 tradeOpsRoot,
-                output);
+                selectedCredential,
+                output,
+                error);
         }
         catch (Exception exception)
         {
@@ -364,7 +905,9 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 "PROVIDER TRANSCRIPT RESEARCH DEMO: FAIL (" +
                 exception.GetType().Name +
                 ": " +
-                exception.Message +
+                ChildProcessDiagnostics.Redact(
+                    exception.Message,
+                    selectedCredential) +
                 ")");
 
             return 1;
@@ -374,7 +917,9 @@ public sealed class ProviderTranscriptResearchDemoHarness
     private int RunCore(
         ProviderTranscriptResearchDemoOptions options,
         string tradeOpsRoot,
-        TextWriter output)
+        string selectedCredential,
+        TextWriter output,
+        TextWriter error)
     {
         var resolvedTradeOpsRoot =
             Path.GetFullPath(
@@ -396,9 +941,6 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 resolvedTradeOpsRoot);
         var providerName =
             GetProviderName(
-                options.Provider);
-        var apiKeyEnvironmentVariable =
-            GetApiKeyEnvironmentVariable(
                 options.Provider);
 
         ValidateDocFlow(
@@ -453,14 +995,11 @@ public sealed class ProviderTranscriptResearchDemoHarness
                     "consumer-manifest.json"),
                 "Provider demo consumer manifest");
 
-        if (string.IsNullOrWhiteSpace(
-                _environmentReader.Get(
-                    apiKeyEnvironmentVariable)))
-        {
-            throw new InvalidOperationException(
-                apiKeyEnvironmentVariable +
-                " is required in the environment.");
-        }
+        var dotNetHost =
+            PreflightDotNetHost(
+                options.DotNetExecutable,
+                resolvedTradeOpsRoot,
+                selectedCredential);
 
         Directory.CreateDirectory(
             workDirectory);
@@ -504,8 +1043,14 @@ public sealed class ProviderTranscriptResearchDemoHarness
         output.WriteLine(
             "Work directory: " +
             workDirectory);
+        output.WriteLine(
+            "Dotnet host: " +
+            dotNetHost.Executable);
+        output.WriteLine(
+            "Dotnet SDK: " +
+            dotNetHost.Version);
 
-        var priorExit =
+        var priorResult =
             RunStage(
                 output,
                 "DocFlow prior",
@@ -520,15 +1065,15 @@ public sealed class ProviderTranscriptResearchDemoHarness
                     priorStructured,
                     PriorDocumentName));
 
-        if (priorExit != 0)
+        if (priorResult.ExitCode != 0)
         {
             throw new InvalidOperationException(
                 "Prior DocFlow stage failed with exit code " +
-                priorExit +
-                ".");
+                priorResult.ExitCode +
+                ". Provider child output is suppressed.");
         }
 
-        var currentExit =
+        var currentResult =
             RunStage(
                 output,
                 "DocFlow current",
@@ -543,12 +1088,12 @@ public sealed class ProviderTranscriptResearchDemoHarness
                     currentStructured,
                     CurrentDocumentName));
 
-        if (currentExit != 0)
+        if (currentResult.ExitCode != 0)
         {
             throw new InvalidOperationException(
                 "Current DocFlow stage failed with exit code " +
-                currentExit +
-                ".");
+                currentResult.ExitCode +
+                ". Provider child output is suppressed.");
         }
 
         RequireGeneratedFile(
@@ -574,12 +1119,12 @@ public sealed class ProviderTranscriptResearchDemoHarness
             runtimeManifest,
             "Runtime consumer manifest");
 
-        var consumerExit =
+        var consumerResult =
             RunStage(
                 output,
                 "TradeOps VS-08",
                 new ChildProcessInvocation(
-                    "dotnet",
+                    dotNetHost.Executable,
                     new[]
                     {
                         "run",
@@ -595,12 +1140,21 @@ public sealed class ProviderTranscriptResearchDemoHarness
                     },
                     resolvedTradeOpsRoot));
 
-        if (consumerExit != 0)
+        if (consumerResult.ExitCode != 0)
         {
+            WriteSafeDotNetDiagnostics(
+                error,
+                consumerResult,
+                selectedCredential);
+
             throw new InvalidOperationException(
                 "TradeOps VS-08 stage failed with exit code " +
-                consumerExit +
-                ".");
+                consumerResult.ExitCode +
+                " using dotnet host '" +
+                dotNetHost.Executable +
+                "' (SDK " +
+                dotNetHost.Version +
+                ").");
         }
 
         if (!File.Exists(
@@ -621,7 +1175,133 @@ public sealed class ProviderTranscriptResearchDemoHarness
         return 0;
     }
 
-    private int RunStage(
+    private ResolvedDotNetHost PreflightDotNetHost(
+        string? explicitHost,
+        string tradeOpsRoot,
+        string selectedCredential)
+    {
+        var selection =
+            DotNetHostResolver.Resolve(
+                explicitHost,
+                _environmentReader);
+        var policy =
+            DotNetSdkPolicy.Load(
+                tradeOpsRoot);
+        ChildProcessResult result;
+
+        try
+        {
+            result =
+                _processRunner.Run(
+                    new ChildProcessInvocation(
+                        selection.Executable,
+                        new[]
+                        {
+                            "--version"
+                        },
+                        tradeOpsRoot));
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException(
+                "dotnet preflight could not start host '" +
+                selection.Executable +
+                "' selected from " +
+                selection.Source +
+                ": " +
+                ChildProcessDiagnostics.Redact(
+                    exception.Message,
+                    selectedCredential),
+                exception);
+        }
+
+        if (result.ExitCode != 0)
+        {
+            var safeDiagnostics =
+                ChildProcessDiagnostics
+                    .ExtractSafeDotNetDiagnostics(
+                        result,
+                        selectedCredential);
+
+            throw new InvalidOperationException(
+                "dotnet preflight failed for host '" +
+                selection.Executable +
+                "' selected from " +
+                selection.Source +
+                " with exit code " +
+                result.ExitCode +
+                (string.IsNullOrWhiteSpace(
+                    safeDiagnostics)
+                    ? "."
+                    : ". Safe diagnostics: " +
+                      safeDiagnostics));
+        }
+
+        var version =
+            ParseDotNetVersion(
+                result.StandardOutput);
+        policy.ValidateResolvedVersion(
+            version);
+
+        return new ResolvedDotNetHost(
+            selection.Executable,
+            version,
+            selection.Source);
+    }
+
+    private static string ParseDotNetVersion(
+        string standardOutput)
+    {
+        var lines =
+            standardOutput
+                .Split(
+                    new[]
+                    {
+                        '\r',
+                        '\n'
+                    },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Select(
+                    line =>
+                        line.Trim())
+                .Where(
+                    line =>
+                        line.Length > 0)
+                .ToArray();
+
+        if (lines.Length != 1
+            || !Regex.IsMatch(
+                lines[0],
+                @"^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$"))
+        {
+            throw new InvalidOperationException(
+                "dotnet --version did not return one recognizable SDK version line.");
+        }
+
+        return lines[0];
+    }
+
+    private static void WriteSafeDotNetDiagnostics(
+        TextWriter error,
+        ChildProcessResult result,
+        string selectedCredential)
+    {
+        var diagnostics =
+            ChildProcessDiagnostics
+                .ExtractSafeDotNetDiagnostics(
+                    result,
+                    selectedCredential);
+
+        if (!string.IsNullOrWhiteSpace(
+                diagnostics))
+        {
+            error.WriteLine(
+                "Safe dotnet diagnostics: " +
+                diagnostics);
+        }
+    }
+
+    private ChildProcessResult RunStage(
         TextWriter output,
         string stage,
         ChildProcessInvocation invocation)
@@ -630,15 +1310,15 @@ public sealed class ProviderTranscriptResearchDemoHarness
             "Stage: " +
             stage);
 
-        var exitCode =
+        var result =
             _processRunner.Run(
                 invocation);
 
         output.WriteLine(
             "Exit status: " +
-            exitCode);
+            result.ExitCode);
 
-        return exitCode;
+        return result;
     }
 
     private static ChildProcessInvocation BuildDocFlowInvocation(
@@ -869,7 +1549,9 @@ public static class ProviderTranscriptResearchDemoCli
                 "PROVIDER TRANSCRIPT RESEARCH DEMO: FAIL (" +
                 exception.GetType().Name +
                 ": " +
-                exception.Message +
+                ChildProcessDiagnostics.Redact(
+                    exception.Message,
+                    null) +
                 ")");
 
             return 1;
