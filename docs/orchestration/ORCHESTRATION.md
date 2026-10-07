@@ -12,7 +12,7 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main product integration: ee5cce50391c3ad844ecf2ae46e79718ae671418
+main: 2e0e512a90cbeed13c457d9e747763883306e07b
 latest integrated slice: VS-04 — Configurable Public-Data Client Demo (PR #57)
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
@@ -25,9 +25,11 @@ DocFlow repository:
 
 ```text
 avysotsky/DocFlow
-branch: DocFlow/v_1.1.1.34_AccountingPosting
-validated sandbox-readiness head: c03e71f0a2c1c4ae414c083fc1f53a6351c3b4bf
-status: HOLD / maintenance unless business priority changes
+main: 0ff4d160fba375c7e1b5b5808bbfe8992a0ba5e1
+latest integrated slice: DF-02 — Generic Text/Transcript Normalization (PR #2)
+DF-02 merge commit: 3e0cbb0499069667ae04984e0bb5a71d6f366cb5
+post-merge CI: 37603127313 — SUCCESS
+legacy QBO work: HOLD / maintenance unless business priority changes
 ```
 
 ## Current product objective
@@ -82,7 +84,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | INTEGRATED | policy-driven public-data client demo integrated via PR #57 |
 | VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
-| DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | READY | generic offline text/transcript normalization; no TradeOps dependency |
+| DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 
 ## Dependency graph
 
@@ -129,8 +131,8 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 11. DONE — VS-03 Configurable Research Policy integrated (PR #55).
 12. DONE — VS-04 Configurable Public-Data Client Demo integrated via PR #57.
 13. HOLD — VS-05 TradeOps transcript intake prototype: preserve branch, do not merge; reassess boundary against DocFlow document-processing engine.
-14. START PARALLEL — DF-02 DocFlow Generic Text/Transcript Normalization: generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
-15. After DF-02, define the minimal earnings-research adapter from DocFlow output into TradeOps consumer contracts.
+14. DONE — DF-02 DocFlow Generic Text/Transcript Normalization integrated via PR #2; generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
+15. NEXT — define the minimal earnings-research adapter from DocFlow `NormalizedTextDocument` into TradeOps consumer contracts. The adapter owns earnings/instrument/fiscal-period/provenance mapping; DocFlow remains generic.
 16. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
@@ -220,7 +222,8 @@ On each "continue" or "check status":
 
 ```text
 DONE VS-04 Configurable Public-Data Client Demo — PR #57
-P0  DF-02 DocFlow Generic Text/Transcript Normalization — new generic boundary
+DONE DF-02 DocFlow Generic Text/Transcript Normalization — PR #2; post-merge CI 37603127313 SUCCESS
+P0  Minimal Earnings Research Adapter — DocFlow NormalizedTextDocument -> TradeOps earnings consumer boundary
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
