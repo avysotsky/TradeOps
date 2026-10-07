@@ -12,8 +12,8 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: 0027041b037b71af5b0b45534c450e49d61a4007
-main CI: 37606275357 — SUCCESS
+main: e85f7ff07a1e75e0bea9c5d3baa88490d32b03a5
+main CI: 37607168006 — SUCCESS
 latest integrated slice: VS-06 — DocFlow Earnings Research Adapter (PR #58)
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
@@ -86,6 +86,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | INTEGRATED | policy-driven public-data client demo integrated via PR #57 |
 | VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
 | VS-06 | DocFlow Earnings Research Adapter | TradeOps/vs06-docflow-earnings-adapter | INTEGRATED | PR #58; synchronized-head CI 37605602130 SUCCESS; post-merge CI 37605867347 SUCCESS |
+| VS-07 | Structured Earnings Facts Boundary | TradeOps/vs07-structured-earnings-facts | READY | strict versioned DocFlow StructuredExtractionResult -> auditable earnings facts -> EarningsEvent; no LLM/provider calls |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -138,8 +139,9 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 14. DONE — DF-02 DocFlow Generic Text/Transcript Normalization integrated via PR #2; generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
 15. DONE — VS-06 DocFlow Earnings Research Adapter integrated via PR #58; bounded serialized DocFlow transcript -> earnings research input adapter, with no generic normalization or fact extraction.
 16. DONE — DF-03 DocFlow Generic Text Structured Extraction Boundary integrated via PR #3; `NormalizedTextDocument -> TextStructuredExtractionEngine -> StructuredExtractionResult`, post-merge CI 37607059797 SUCCESS.
-17. NEXT — define the separate structured earnings-fact extraction slice and its exact cross-repository boundary. Decide ownership/API before launching a worker; do not add earnings-specific logic to the generic DF-03 base abstraction.
-18. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
+17. START — VS-07 Structured Earnings Facts Boundary in TradeOps. Freeze strict versioned earnings-facts JSON, evidence-segment validation, financial unit semantics, deterministic EarningsSnapshot mapping and EarningsEvent creation. No LLM/provider calls and no DocFlow code changes.
+18. AFTER VS-07 — define DF-04 generic schema-driven text extraction engine in DocFlow using caller-supplied schema/configuration; keep it domain-neutral and free of earnings/trading models.
+19. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
 
@@ -231,7 +233,8 @@ DONE VS-04 Configurable Public-Data Client Demo — PR #57
 DONE DF-02 DocFlow Generic Text/Transcript Normalization — PR #2; post-merge CI 37603127313 SUCCESS
 DONE VS-06 DocFlow Earnings Research Adapter — PR #58; post-merge CI 37605867347 SUCCESS
 DONE DF-03 Generic Text Structured Extraction — PR #3; post-merge CI 37607059797 SUCCESS
-P0  Structured earnings-fact extraction boundary design — decide DocFlow generic extraction configuration vs TradeOps domain mapping before worker launch
+P0  VS-07 Structured Earnings Facts Boundary — TradeOps/vs07-structured-earnings-facts
+NEXT DF-04 Generic Schema-Driven Text Extraction — only after VS-07 schema is integrated
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
