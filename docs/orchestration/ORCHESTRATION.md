@@ -98,8 +98,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-12 | Provider-Selectable Two-Repository Demo Harness | TradeOps/vs12-provider-selectable-transcript-demo | INTEGRATED | PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS; local real Groq run is next |
 | VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | INTEGRATED | PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca; combined post-merge CI 37660656844 SUCCESS |
 | VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS |
-| VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | READY | backward-compatible provider harness wiring into integrated VS-13 consumer; no new provider/domain contracts; local real Groq smoke after CI |
-| SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | READY | audit-only parallel slice; inspect public history/branches/Actions/privacy boundaries; no production-code changes |
+| VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | INTEGRATED | PR #67; exact-head CI 37663139885 SUCCESS; merge 54e981d51bc7de5746371106509cc92030767916; post-merge CI 37669861416 SUCCESS; 519/519 tests |
+| SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | INTEGRATED | PR #68; 101/101 public branch tips audited; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -171,8 +171,8 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 29. DONE — local real Groq smoke completed on integrated mains with environment-only GROQ_API_KEY and model openai/gpt-oss-20b; DocFlow prior/current and TradeOps VS-08 all exited 0; provider transcript research demo passed; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS.
 30. DONE — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer integrated via PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca.
 31. DONE — VS-14 .NET Child Host & Process Diagnostics Hardening integrated via PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS.
-32. READY — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring: add a backward-compatible provider-harness rebalance mode that passes the integrated VS-13 `--rebalance-input` consumer option and emits the deterministic rebalance audit artifact; real Groq smoke remains an explicit local/operator validation.
-33. PARALLEL — SEC-01 Public Repository Security & Privacy Audit: audit TradeOps public history, branch tips, Actions logs/artifacts, credential/privacy-sensitive paths and commit metadata; report findings only, no production-code changes.
+32. DONE — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring integrated via PR #67; exact-head CI 37663139885 SUCCESS; merge 54e981d51bc7de5746371106509cc92030767916; post-merge CI 37669861416 SUCCESS; 519/519 tests. Real Groq rebalance smoke remains an explicit local/operator validation.
+33. DONE — SEC-01 Public Repository Security & Privacy Audit integrated via PR #68. Audit covered 101/101 public branch tips; 0 BLOCKER findings. SEC-002 public PR-body certificate identity was sanitized and verified. SEC-001 personal/custom email metadata remains the sole unresolved MUST FIX finding and requires coordinated history/ref remediation.
 34. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
@@ -279,8 +279,10 @@ DONE VS-12 Provider-Selectable Two-Repository Demo Harness — PR #64; post-merg
 DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow prior/current + TradeOps VS-08 exit 0; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS
 DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR #66; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca
 DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS
-P0 READY VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — provider harness -> VS-13 consumer mode + local real Groq E2E validation
-P0 PARALLEL SEC-01 Public Repository Security & Privacy Audit — audit-only; no production-code ownership; report blockers/must-fix/acceptable/public-safe findings
+DONE VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — PR #67; post-merge CI 37669861416 SUCCESS; 519/519 tests
+DONE SEC-01 Public Repository Security & Privacy Audit — PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 remains MUST FIX
+NEXT OPERATOR VALIDATION — run one real Groq provider -> research -> backtest/rebalance smoke using environment-only GROQ_API_KEY
+NEXT SECURITY — coordinate SEC-001 Git-history/ref remediation; do not rewrite active/public history casually
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
