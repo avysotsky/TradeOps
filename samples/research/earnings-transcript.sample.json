@@ -1,0 +1,72 @@
+{
+  "provider": "SyntheticProvider",
+  "sourceUri": "https://example.invalid/transcripts/samp-fy2026-q3",
+  "sourceDocumentId": "samp-fy2026-q3-call",
+  "issuerId": "SAMP-ISSUER-001",
+  "instrument": {
+    "symbol": "samp",
+    "assetClass": "Stock",
+    "currency": "usd",
+    "venueInstrumentId": "sample-stock-1",
+    "exchange": "XNAS"
+  },
+  "fiscalPeriod": "FY2026-Q3",
+  "title": "SAMP FY2026 Q3 Earnings Call",
+  "sourceTimestamp": "2026-10-01T20:00:00+00:00",
+  "publishedAt": "2026-10-01T20:05:00+00:00",
+  "retrievedAt": "2026-10-01T20:10:00+00:00",
+  "participants": [
+    {
+      "participantId": "p-operator",
+      "displayName": "Operator",
+      "role": "Operator",
+      "organization": "Synthetic Conference Services"
+    },
+    {
+      "participantId": "p-ceo",
+      "displayName": "CEO",
+      "role": "Executive",
+      "organization": "SAMP Industries"
+    },
+    {
+      "participantId": "p-cfo",
+      "displayName": "CFO",
+      "role": "Executive",
+      "organization": "SAMP Industries"
+    },
+    {
+      "participantId": "p-analyst",
+      "displayName": "Analyst",
+      "role": "Analyst",
+      "organization": "Sample Research"
+    }
+  ],
+  "segments": [
+    {
+      "sequence": 1,
+      "participantId": "p-operator",
+      "text": "Welcome to the synthetic SAMP quarterly earnings call."
+    },
+    {
+      "sequence": 2,
+      "participantId": "p-ceo",
+      "text": "Demand was steady and the team completed the planned product rollout."
+    },
+    {
+      "sequence": 3,
+      "participantId": "p-cfo",
+      "text": "Operating expenses remained within the internal quarterly plan."
+    },
+    {
+      "sequence": 4,
+      "participantId": "p-analyst",
+      "text": "Can you describe the main operational constraint during the quarter?"
+    },
+    {
+      "sequence": 5,
+      "participantId": "p-ceo",
+      "text": "The primary constraint was deployment capacity, and additional training is under way."
+    }
+  ],
+  "extractionMethod": "provider-json-transcript-v1"
+}
