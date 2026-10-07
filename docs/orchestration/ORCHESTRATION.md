@@ -12,9 +12,9 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: c5173250bcf05772eddbeeda47f3ed3b096339fc
-main CI: 37613154563 — SUCCESS
-latest integrated slice: VS-07 — Structured Earnings Facts Boundary (PR #59)
+main: e3f10e10104951ce6738352583b4b03993a5042b
+main CI: 37616617370 — SUCCESS
+latest integrated slice: VS-08 — Runnable Transcript-to-Research Integration (PR #60)
 VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
@@ -87,7 +87,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
 | VS-06 | DocFlow Earnings Research Adapter | TradeOps/vs06-docflow-earnings-adapter | INTEGRATED | PR #58; synchronized-head CI 37605602130 SUCCESS; post-merge CI 37605867347 SUCCESS |
 | VS-07 | Structured Earnings Facts Boundary | TradeOps/vs07-structured-earnings-facts | INTEGRATED | PR #59; exact-head CI 37609374812 SUCCESS; post-merge CI 37609652431 SUCCESS |
-| VS-08 | Runnable Transcript-to-Research Integration | TradeOps/vs08-runnable-transcript-research | READY_FOR_INTEGRATION | PR #60; final pre-sync HEAD 2171549866c9f3b17ff42346774b71f0c2a519e6; exact-head CI 37615484196 SUCCESS; 446/446 tests |
+| VS-08 | Runnable Transcript-to-Research Integration | TradeOps/vs08-runnable-transcript-research | INTEGRATED | PR #60; synchronized-head CI 37616104229 SUCCESS; post-merge CI 37616617370 SUCCESS; 446/446 tests |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -144,10 +144,10 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 16. DONE — DF-03 DocFlow Generic Text Structured Extraction Boundary integrated via PR #3; `NormalizedTextDocument -> TextStructuredExtractionEngine -> StructuredExtractionResult`, post-merge CI 37607059797 SUCCESS.
 17. DONE — VS-07 Structured Earnings Facts Boundary integrated via PR #59; strict versioned earnings-facts validation, evidence-segment audit trail, financial unit semantics, deterministic EarningsSnapshot/EarningsEvent mapping; post-merge CI 37609652431 SUCCESS.
 18. DONE — DF-04 Generic Schema-Driven Text Extraction integrated via PR #4; provider-neutral caller JSON Schema + injected backend orchestration, deterministic schema validation, existing StructuredExtractionResult/validation contracts; post-merge CI 37612364691 SUCCESS.
-19. START — VS-08 Runnable Transcript-to-Research Integration in TradeOps. Consume prior/current serialized DF-02/DF-04 artifacts through existing VS-06/VS-07 adapters and produce the existing deterministic ResearchDecision; no DocFlow process/package invocation and no network.
+19. DONE — VS-08 Runnable Transcript-to-Research Integration integrated via PR #60; offline serialized DocFlow artifacts -> VS-06/VS-07 -> EarningsEvent -> existing deterministic ResearchDecision; synchronized-head CI 37616104229 SUCCESS; post-merge CI 37616617370 SUCCESS.
 20. DONE — DF-05 OpenAI Schema-Driven Text Extraction Backend integrated via PR #5; exact-head CI 37614234502 SUCCESS; post-merge CI 37615744590 SUCCESS; provider-specific but domain-neutral.
-21. READY FOR INTEGRATION — VS-08 Runnable Transcript-to-Research Integration, PR #60; exact-head CI 37615484196 SUCCESS, 446/446 tests. Synchronize with current TradeOps main if required, then review/merge.
-22. AFTER VS-08 — define the first provider-backed end-to-end transcript research demo and decide whether to extend it into existing backtest/rebalance composition.
+21. DONE — VS-08 Runnable Transcript-to-Research Integration integrated via PR #60; 446/446 tests; post-merge CI 37616617370 SUCCESS.
+22. NEXT — define the first provider-backed end-to-end transcript research demo that uses integrated DocFlow DF-05 to produce serialized artifacts consumed by integrated TradeOps VS-08. Preserve the cross-repository JSON boundary; do not add package/project coupling. Decide separately whether the result should then extend into existing backtest/rebalance composition.
 23. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
@@ -242,10 +242,9 @@ DONE VS-06 DocFlow Earnings Research Adapter — PR #58; post-merge CI 376058673
 DONE DF-03 Generic Text Structured Extraction — PR #3; post-merge CI 37607059797 SUCCESS
 DONE VS-07 Structured Earnings Facts Boundary — PR #59; post-merge CI 37609652431 SUCCESS
 DONE DF-04 Generic Schema-Driven Text Extraction — PR #4; post-merge CI 37612364691 SUCCESS
-P0  VS-08 Runnable Transcript-to-Research Integration — TradeOps/vs08-runnable-transcript-research
+DONE VS-08 Runnable Transcript-to-Research Integration — PR #60; post-merge CI 37616617370 SUCCESS; 446/446 tests
 DONE DF-05 OpenAI Schema Backend — PR #5; post-merge CI 37615744590 SUCCESS
-P0  VS-08 Runnable Transcript-to-Research Integration — PR #60; READY_FOR_INTEGRATION; exact-head CI 37615484196 SUCCESS
-NEXT Provider-backed end-to-end transcript research demo — only after VS-08 is integrated
+P0  Provider-backed end-to-end transcript research demo — compose integrated DF-05 artifact production with integrated VS-08 consumption across the serialized JSON boundary
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
