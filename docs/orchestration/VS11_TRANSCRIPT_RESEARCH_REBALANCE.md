@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -433,3 +433,134 @@ Before handoff update this file with:
 Stop after this bounded slice.
 
 Do not merge independently.
+
+
+## Handoff — bounded slice complete
+
+### Validated implementation HEAD
+
+```text
+00ec0394e0e409d7af305b52d148af75c5df962a
+```
+
+This is the exact implementation/test HEAD validated by the successful CI run below. The handoff documentation update itself is documentation-only and does not alter implementation semantics.
+
+### Changed files
+
+```text
+src/TradeOps.Application/Services/TranscriptResearchToRebalanceDemoService.cs
+tests/TradeOps.UnitTests/TranscriptResearchToRebalanceDemoTests.cs
+docs/orchestration/VS11_TRANSCRIPT_RESEARCH_REBALANCE.md
+```
+
+No solution, project, provider/process harness, sample fixture, shared model, or frozen contract file is changed.
+
+### Public/shared contracts
+
+No existing public/shared contract was modified.
+
+VS-11 adds only the bounded application composition request/result/service:
+
+```text
+TranscriptResearchToRebalanceDemoRequest
+TranscriptResearchToRebalanceDemoResult
+TranscriptResearchToRebalanceDemoService
+```
+
+The nested existing VS-08 and VS-01 results remain authoritative.
+
+### Composition semantics
+
+The service:
+
+1. runs the existing `TranscriptResearchDecisionDemoService`;
+2. verifies the transcript policy fingerprint against `EarningsResearchPolicyConfiguration.ComputeFingerprint`;
+3. maps the exact same policy through the existing decision-rule and target-weight mappings;
+4. passes exactly `transcriptResult.PriorEvent` and `transcriptResult.CurrentEvent` to the existing `ResearchToRebalanceDemoService`;
+5. uses the exact policy `StrategyId`;
+6. explicitly uses `ResearchDecisionTimingMode.ObservedRetrieval`;
+7. returns the nested existing transcript and research-to-rebalance results without recalculating backtest or rebalance outputs.
+
+There is no direct `EventDrivenBacktester`, `PortfolioRebalancePlanner`, provider, network, process, CLI, broker, persistence, or clock orchestration in the new service.
+
+### Equivalence gate
+
+The gate is fail-closed.
+
+`EarningsAssessmentResult` must be exactly equal between the transcript path and the downstream VS-01 path.
+
+`ResearchDecision` is compared by exact semantic content across:
+
+- DecisionId;
+- StrategyId;
+- Instrument;
+- Action;
+- GeneratedAt using exact timestamp equality;
+- TargetWeight;
+- Confidence;
+- SourceEventId;
+- Reason;
+- ValidUntil using exact timestamp equality;
+- Metadata count and every ordinal key/value pair.
+
+This explicit comparator is required because the existing `ResearchDecision` record contains an `IReadOnlyDictionary`; default record equality would compare separately allocated dictionary instances by reference rather than by semantic content.
+
+### Tests
+
+The VS-11 tests cover:
+
+- integrated synthetic transcript artifacts;
+- exact prior/current event identity;
+- policy reuse and fingerprint equality;
+- exact downstream event pair;
+- explicit ObservedRetrieval timing;
+- assessment and decision semantic equality;
+- GeneratedAt, StrategyId and TargetWeight equality;
+- one replayed comparable event for the two transcript-derived events;
+- existing backtest metrics;
+- existing current RebalancePlan and RebalanceOrderIntent;
+- deterministic repeated runs;
+- invalid normalized transcript rejection;
+- invalid structured extraction rejection;
+- transcript instrument mismatch rejection;
+- invalid policy rejection;
+- insufficient market-data rejection;
+- invalid current reference price rejection;
+- invalid current portfolio rejection;
+- absence of duplicate backtester/planner orchestration and external I/O in the owned application service.
+
+Existing VS-01, VS-08, VS-09 and the full TradeOps regression suite are exercised by the full solution CI.
+
+### CI
+
+Superseded diagnostic run:
+
+```text
+37626998921 — FAILURE
+```
+
+Build succeeded; two new tests exposed reference-based dictionary equality in the initial equivalence implementation. The gate was corrected to exact semantic ResearchDecision comparison.
+
+Validated implementation run:
+
+```text
+37627341607 — SUCCESS
+HEAD: 00ec0394e0e409d7af305b52d148af75c5df962a
+tests: 463/463 passed
+```
+
+Build, unit tests, API/PostgreSQL smoke, signed webhook demo, customer demo validation, deployment validation, and Docker image build all succeeded.
+
+### Privacy scan
+
+PASS.
+
+All changed implementation/test content uses existing synthetic artifacts and generic synthetic market/portfolio values. No prohibited personal/client identifiers are introduced.
+
+### Blockers
+
+None.
+
+### Next integration action
+
+Development Orchestrator should review draft PR #62, branch diff, exact implementation CI, and current main/VS-10 integration ordering. If accepted, the orchestrator may integrate VS-11. This worker must not merge it independently.
