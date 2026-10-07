@@ -14,13 +14,13 @@ TradeOps/vs09-earnings-extraction-schema
 ## Baseline
 
 ```text
-cdb5d66b42e42fd216617e39f22ad2eb459ffe47
+45ecbc841814ea861dc4c09c642c12cc660ed928
 ```
 
 Baseline CI:
 
 ```text
-37616983355 — SUCCESS
+37618585251 — IN_PROGRESS (documentation-only orchestration launch commit)
 ```
 
 ## Purpose
