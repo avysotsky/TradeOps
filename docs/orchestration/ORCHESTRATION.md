@@ -74,7 +74,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | WS-03 | Signal / Portfolio Target Engine | TradeOps/ws03-signal-portfolio-engine | INTEGRATED | no further contract changes without orchestration |
 | WS-04 | Event-driven Backtester | TradeOps/ws04-backtester-contracts | INTEGRATED | bounded v1 complete; no generic expansion without orchestration |
 | VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
-| VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | READY | yes, bounded public-data/tooling slice |
+| VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | VALIDATION | correctness fix required: SEC acceptance time must not be mislabeled as public availability/retrieval time |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -208,7 +208,7 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  VS-02 Public-Data Runnable Demo — real SEC earnings inputs + public daily prices + runnable demo
+P0  VS-02 Public-Data Runnable Demo — validation fix for historical SEC availability/provenance before integration
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
 DONE WS-04 Event-driven Backtester — PR #52
