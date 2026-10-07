@@ -14,13 +14,13 @@ TradeOps/vs10-provider-backed-transcript-demo
 ## Baseline
 
 ```text
-02db6f9c9dd86ef36aa4c0baadeb9f186cb4c534
+8b0d38b806554c001c313368d58d1364fd096066
 ```
 
 Baseline CI:
 
 ```text
-37622453715 — SUCCESS
+37623657462 — IN_PROGRESS (documentation-only orchestration launch commit)
 ```
 
 DocFlow integration baseline used by this slice:
