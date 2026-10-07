@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -455,8 +455,19 @@ no prohibited personal/client identity
 
 None for the bounded VS-09 slice.
 
-### Next integration action
+### Integration result
 
-Development Orchestrator should review PR #61 against the current TradeOps `main`, recheck exact-head CI and changed-file overlap, and merge only if integration criteria remain satisfied.
+VS-09 was synchronized with the then-current TradeOps `main`, reviewed, and integrated.
 
-The worker stops here and does not merge independently.
+```text
+synchronized final PR head: 78daaafcf22f59768551a99fa0f6b696582eebe9
+synchronized exact-head CI: 37621698229 — SUCCESS
+PR: #61
+merge commit: 761e32acb90094eae3b3d029dd6b5e69edb529fd
+post-merge CI: 37622030289 — SUCCESS
+implementation suite before sync: 453 / 453 passed
+```
+
+Architecture/privacy/secret review passed. No frozen shared TradeOps contract changed, no provider SDK or DocFlow dependency was added, and the schema/request remains TradeOps-owned while VS-07 remains the authoritative downstream validator.
+
+Next orchestration step: execute the first provider-backed two-repository transcript research demo using integrated DocFlow DF-06 to produce normalized/structured JSON artifacts from the VS-09 synthetic raw transcripts, then feed those artifacts into integrated TradeOps VS-08 to obtain the existing deterministic ResearchDecision.
