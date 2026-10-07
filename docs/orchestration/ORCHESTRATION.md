@@ -12,8 +12,9 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main product integration: de3f15f0dbf5968dd1fc34f0fb4b499ba058b924
-latest integrated slice: VS-03 — Configurable Research Policy (PR #55)
+main product integration: ee5cce50391c3ad844ecf2ae46e79718ae671418
+latest integrated slice: VS-04 — Configurable Public-Data Client Demo (PR #57)
+VS-03 Configurable Research Policy integrated via PR #55
 VS-02 Public-Data Runnable Demo integrated via PR #56
 VS-01 Research-to-Rebalance Client Demo integrated via PR #54
 WS-01 manual Paper smoke harness integrated via PR #53
@@ -78,7 +79,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
 | VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | INTEGRATED | public IBM SEC/market-data runnable demo integrated via PR #56 |
 | VS-03 | Configurable Research Policy | TradeOps/vs03-configurable-research-policy | INTEGRATED | strict versioned JSON policy layer integrated via PR #55 |
-| VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | READY_FOR_INTEGRATION | implementation reviewed; exact-head CI green; synchronize with current main before merge |
+| VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | INTEGRATED | policy-driven public-data client demo integrated via PR #57 |
 | VS-05 | Earnings Transcript Intake Boundary | TradeOps/vs05-earnings-transcript-intake | HOLD_ARCHITECTURE | hold completed correctly; DO_NOT_MERGE; preserved as reference prototype for DocFlow boundary |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | READY | generic offline text/transcript normalization; no TradeOps dependency |
@@ -126,7 +127,7 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 9. WAIT — execute real authenticated IBKR Paper smoke only when a real Paper account becomes available.
 10. DONE — VS-02 Public-Data Runnable Demo integrated (PR #56).
 11. DONE — VS-03 Configurable Research Policy integrated (PR #55).
-12. READY — VS-04 Configurable Public-Data Client Demo: reviewed and ready for synchronized integration.
+12. DONE — VS-04 Configurable Public-Data Client Demo integrated via PR #57.
 13. HOLD — VS-05 TradeOps transcript intake prototype: preserve branch, do not merge; reassess boundary against DocFlow document-processing engine.
 14. START PARALLEL — DF-02 DocFlow Generic Text/Transcript Normalization: generic normalized text document + segments/participants + deterministic fingerprint, no TradeOps dependency.
 15. After DF-02, define the minimal earnings-research adapter from DocFlow output into TradeOps consumer contracts.
@@ -218,8 +219,8 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  VS-04 Configurable Public-Data Client Demo — public data + validated policy JSON
-P1  DF-02 DocFlow Generic Text/Transcript Normalization — new generic boundary
+DONE VS-04 Configurable Public-Data Client Demo — PR #57
+P0  DF-02 DocFlow Generic Text/Transcript Normalization — new generic boundary
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
