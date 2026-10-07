@@ -38,6 +38,9 @@ public sealed class ProviderTranscriptResearchDemoTests
             options.PythonExecutable);
         Assert.Null(
             options.WorkDirectory);
+        Assert.Equal(
+            ProviderTranscriptResearchProvider.OpenAi,
+            options.Provider);
 
         var root =
             Path.GetFullPath(
@@ -217,6 +220,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             new[]
             {
                 "text_artifact_main.py",
+                "--provider",
+                "openai",
                 "--input-raw-json",
                 fixture.PriorRaw,
                 "--schema-request",
@@ -242,6 +247,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             new[]
             {
                 "text_artifact_main.py",
+                "--provider",
+                "openai",
                 "--input-raw-json",
                 fixture.CurrentRaw,
                 "--schema-request",
@@ -722,6 +729,237 @@ public sealed class ProviderTranscriptResearchDemoTests
             "ResearchDecisionAction",
             source,
             StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "api.groq.com",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "api.openai.com",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "ProcessStartInfo.Environment",
+            source,
+            StringComparison.Ordinal);
+    }
+
+
+    [Theory]
+    [InlineData(
+        "openai",
+        ProviderTranscriptResearchProvider.OpenAi)]
+    [InlineData(
+        "groq",
+        ProviderTranscriptResearchProvider.Groq)]
+    public void Options_parse_explicit_provider(
+        string providerName,
+        ProviderTranscriptResearchProvider expectedProvider)
+    {
+        var options =
+            ProviderTranscriptResearchDemoOptions
+                .Parse(
+                    new[]
+                    {
+                        "--provider",
+                        providerName,
+                        "--docflow-root",
+                        "docflow",
+                        "--model",
+                        "explicit-model"
+                    });
+
+        Assert.Equal(
+            expectedProvider,
+            options.Provider);
+    }
+
+    [Fact]
+    public void Unknown_provider_is_rejected_during_cli_parse()
+    {
+        var exception =
+            Assert.Throws<ArgumentException>(
+                () =>
+                    ProviderTranscriptResearchDemoOptions
+                        .Parse(
+                            new[]
+                            {
+                                "--provider",
+                                "unknown",
+                                "--docflow-root",
+                                "docflow",
+                                "--model",
+                                "explicit-model"
+                            }));
+
+        Assert.Contains(
+            "openai, groq",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Api_key_cli_option_is_not_supported()
+    {
+        Assert.Throws<ArgumentException>(
+            () =>
+                ProviderTranscriptResearchDemoOptions
+                    .Parse(
+                        new[]
+                        {
+                            "--api-key",
+                            "must-not-be-accepted",
+                            "--docflow-root",
+                            "docflow",
+                            "--model",
+                            "explicit-model"
+                        }));
+    }
+
+    [Theory]
+    [InlineData(
+        ProviderTranscriptResearchProvider.OpenAi,
+        "openai",
+        ProviderTranscriptResearchDemoHarness.OpenAiApiKeyEnvironmentVariable)]
+    [InlineData(
+        ProviderTranscriptResearchProvider.Groq,
+        "groq",
+        ProviderTranscriptResearchDemoHarness.GroqApiKeyEnvironmentVariable)]
+    public void Selected_provider_reads_only_selected_credential_and_forwards_exact_provider_and_model(
+        ProviderTranscriptResearchProvider provider,
+        string providerName,
+        string selectedEnvironmentVariable)
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            fixture.SuccessfulRunner();
+        var environment =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>
+                {
+                    [selectedEnvironmentVariable] =
+                        "selected-provider-secret"
+                });
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    model:
+                        "model-verbatim",
+                    provider:
+                        provider),
+                runner,
+                environmentReader:
+                    environment);
+
+        Assert.Equal(
+            0,
+            result.ExitCode);
+        Assert.Equal(
+            new[]
+            {
+                selectedEnvironmentVariable
+            },
+            environment.Requests);
+
+        Assert.Equal(
+            3,
+            runner.Invocations.Count);
+
+        foreach (var invocation in
+                 runner.Invocations.Take(
+                     2))
+        {
+            var providerIndex =
+                invocation.Arguments
+                    .ToList()
+                    .IndexOf(
+                        "--provider");
+            var modelIndex =
+                invocation.Arguments
+                    .ToList()
+                    .IndexOf(
+                        "--model");
+
+            Assert.True(
+                providerIndex >= 0);
+            Assert.Equal(
+                providerName,
+                invocation.Arguments[
+                    providerIndex + 1]);
+
+            Assert.True(
+                modelIndex >= 0);
+            Assert.Equal(
+                "model-verbatim",
+                invocation.Arguments[
+                    modelIndex + 1]);
+
+            Assert.DoesNotContain(
+                invocation.Arguments,
+                argument =>
+                    argument.Contains(
+                        "selected-provider-secret",
+                        StringComparison.Ordinal));
+            Assert.DoesNotContain(
+                "--api-key",
+                invocation.Arguments);
+        }
+
+        Assert.DoesNotContain(
+            "selected-provider-secret",
+            result.Output,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "selected-provider-secret",
+            result.Error,
+            StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(
+        ProviderTranscriptResearchProvider.OpenAi,
+        ProviderTranscriptResearchDemoHarness.OpenAiApiKeyEnvironmentVariable)]
+    [InlineData(
+        ProviderTranscriptResearchProvider.Groq,
+        ProviderTranscriptResearchDemoHarness.GroqApiKeyEnvironmentVariable)]
+    public void Missing_selected_credential_stops_before_process_and_names_only_selected_variable(
+        ProviderTranscriptResearchProvider provider,
+        string selectedEnvironmentVariable)
+    {
+        using var fixture =
+            new Fixture();
+        var runner =
+            new RecordingRunner();
+        var environment =
+            new RecordingEnvironmentReader(
+                new Dictionary<string, string?>());
+
+        var result =
+            fixture.Run(
+                fixture.Options(
+                    provider:
+                        provider),
+                runner,
+                environmentReader:
+                    environment);
+
+        Assert.Equal(
+            1,
+            result.ExitCode);
+        Assert.Empty(
+            runner.Invocations);
+        Assert.Equal(
+            new[]
+            {
+                selectedEnvironmentVariable
+            },
+            environment.Requests);
+        Assert.Contains(
+            selectedEnvironmentVariable +
+            " is required",
+            result.Error,
+            StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
@@ -826,6 +1064,38 @@ public sealed class ProviderTranscriptResearchDemoTests
             return _handler(
                 invocation,
                 index);
+        }
+    }
+
+    private sealed class RecordingEnvironmentReader :
+        IEnvironmentReader
+    {
+        private readonly IReadOnlyDictionary<string, string?> _values;
+
+        public RecordingEnvironmentReader(
+            IReadOnlyDictionary<string, string?> values)
+        {
+            _values =
+                values;
+        }
+
+        public List<string> Requests
+        {
+            get;
+        } =
+            new();
+
+        public string? Get(
+            string name)
+        {
+            Requests.Add(
+                name);
+
+            return _values.TryGetValue(
+                name,
+                out var value)
+                ? value
+                : null;
         }
     }
 
@@ -984,14 +1254,17 @@ public sealed class ProviderTranscriptResearchDemoTests
             string? docFlowRoot = null,
             string model = "test-model",
             string python = "python",
-            string? workDirectory = null) =>
+            string? workDirectory = null,
+            ProviderTranscriptResearchProvider provider =
+                ProviderTranscriptResearchProvider.OpenAi) =>
             new(
                 docFlowRoot
                 ?? DocFlowRoot,
                 model,
                 python,
                 workDirectory
-                ?? WorkDirectory);
+                ?? WorkDirectory,
+                provider);
 
         public RecordingRunner SuccessfulRunner() =>
             new(
@@ -1016,7 +1289,8 @@ public sealed class ProviderTranscriptResearchDemoTests
         public RunResult Run(
             ProviderTranscriptResearchDemoOptions options,
             RecordingRunner runner,
-            string? apiKey = "test-key")
+            string? apiKey = "test-key",
+            IEnvironmentReader? environmentReader = null)
         {
             using var output =
                 new StringWriter();
@@ -1026,7 +1300,8 @@ public sealed class ProviderTranscriptResearchDemoTests
             var exitCode =
                 new ProviderTranscriptResearchDemoHarness(
                         runner,
-                        new EnvironmentReader(
+                        environmentReader
+                        ?? new EnvironmentReader(
                             apiKey))
                     .Run(
                         options,
