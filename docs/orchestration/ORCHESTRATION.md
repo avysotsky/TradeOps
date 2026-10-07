@@ -78,6 +78,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-01 | Research-to-Rebalance Client Demo | TradeOps/vs01-research-to-rebalance-demo | INTEGRATED | extend only through orchestrated client-facing slices |
 | VS-02 | Public-Data Runnable Demo | TradeOps/vs02-public-data-runnable-demo | INTEGRATED | public IBM SEC/market-data runnable demo integrated via PR #56 |
 | VS-03 | Configurable Research Policy | TradeOps/vs03-configurable-research-policy | INTEGRATED | strict versioned JSON policy layer integrated via PR #55 |
+| VS-04 | Configurable Public-Data Client Demo | TradeOps/vs04-configurable-public-demo | READY | connect VS-02 public data with VS-03 validated policy JSON |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 
 ## Dependency graph
@@ -123,8 +124,8 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 9. WAIT — execute real authenticated IBKR Paper smoke only when a real Paper account becomes available.
 10. DONE — VS-02 Public-Data Runnable Demo integrated (PR #56).
 11. DONE — VS-03 Configurable Research Policy integrated (PR #55).
-12. NEXT — connect public-data demo + validated client policy JSON in one runnable bounded slice.
-13. After that, evaluate whether transcript/earnings-call ingestion is the next client-facing research extension.
+12. START — VS-04 Configurable Public-Data Client Demo: public IBM data + validated policy JSON -> one runnable workflow with policy fingerprint in output.
+13. After VS-04, evaluate transcript/earnings-call ingestion as the next research extension.
 14. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
 ## Ownership / merge-conflict rules
@@ -213,7 +214,7 @@ On each "continue" or "check status":
 ## Current priority
 
 ```text
-P0  next client-ready slice — public-data demo + client policy JSON
+P0  VS-04 Configurable Public-Data Client Demo — public data + validated policy JSON
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
 WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
 DONE WS-04 Event-driven Backtester — PR #52
