@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using TradeOps.Application.Models;
 using TradeOps.Application.Services;
@@ -263,6 +264,19 @@ public sealed class DocFlowStructuredEarningsFactsAdapterTests
     }
 
     [Fact]
+    public void Adapt_UnsupportedSchemaVersion_Rejects()
+    {
+        var root =
+            ParseValidRoot();
+
+        root["data"]!["schema_version"] =
+            2;
+
+        AssertInvalid(
+            root);
+    }
+
+    [Fact]
     public void Adapt_CurrencyMismatch_Rejects()
     {
         var root =
@@ -407,21 +421,25 @@ public sealed class DocFlowStructuredEarningsFactsAdapterTests
     }
 
     [Theory]
-    [InlineData("revenue_low", "revenue_high", 16000000000, 15500000000)]
-    [InlineData("diluted_eps_low", "diluted_eps_high", 3.0, 2.7)]
+    [InlineData("revenue_low", "revenue_high", "16000000000", "15500000000")]
+    [InlineData("diluted_eps_low", "diluted_eps_high", "3.0", "2.7")]
     public void Adapt_InvalidGuidanceRange_Rejects(
         string lowName,
         string highName,
-        decimal low,
-        decimal high)
+        string lowText,
+        string highText)
     {
         var root =
             ParseValidRoot();
 
         root["data"]!["guidance"]![lowName]!["value"] =
-            low;
+            decimal.Parse(
+                lowText,
+                CultureInfo.InvariantCulture);
         root["data"]!["guidance"]![highName]!["value"] =
-            high;
+            decimal.Parse(
+                highText,
+                CultureInfo.InvariantCulture);
 
         AssertInvalid(
             root);
