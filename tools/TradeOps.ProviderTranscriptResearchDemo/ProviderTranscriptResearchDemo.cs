@@ -18,7 +18,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
     string? WorkDirectory,
     ProviderTranscriptResearchProvider Provider =
         ProviderTranscriptResearchProvider.OpenAi,
-    string? DotNetExecutable = null)
+    string? DotNetExecutable = null,
+    string? RebalanceInputPath = null)
 {
     public const string DefaultPythonExecutable =
         "python";
@@ -38,6 +39,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
         string? workDirectory =
             null;
         string? dotNetExecutable =
+            null;
+        string? rebalanceInputPath =
             null;
         var provider =
             ProviderTranscriptResearchProvider
@@ -98,9 +101,17 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                             "--dotnet");
                     break;
 
+                case "--rebalance-input":
+                    rebalanceInputPath =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--rebalance-input");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>.");
+                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>, --rebalance-input <path>.");
             }
         }
 
@@ -124,7 +135,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             python,
             workDirectory,
             provider,
-            dotNetExecutable);
+            dotNetExecutable,
+            rebalanceInputPath);
     }
 
     private static ProviderTranscriptResearchProvider ParseProvider(
@@ -936,6 +948,10 @@ public sealed class ProviderTranscriptResearchDemoHarness
         var providerName =
             GetProviderName(
                 options.Provider);
+        var rebalanceInput =
+            ResolveRebalanceInput(
+                options.RebalanceInputPath,
+                resolvedTradeOpsRoot);
 
         ValidateDocFlow(
             docFlowRoot,
@@ -1021,7 +1037,9 @@ public sealed class ProviderTranscriptResearchDemoHarness
         var resultJson =
             Path.Combine(
                 workDirectory,
-                "transcript-research-result.json");
+                rebalanceInput is null
+                    ? "transcript-research-result.json"
+                    : "transcript-research-rebalance-result.json");
 
         output.WriteLine(
             "Stage: initialize");
@@ -1113,25 +1131,43 @@ public sealed class ProviderTranscriptResearchDemoHarness
             runtimeManifest,
             "Runtime consumer manifest");
 
+        var consumerArguments =
+            new List<string>
+            {
+                "run",
+                "--project",
+                "tools/TradeOps.TranscriptResearchDemo",
+                "--",
+                "--manifest",
+                runtimeManifest,
+                "--policy",
+                policy
+            };
+
+        if (rebalanceInput is not null)
+        {
+            consumerArguments.Add(
+                "--rebalance-input");
+            consumerArguments.Add(
+                rebalanceInput);
+        }
+
+        consumerArguments.Add(
+            "--json");
+        consumerArguments.Add(
+            resultJson);
+
+        var consumerStage =
+            rebalanceInput is null
+                ? "TradeOps VS-08"
+                : "TradeOps VS-13";
         var consumerResult =
             RunStage(
                 output,
-                "TradeOps VS-08",
+                consumerStage,
                 new ChildProcessInvocation(
                     dotNetHost.Executable,
-                    new[]
-                    {
-                        "run",
-                        "--project",
-                        "tools/TradeOps.TranscriptResearchDemo",
-                        "--",
-                        "--manifest",
-                        runtimeManifest,
-                        "--policy",
-                        policy,
-                        "--json",
-                        resultJson
-                    },
+                    consumerArguments,
                     resolvedTradeOpsRoot));
 
         if (consumerResult.ExitCode != 0)
@@ -1142,7 +1178,8 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 selectedCredential);
 
             throw new InvalidOperationException(
-                "TradeOps VS-08 stage failed with exit code " +
+                consumerStage +
+                " stage failed with exit code " +
                 consumerResult.ExitCode +
                 " using dotnet host '" +
                 dotNetHost.Executable +
@@ -1157,7 +1194,8 @@ public sealed class ProviderTranscriptResearchDemoHarness
                     resultJson).Length == 0)
         {
             throw new InvalidDataException(
-                "TradeOps VS-08 result artifact is missing or empty.");
+                consumerStage +
+                " result artifact is missing or empty.");
         }
 
         output.WriteLine(
@@ -1460,6 +1498,37 @@ public sealed class ProviderTranscriptResearchDemoHarness
         }
 
         return true;
+    }
+
+    private static string? ResolveRebalanceInput(
+        string? rebalanceInputPath,
+        string tradeOpsRoot)
+    {
+        if (string.IsNullOrWhiteSpace(
+                rebalanceInputPath))
+        {
+            return null;
+        }
+
+        var fullPath =
+            Path.IsPathRooted(
+                rebalanceInputPath)
+                ? Path.GetFullPath(
+                    rebalanceInputPath)
+                : Path.GetFullPath(
+                    Path.Combine(
+                        tradeOpsRoot,
+                        rebalanceInputPath));
+
+        if (!File.Exists(
+                fullPath))
+        {
+            throw new FileNotFoundException(
+                "Rebalance input file was not found.",
+                fullPath);
+        }
+
+        return fullPath;
     }
 
     private static string RequireFile(
