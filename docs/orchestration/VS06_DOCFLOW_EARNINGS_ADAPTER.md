@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -379,15 +379,16 @@ Changed implementation/test files were checked before handoff for prohibited cli
 
 None.
 
-### Next integration action
+### Integration result
 
-Development Orchestrator should:
+VS-06 was synchronized with current TradeOps `main` without implementation changes.
 
-1. compare `TradeOps/vs06-docflow-earnings-adapter` with current `main`;
-2. confirm the diff is limited to the narrow earnings adapter, its tests and this handoff document;
-3. verify no frozen/shared contract or existing earnings provenance semantic changed;
-4. verify CI run `37604699448` remains the exact implementation validation gate, or rerun exact-head CI if synchronization changes code;
-5. integrate VS-06 if review remains green;
-6. only after integration start the separate structured earnings fact-extraction slice.
+```text
+synchronized HEAD: c4e2d0344c017c98ae36a0bb52eb01179a6cfa70
+synchronized-head CI: 37605602130 — SUCCESS
+PR: #58
+merge commit: e4bc15f242eb29aa9e453969ddd2bd7749734212
+post-merge CI: 37605867347 — SUCCESS
+```
 
-Do not merge VS-06 into `main` from this worker.
+Architecture/privacy review passed. Frozen/shared contracts remained unchanged. VS-06 is integrated; further transcript work must proceed as a separate structured earnings-fact extraction slice after the generic DocFlow boundary is accepted.
