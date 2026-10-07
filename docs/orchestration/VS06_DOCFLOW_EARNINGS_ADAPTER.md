@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -234,3 +234,160 @@ Before handoff:
 7. stop after one bounded implementation slice.
 
 Do not merge independently.
+
+
+## Completion handoff
+
+### Exact CI-validated implementation HEAD
+
+```text
+0db2067334825da5309dbbaa86152d43a947fd53
+```
+
+This is the exact code/test HEAD validated by the full CI run below. The status-file commit that records this handoff follows that implementation HEAD and is documentation-only, matching the repository's existing worker handoff convention.
+
+### Completed
+
+Implemented one bounded consumer-side adapter slice:
+
+```text
+DocFlow DF-02 NormalizedTextDocument JSON
++ explicit TradeOps earnings context
+-> strict fail-closed transport validation
+-> existing ResearchSourceProvenance
+-> EarningsTranscriptResearchInput
+```
+
+The adapter:
+
+- consumes serialized DF-02 JSON only;
+- has no DocFlow Python/package/project dependency;
+- requires exact `document_type = transcript`;
+- requires absolute `source_uri`, provider, source/published/retrieved timestamps, fiscal period, earnings-event association and at least one segment;
+- requires explicit timezone evidence and normalized UTC timestamps;
+- enforces `source_timestamp <= published_at <= retrieved_at`;
+- rejects unknown JSON members through strict `System.Text.Json` options;
+- preserves DocFlow document ID, fingerprint, segment order, segment IDs and participant/segment associations;
+- reuses the existing `InstrumentReference` instance supplied by the caller;
+- maps provenance into the existing `ResearchSourceProvenance` contract with extraction method `docflow-normalized-text-v1`;
+- performs no clock or network access;
+- does not recompute DocFlow canonical hashes;
+- does not create `ResearchDecision`, `EarningsEvent` or `EarningsSnapshot`;
+- performs no fact extraction, LLM/NLP/sentiment, acquisition, scraping, persistence, backtest or portfolio/rebalance work.
+
+### Changed files
+
+Implementation/test HEAD:
+
+```text
+src/TradeOps.Application/Models/EarningsTranscriptResearchInput.cs
+src/TradeOps.Application/Services/DocFlowEarningsResearchAdapter.cs
+tests/TradeOps.UnitTests/DocFlowEarningsResearchAdapterTests.cs
+```
+
+Completion documentation:
+
+```text
+docs/orchestration/VS06_DOCFLOW_EARNINGS_ADAPTER.md
+```
+
+### Public/shared contracts changed
+
+No frozen or existing production contract was changed.
+
+Unchanged:
+
+```text
+InstrumentReference
+ResearchDecision
+ResearchDecisionAction
+ResearchDecisionValidationResult
+EarningsEvent
+EarningsSnapshot
+ResearchSourceProvenance
+MarketDataBar
+PortfolioSnapshot
+RebalancePlan
+RebalanceOrderIntent
+BacktestPerformanceMetrics
+```
+
+VS-06 adds a new narrow earnings-specific input boundary only:
+
+```text
+EarningsTranscriptResearchContext
+EarningsTranscriptResearchInput
+EarningsTranscriptParticipant
+EarningsTranscriptSegment
+DocFlowEarningsResearchAdapter
+```
+
+No generic `NormalizedTextDocument` domain model was added to TradeOps.
+
+### Tests
+
+Added 23 deterministic synthetic test cases covering:
+
+- valid DF-02 normalized transcript + explicit earnings context;
+- deterministic mapping;
+- unchanged `InstrumentReference` reuse;
+- existing `ResearchSourceProvenance` type and required provenance mapping;
+- DocFlow document ID/fingerprint preservation;
+- segment ordering and participant association;
+- missing/relative source URI rejection;
+- missing source/published/retrieved timestamp rejection;
+- timezone-less timestamp rejection;
+- non-UTC normalized timestamp rejection;
+- invalid timestamp ordering rejection;
+- non-transcript rejection;
+- missing fiscal period rejection;
+- missing earnings-event association rejection;
+- unknown root/nested JSON member rejection;
+- invalid fingerprint rejection;
+- empty segment rejection;
+- duplicate/unordered sequence rejection;
+- unresolved participant rejection;
+- duplicate participant ID rejection;
+- absence of forbidden downstream contracts from the adapter output boundary.
+
+Full TradeOps CI regression:
+
+```text
+Total tests: 399
+Passed: 399
+Failed: 0
+```
+
+### Exact CI run
+
+```text
+workflow: build
+run number: 692
+run id: 37604699448
+event: push
+validated HEAD: 0db2067334825da5309dbbaa86152d43a947fd53
+conclusion: SUCCESS
+```
+
+Validated stages include restore, build, full unit tests, API + PostgreSQL smoke, signed webhook demo, TradingView demo, client pilot starter-kit validation, Docker Compose validation, deployment validation and Docker image build.
+
+### Privacy search
+
+Changed implementation/test files were checked before handoff for prohibited client/prospective-client personal names. No matches were found. Synthetic values use only generic `sample`, `Sample Company` and equivalent non-personal fixtures.
+
+### Blockers
+
+None.
+
+### Next integration action
+
+Development Orchestrator should:
+
+1. compare `TradeOps/vs06-docflow-earnings-adapter` with current `main`;
+2. confirm the diff is limited to the narrow earnings adapter, its tests and this handoff document;
+3. verify no frozen/shared contract or existing earnings provenance semantic changed;
+4. verify CI run `37604699448` remains the exact implementation validation gate, or rerun exact-head CI if synchronization changes code;
+5. integrate VS-06 if review remains green;
+6. only after integration start the separate structured earnings fact-extraction slice.
+
+Do not merge VS-06 into `main` from this worker.
