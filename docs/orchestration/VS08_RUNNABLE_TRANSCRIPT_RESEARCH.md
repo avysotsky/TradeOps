@@ -2,7 +2,7 @@
 
 ## State
 
-READY_FOR_INTEGRATION
+INTEGRATED
 
 ## Repository / branch
 
@@ -615,6 +615,19 @@ PR #60 — VS-08: Runnable transcript-to-research integration
 
 The worker has not merged the branch.
 
-### Next integration action
+### Integration result
 
-Development Orchestrator should review PR #60 against current `main`, confirm the validated implementation HEAD/CI and merge only if the branch remains compatible with the integration order.
+VS-08 was synchronized with the then-current TradeOps `main`, reviewed, and integrated.
+
+```text
+synchronized final PR head: 9301de05757d2f72c1404ff7fa61b96d9ac2234f
+synchronized exact-head CI: 37616104229 — SUCCESS
+PR: #60
+merge commit: e3f10e10104951ce6738352583b4b03993a5042b
+post-merge CI: 37616617370 — SUCCESS
+unit tests: 446 / 446 passed
+```
+
+Architecture/privacy/secret review passed. Frozen shared contracts were unchanged. The integrated runnable remains offline and consumes serialized DocFlow artifacts without a DocFlow project/package/process dependency.
+
+Next orchestration step: define the first provider-backed end-to-end transcript research demo using the integrated DocFlow DF-05 provider path and the integrated TradeOps VS-08 consumer path while preserving the serialized JSON boundary.
