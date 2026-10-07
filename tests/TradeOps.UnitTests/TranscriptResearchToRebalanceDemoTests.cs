@@ -63,7 +63,7 @@ public sealed class TranscriptResearchToRebalanceDemoTests
             transcriptExpected.Assessment,
             result.ResearchToRebalance
                 .LatestAssessment);
-        Assert.Equal(
+        AssertDecisionEquivalent(
             transcriptExpected.Decision,
             result.ResearchToRebalance
                 .LatestDecision);
@@ -166,7 +166,7 @@ public sealed class TranscriptResearchToRebalanceDemoTests
         Assert.Equal(
             first.TranscriptResearch.Assessment,
             second.TranscriptResearch.Assessment);
-        Assert.Equal(
+        AssertDecisionEquivalent(
             first.TranscriptResearch.Decision,
             second.TranscriptResearch.Decision);
         Assert.Equal(
@@ -175,7 +175,7 @@ public sealed class TranscriptResearchToRebalanceDemoTests
         Assert.Equal(
             first.ResearchToRebalance.LatestAssessment,
             second.ResearchToRebalance.LatestAssessment);
-        Assert.Equal(
+        AssertDecisionEquivalent(
             first.ResearchToRebalance.LatestDecision,
             second.ResearchToRebalance.LatestDecision);
         Assert.Equal(
@@ -635,6 +635,73 @@ public sealed class TranscriptResearchToRebalanceDemoTests
                     policy.StrategyId,
                     ResearchDecisionTimingMode
                         .ObservedRetrieval));
+    }
+
+    private static void AssertDecisionEquivalent(
+        ResearchDecision expected,
+        ResearchDecision actual)
+    {
+        Assert.Equal(
+            expected.DecisionId,
+            actual.DecisionId);
+        Assert.Equal(
+            expected.StrategyId,
+            actual.StrategyId);
+        Assert.Equal(
+            expected.Instrument,
+            actual.Instrument);
+        Assert.Equal(
+            expected.Action,
+            actual.Action);
+        Assert.True(
+            expected.GeneratedAt.EqualsExact(
+                actual.GeneratedAt));
+        Assert.Equal(
+            expected.TargetWeight,
+            actual.TargetWeight);
+        Assert.Equal(
+            expected.Confidence,
+            actual.Confidence);
+        Assert.Equal(
+            expected.SourceEventId,
+            actual.SourceEventId);
+        Assert.Equal(
+            expected.Reason,
+            actual.Reason);
+        Assert.Equal(
+            expected.ValidUntil.HasValue,
+            actual.ValidUntil.HasValue);
+
+        if (expected.ValidUntil.HasValue)
+        {
+            Assert.True(
+                expected.ValidUntil.Value.EqualsExact(
+                    actual.ValidUntil!.Value));
+        }
+
+        if (expected.Metadata is null ||
+            actual.Metadata is null)
+        {
+            Assert.Equal(
+                expected.Metadata is null,
+                actual.Metadata is null);
+            return;
+        }
+
+        Assert.Equal(
+            expected.Metadata.Count,
+            actual.Metadata.Count);
+
+        foreach (var item in expected.Metadata)
+        {
+            Assert.True(
+                actual.Metadata.TryGetValue(
+                    item.Key,
+                    out var value));
+            Assert.Equal(
+                item.Value,
+                value);
+        }
     }
 
     private static void AssertPortfolioEquivalent(
