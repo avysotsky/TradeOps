@@ -271,6 +271,23 @@ public static class TranscriptResearchDemoCli
                     manifest.Current.StructuredExtractionPath,
                     "Current structured extraction");
 
+            if (!string.IsNullOrWhiteSpace(
+                    options.RebalanceInputPath))
+            {
+                return TranscriptResearchRebalanceDemoRunner
+                    .Run(
+                        manifest,
+                        policyLoad.Definition,
+                        policyLoad.Fingerprint,
+                        priorNormalized,
+                        priorStructured,
+                        currentNormalized,
+                        currentStructured,
+                        options.RebalanceInputPath,
+                        options.JsonPath,
+                        output);
+            }
+
             var result =
                 new TranscriptResearchDecisionDemoService()
                     .Run(
@@ -364,6 +381,8 @@ public static class TranscriptResearchDemoCli
             null;
         string? jsonPath =
             null;
+        string? rebalanceInputPath =
+            null;
 
         for (var index = 0;
              index < args.Length;
@@ -395,9 +414,17 @@ public static class TranscriptResearchDemoCli
                             "--json");
                     break;
 
+                case "--rebalance-input":
+                    rebalanceInputPath =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--rebalance-input");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>.");
+                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>, --rebalance-input <path>.");
             }
         }
 
@@ -418,7 +445,8 @@ public static class TranscriptResearchDemoCli
         return new CliOptions(
             manifestPath,
             policyPath,
-            jsonPath);
+            jsonPath,
+            rebalanceInputPath);
     }
 
     private static string RequireValue(
@@ -499,5 +527,6 @@ public static class TranscriptResearchDemoCli
     private sealed record CliOptions(
         string ManifestPath,
         string PolicyPath,
-        string? JsonPath);
+        string? JsonPath,
+        string? RebalanceInputPath);
 }
