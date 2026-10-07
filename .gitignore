@@ -25,4 +25,6 @@ pilot-evidence/
 
 # Local TLS material
 deploy/tradingview-gateway/tls/
-\n# Local TradeOps runtime snapshots/cache\n.tradeops/\n
+
+# Local TradeOps runtime snapshots/cache
+.tradeops/
