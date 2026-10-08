@@ -283,69 +283,9 @@ public static class RebalanceRiskPreviewSignalProjector
     public const string PreviewSignalSource =
         "transcript-research-rebalance-risk-preview";
 
-    public static TradingSignal Project(
-        RebalancePlan plan)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
+    public static TradingSignal Project(RebalancePlan plan)
+        => RebalancePreviewSignalProjector.Project(plan);
 
-        var intent =
-            plan.OrderIntent
-            ?? throw new InvalidOperationException(
-                "CurrentRebalancePlan.OrderIntent is required for risk preview.");
-
-        return new TradingSignal
-        {
-            Id =
-                CreateDeterministicId(
-                    intent,
-                    plan.PlannedAt),
-            Symbol =
-                intent.Instrument.Symbol,
-            Side =
-                intent.Side,
-            RequestedQuantity =
-                intent.Quantity,
-            SignalType =
-                PreviewSignalType,
-            CreatedAt =
-                plan.PlannedAt,
-            Source =
-                PreviewSignalSource,
-            RiskPercent =
-                null,
-            StopLoss =
-                null,
-            TakeProfit =
-                null
-        };
-    }
-
-    private static Guid CreateDeterministicId(
-        RebalanceOrderIntent intent,
-        DateTimeOffset plannedAt)
-    {
-        var stableInput =
-            string.Join(
-                "\n",
-                intent.DecisionId,
-                intent.Instrument.Symbol,
-                intent.Side.ToString(),
-                intent.Quantity.ToString(
-                    "G29",
-                    CultureInfo.InvariantCulture),
-                plannedAt.ToString(
-                    "O",
-                    CultureInfo.InvariantCulture));
-        var hash =
-            SHA256.HashData(
-                Encoding.UTF8.GetBytes(
-                    stableInput));
-
-        return new Guid(
-            hash.AsSpan(
-                0,
-                16));
-    }
 }
 
 public sealed class TranscriptResearchRiskPreviewExchangeClient :
