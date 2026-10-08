@@ -2,7 +2,7 @@
 
 ## State
 
-IN_PROGRESS — API composition discovery; production endpoint implementation gated
+IN_PROGRESS — four HTTP routes implemented; final exact-head CI pending
 
 ## Repository
 
@@ -98,3 +98,32 @@ The following incremental HTTP slice is committed:
 - **Security review required before enabling endpoint**: confirm operator authentication is enabled in deployed settings (existing operator auth may itself be optional), and trust/authenticate submitted risk snapshots. An attacker-supplied snapshot must not be mistaken for authoritative live risk approval.
 - HTTP risk response is informational only; it **must never authorize production order execution**.
 - Other ARCH-02 routes (research/rebalance/dry-run) are not yet implemented. No integration or merge before all gates.
+
+## Four-route implementation checkpoint — 2026-10-08
+
+Added query-only HTTP surfaces:
+- `POST /api/v1/research/decisions` — uses existing `ResearchDecisionValidator.Validate` (returns canonical normalized decision / validation result).
+- `POST /api/v1/rebalance/preview` — calls the existing `PortfolioRebalancePlanner.Plan` with request-local `ResearchDecision`, `PortfolioSnapshot`, optional reference price and constraints.
+- `POST /api/v1/risk/preview` — uses `NonMutatingRiskPreview.CheckAsync` against request-local risk and position snapshots.
+- `POST /api/v1/execution/dry-run` — uses new `RebalanceExecutionDryRunPreview.RunAsync`, which reuses production `RiskEngine`, canonical application signal projection and `ClientOrderIdGenerator`; emitted result has no mutation, broker request or persistence.
+
+All new routes are `[OperatorApiKey]` method-gated and fail closed unless both `ResearchPreview:Enabled=true` and `OperatorApi:Authentication:Enabled=true`. There is no database access or broker dependency in their logic. These are **simulated, caller-supplied snapshot previews**, not authorization to trade. Any future executable risk decision must be recomputed using trustworthy live controls.
+
+Extracted canonical `RebalancePreviewSignalProjector` into TradeOps.Application and changed existing VS-16 demo projector to delegate to it, preserving ID source and hash semantics. This avoids two independent deterministic signal-ID algorithms.
+
+Added tests for reusable risk allowed/blocked/position limit, research validation/rebalance preview, execution dry-run allowed/rejected/invalid, stable client order IDs and legacy VS-16 projector parity, endpoint disabled/auth gate and direct-vs-controller equivalence. No live broker/provider credentials.
+
+Validation evidence:
+- Earlier risk adapter build `37794873196` SUCCESS.
+- Risk endpoint build `37795989073` FAILED because attribute placement was invalid; fixed before this checkpoint.
+- Subsequent exact-HEAD build `37796349238` SUCCESS.
+- Final four-route implementation HEAD before this docs update: `a109ff9fc81ae5b916cb0bf451b665d8ce69224d`.
+- **Exact-head CI for final four-route implementation remains pending and must be checked before merge.**
+- Broader HTTP integration and threat-model review are still required; controller-level parity tests alone do not prove full hosted ASP.NET routing, serializer and authorization behavior.
+- Branch currently trails a main orchestration-only commit; integrate that documentation change or confirm clean merge before final review.
+- Real Groq dry-run and IBKR Paper live broker acceptance not included.
+
+Security considerations:
+- The legacy operator API auth filter is configurable; disabling it must not expose these new endpoints.
+- Request-local risk controls are untrusted and have no power to submit trades.
+- Do not add `OrderManager`, `SignalExecutionService`, order repositories, execution triggers or provider credentials to these routes.
