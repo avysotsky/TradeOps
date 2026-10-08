@@ -513,3 +513,22 @@ Next integration action:
 - verify the final status-only branch HEAD CI;
 - review the draft VS-17 PR;
 - do not merge from the worker chat.
+
+
+### Final main resynchronization
+
+After the first completion validation, orchestration `main` advanced only in unrelated architecture/orchestration documentation. VS-17 was resynchronized again without changing its bounded diff.
+
+Latest synchronization commit before this status note:
+
+```text
+774d801aefd177e219ec18b11f63ecc6cb8daf83
+```
+
+Latest synchronized TradeOps main:
+
+```text
+67a31a2cde781e5475b39ce708055b23aff11830
+```
+
+The new main commits affect `docs/orchestration/DUAL_TOPOLOGY_ARCHITECTURE_PLAN.md` and `docs/orchestration/ORCHESTRATION.md` only; there is no overlap with the VS-17 changed-file allowlist. The draft PR remains the integration boundary.
