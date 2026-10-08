@@ -29,7 +29,7 @@ public sealed class ResearchRiskPreviewControllerTests
             MaxDailyLoss = 100m,
             MaxOpenPositions = 5
         },
-        new RiskControlSnapshot(
+        new ResearchRiskControlsRequest(
             enabled, false, null, "USDT", 0m, 0m, 0m,
             Array.Empty<UnconvertedFee>(), 0,
             new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)),
