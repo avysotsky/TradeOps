@@ -27,7 +27,7 @@ DocFlow repository:
 
 ```text
 avysotsky/DocFlow
-main: d6de1b5168c156b107cb3c3d71ef29983401ad40 (ARCH-01 PR #8 merged; push CI not independently verified)
+main: 602346f90aed9ca9f940ac38ad1847249e3c81df (DocFlow .NET normalization PR #9 merged)
 latest integrated slice: DF-07 — Groq Schema-Driven Text Extraction Backend (PR #7)
 DF-07 merge commit: 211f890625712a161eadad09e56962ad69a759f5
 post-merge CI: 37640516860 — SUCCESS
@@ -365,3 +365,7 @@ ARCH-04 branch `TradeOps/arch04-docflow-inprocess-adapter` registered from curre
 ## ARCH-04 feasibility outcome — 2026-10-08
 
 PR #74 was squash-merged as `52dbfe375f63857e733d5c6617f987960f4338a3`. Isolated .NET 8/Python 3.11 Python.NET same-PID synchronous and coroutine proof PASS: workflow `37807983142` SUCCESS. TradeOps full build `37807982919` SUCCESS. ADR and reproducible isolated probe committed, no production DI or broker changes. **Status is only feasibility-proven, not ARCH-04 complete:** still need real DocFlow Python application in-process invocation, trusted artifact distribution and equivalence tests. Default remains ARCH-03 HTTP topology. ARCH-05 not started.
+
+## C#-first DocFlow milestone — 2026-10-08
+
+Prefer C#/.NET where equivalent in quality; retain Python where objectively justified. DocFlow PR #9 squash merged `602346f90aed9ca9f940ac38ad1847249e3c81df` from head `70396711aa3f6095e3e40ecaa5f6fda270955509`. Native .NET 8 normalization library and CLI added. Differential 13-case Python-reference parity CI `37809980079` SUCCESS; Python Worker CI `37809980155` SUCCESS; .NET CI `37809980154` SUCCESS. Original Python HTTP service/LLM pipeline remains unchanged, with no .NET production cutover. Plan next .NET extraction application and API, preserve cross-topology contract and existing TradeOps-owned `IDocFlowExtractionPort`; keep Python.NET embedded runtime as fallback feasibility, not architectural default. ARCH-05 pending; broker mutation blocked.
