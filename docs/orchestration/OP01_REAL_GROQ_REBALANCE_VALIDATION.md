@@ -11,7 +11,7 @@ DONE
 ## Repository baseline used by the operator
 
 ```text
-TradeOps main: 8afc2528eb672a424bbee3635afff2484a7a8fc4
+TradeOps main: eaa2420c68f4dc554838c6803e3d034f99c2d793
 DocFlow root: local integrated checkout
 dotnet host: D:\DotNet\dotnet.exe
 dotnet SDK: 8.0.421

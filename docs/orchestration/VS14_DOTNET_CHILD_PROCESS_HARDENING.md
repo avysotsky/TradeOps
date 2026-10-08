@@ -14,7 +14,7 @@ TradeOps/vs14-dotnet-child-process-hardening
 ## Baseline
 
 ```text
-ddaf8558f908dd68ff39aeb5eb71ff5cb5bf878b
+da316e9221a42b7a815deac47d0a2103db87b737
 ```
 
 ## Purpose
@@ -302,7 +302,7 @@ Do not merge independently.
 ### Validated implementation head
 
 ```text
-5cac6ab024c24e3bd517ba10fe80e6ebfccc6e65
+58c261371a1c52aeef840f994ae2c472bd7282ee
 ```
 
 This is the exact code-and-test HEAD validated by GitHub Actions before this status-file bookkeeping update.
@@ -310,7 +310,7 @@ This is the exact code-and-test HEAD validated by GitHub Actions before this sta
 At validation time, current TradeOps `main` was:
 
 ```text
-99013d7f5f7551f3abf1d342c46d3e48dbbfb68f
+2b84f13650c50bd55365a64466e919a01156f252
 ```
 
 The implementation branch was intentionally not broadly merged or rebased because its one-commit main divergence was orchestration/docs-only and there was no implementation overlap.
@@ -383,7 +383,7 @@ Exact validated implementation CI:
 
 ```text
 37659035569 — SUCCESS
-head: 5cac6ab024c24e3bd517ba10fe80e6ebfccc6e65
+head: 58c261371a1c52aeef840f994ae2c472bd7282ee
 ```
 
 The workflow also passed build, API/PostgreSQL smoke, signed-webhook demo, customer TradingView demo, deployment validation and Docker image build. A final hardening review additionally replaced line-level child-output filtering with fixed diagnostic labels so transcript/provider text cannot be echoed merely because it contains an SDK/runtime keyword.

@@ -16,13 +16,13 @@ TradeOps/vs15-provider-transcript-rebalance-wiring
 TradeOps orchestration baseline:
 
 ```text
-015fce4aa8f0cebaf3cccda2c6f74dd64523fa05
+6cad7ae5c155183ee565016f71696fa0c650936a
 ```
 
 Latest code-bearing integrated TradeOps baseline:
 
 ```text
-1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48
+ec2865382bd65bd15ea591a4851d2987645ace0c
 ```
 
 Combined VS-13 + VS-14 post-merge CI:
@@ -327,13 +327,13 @@ Stop after this bounded slice.
 The exact code-and-test HEAD validated by GitHub Actions is:
 
 ```text
-dfcb4c599301dcd7022aa476dcf5acfe7ee94f11
+fad9677336f0dce1bffde633a19d50eea2607529
 ```
 
 At implementation validation time:
 
 ```text
-TradeOps main: 7e91388ec81d4b9ae2c27f7cc2d321d56f867088
+TradeOps main: 1835d9a841491fd22f850b90c0826d79d0efdccd
 DocFlow main: be957f139cae0eafff3cd47241a5d7dd6beca855
 ```
 
@@ -345,7 +345,7 @@ Compare versus current TradeOps main at validation:
 status: diverged
 ahead: 3
 behind: 1
-merge base: 015fce4aa8f0cebaf3cccda2c6f74dd64523fa05
+merge base: 6cad7ae5c155183ee565016f71696fa0c650936a
 ```
 
 ### Changed files
@@ -438,7 +438,7 @@ Exact validated implementation CI:
 
 ```text
 37662668640 — SUCCESS
-head: dfcb4c599301dcd7022aa476dcf5acfe7ee94f11
+head: fad9677336f0dce1bffde633a19d50eea2607529
 519 / 519 tests passed
 ```
 

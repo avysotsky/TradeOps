@@ -8,8 +8,8 @@ avysotsky/TradeOps
 TradeOps/vs16-rebalance-risk-preview
 
 ## Baseline
-Orchestration baseline: 8a0f33d4f2198429f454b9faff7b3eb3bb90506c
-Latest code-bearing integrated baseline: 54e981d51bc7de5746371106509cc92030767916
+Orchestration baseline: e6a34368aaa438e67d7c9563ffd879331154fe21
+Latest code-bearing integrated baseline: a62e603ec7d590f0f692db6f1f437f454584d0e9
 VS-15 post-merge CI: 37669861416 — SUCCESS
 Full suite: 519 / 519 tests passed
 
@@ -283,7 +283,7 @@ Stop after the bounded preview slice.
 ## Completion status — 2026-10-08
 
 Implementation HEAD before this status-only update:
-`fc62bf0b9f298578894b7f92bfd6de8d5ce03bf9`
+`2452c675f7288f8882e7b54ffeea43bcf66f2a73`
 
 Completed:
 - reused the existing VS-13 composition through a tool-local `TranscriptResearchRebalanceDemoRunner.Create(...)` extraction; no planner/backtester duplication

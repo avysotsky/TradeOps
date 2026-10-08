@@ -14,7 +14,7 @@ TradeOps/vs13-provider-transcript-rebalance-e2e
 ## Baseline
 
 ```text
-ddaf8558f908dd68ff39aeb5eb71ff5cb5bf878b
+da316e9221a42b7a815deac47d0a2103db87b737
 ```
 
 This branch starts from the orchestrator registration commit for VS-13.
@@ -36,14 +36,14 @@ GitHub is the source of truth.
 TradeOps before the registration commit:
 
 ```text
-main: b27ebdde88c8671815f363500abaf01a4622daa1
+main: bfef73cd98e7db72eb6b13dcdab3bdccd679ab1f
 build CI: 37651614554 — SUCCESS
 ```
 
 The immediately preceding runtime-artifact ignore fix is:
 
 ```text
-fc6abc8dc73af6088886cc5259f51b8663fc70c7
+ee16c14711fedea7c63dcbab99b40a934951a8f6
 build CI: 37651592492 — SUCCESS
 ```
 
@@ -594,11 +594,11 @@ The authoritative `VS13_SCOPE_OVERRIDE.md` split the original broad slice while 
 
 ### Git state
 
-- Original TradeOps baseline at assignment: `ddaf8558f908dd68ff39aeb5eb71ff5cb5bf878b`.
-- Initial VS-13 branch HEAD: `5558262eb20dc7159c5e4a905a5deb777664271b`.
-- Authoritative scope-override commit observed during the worker lease: `a7062501badf3029f65b298677861a9e4c962306`.
-- Validated implementation HEAD: `e4dea633f2becd78d3f481d647c4f20ab6ecf3bc`.
-- Current live `main` at handoff preparation: `99013d7f5f7551f3abf1d342c46d3e48dbbfb68f` (`Register parallel VS-14 process hardening slice`, docs-only `ORCHESTRATION.md` change).
+- Original TradeOps baseline at assignment: `da316e9221a42b7a815deac47d0a2103db87b737`.
+- Initial VS-13 branch HEAD: `d466a3ee9e1157b68ce44a8de6e4907e2039ae03`.
+- Authoritative scope-override commit observed during the worker lease: `37803501d48727402f27160b77a9ed634d870b77`.
+- Validated implementation HEAD: `036c313d40c1954ae40c3f8d56242a5145d88c54`.
+- Current live `main` at handoff preparation: `2b84f13650c50bd55365a64466e919a01156f252` (`Register parallel VS-14 process hardening slice`, docs-only `ORCHESTRATION.md` change).
 - Compare validated implementation vs current `main`: diverged, ahead 4 / behind 1. The behind-main commit is the VS-14 registration docs change and does not overlap VS-13-owned implementation files.
 
 ### Changed files
@@ -659,7 +659,7 @@ The consumer accepts an explicit `--json` destination. VS-15 is responsible for 
 GitHub Actions implementation-head run:
 
 - Run: `37657606919`
-- HEAD: `e4dea633f2becd78d3f481d647c4f20ab6ecf3bc`
+- HEAD: `036c313d40c1954ae40c3f8d56242a5145d88c54`
 - Conclusion: **SUCCESS**
 - Build: SUCCESS
 - Unit tests: **500 passed / 500 total**
