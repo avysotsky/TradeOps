@@ -131,8 +131,10 @@ public sealed class TranscriptResearchRiskPreviewTests
                 root =>
                     root["allowedSymbols"] =
                         new JsonArray(
-                            "SAMP",
-                            " "));
+                            JsonValue.Create(
+                                "SAMP"),
+                            JsonValue.Create(
+                                " ")));
         Assert.Throws<InvalidDataException>(
             () =>
                 TranscriptResearchRiskPreviewInputLoader
@@ -144,8 +146,10 @@ public sealed class TranscriptResearchRiskPreviewTests
                 root =>
                     root["allowedSymbols"] =
                         new JsonArray(
-                            "SAMP",
-                            "samp"));
+                            JsonValue.Create(
+                                "SAMP"),
+                            JsonValue.Create(
+                                "samp")));
         Assert.Throws<InvalidDataException>(
             () =>
                 TranscriptResearchRiskPreviewInputLoader
@@ -797,8 +801,8 @@ public sealed class TranscriptResearchRiskPreviewTests
             "SAMP",
             AssetClass.Stock,
             "USD",
-            exchange:
-                "XNYS");
+            null,
+            "XNYS");
 
     private static TranscriptResearchRiskPreviewInput CreateRiskInput(
         bool tradingEnabled = true,
