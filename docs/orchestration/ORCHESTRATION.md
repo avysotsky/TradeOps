@@ -101,7 +101,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | OP-01 | Real Groq Provider → Research → Backtest/Rebalance Validation | operator/local | DONE | PASS on TradeOps main 8afc2528eb672a424bbee3635afff2484a7a8fc4; Groq/DocFlow prior+current/TradeOps VS-13 all exit 0; SAMP targetWeight 0.40; rebalance Ready; runtime JSON 7838 bytes |
 | SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | INTEGRATED | PR #69; exact-head CI 37759473126 SUCCESS; Option B recommended; no history rewrite executed; execution deferred until active work is finished and refs are frozen |
 | VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge 6b4baf35e11988143d94580449bc7d8a85c3183a; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
-| OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | READY | run integrated VS-16 with environment-only GROQ_API_KEY; expect riskPreview.allowed=true; no order mutation |
+| OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main bd9d128a5b97b6c59efeb7cd5b455120fa7bdd3f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -285,7 +285,9 @@ DONE VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — PR #
 DONE SEC-01 Public Repository Security & Privacy Audit — PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 remains MUST FIX
 DONE OP-01 — real Groq provider -> DocFlow -> research -> backtest/rebalance validated; SAMP targetWeight 0.40; rebalance Ready; runtime artifact remains local
 DONE VS-16 — integrated via PR #70; exact-head CI 37760138944 SUCCESS; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings
-P0 READY OP-02 — real Groq -> research -> backtest/rebalance -> existing RiskEngine preview; expect allowed=true on synthetic SAMP risk state; no broker mutation
+DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existing RiskEngine validated; SAMP Buy 30; allowed=true; no broker mutation
+NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
+WAIT WS-01 real IBKR Paper validation — broker mutation remains blocked
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 WAIT SEC-001 EXECUTION — finish VS-16, freeze merges/refs, obtain explicit owner approval, then run the verified Option B rewrite procedure
 WAIT WS-01 real IBKR Paper validation — mutation remains blocked
