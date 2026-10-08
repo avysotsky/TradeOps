@@ -36,6 +36,28 @@ DF-02 Generic Text/Transcript Normalization integrated via PR #2
 legacy QBO work: HOLD / maintenance unless business priority changes
 ```
 
+## Approved architecture direction
+
+Canonical architecture roadmap:
+
+```text
+docs/orchestration/DUAL_TOPOLOGY_ARCHITECTURE_PLAN.md
+```
+
+Approved target: DocFlow and TradeOps must each be independently deployable HTTP services while their application code remains reusable in one in-process modular-monolith composition. HTTP is a host/adapter concern, not the business-logic boundary. TradeOps will consume DocFlow through a TradeOps-owned port with both HTTP and in-process adapters. The existing CLI/child-process harness remains until topology-equivalent replacements are validated.
+
+Planned sequence after VS-17:
+
+```text
+ARCH-01 DocFlow application boundary + HTTP host
+ARCH-02 TradeOps research/rebalance/risk/dry-run HTTP host
+ARCH-03 TradeOps -> DocFlow HTTP adapter
+ARCH-04 TradeOps -> DocFlow in-process adapter
+ARCH-05 HTTP vs in-process topology equivalence harness
+```
+
+OP-03 remains independently WAITING_EXTERNAL and does not block this architecture work.
+
 ## Current product objective
 
 Prepare a demonstrable long-horizon stock research-to-execution workflow for the prospective Upwork use case:
@@ -104,6 +126,11 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main 084624291ca3a0554bcd6a31e8541fc187490e6f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
 | OP-03 | Real IBKR Paper Read-Path Validation | operator/local | WAITING_EXTERNAL | no available real IBKR Paper account/session; Java/CPGW alone is insufficient; read-only harness remains ready |
 | VS-17 | Risk-Approved Intent → Execution Dry-Run/Audit Boundary | TradeOps/vs17-risk-approved-execution-dry-run | READY | non-mutating: existing risk-approved signal → production client-order identity → auditable dry-run envelope; no persistence, OrderManager, SignalExecutionService or exchange call |
+| ARCH-01 | DocFlow Application Boundary → HTTP Host | TBD | PLANNED | next after VS-17; reusable application path exposed through HTTP without TradeOps dependency |
+| ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TBD | PLANNED | reuse existing application services; no broker mutation endpoint |
+| ARCH-03 | TradeOps → DocFlow HTTP Adapter | TBD | PLANNED | TradeOps-owned port implemented over versioned DocFlow HTTP contract |
+| ARCH-04 | TradeOps → DocFlow In-Process Adapter | TBD | PLANNED | same TradeOps-owned port implemented directly against DocFlow.Application |
+| ARCH-05 | HTTP ↔ Monolith Topology Equivalence Harness | TBD | PLANNED | prove semantically equivalent results for same input across both deployment topologies |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -291,6 +318,7 @@ DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existin
 NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
 WAIT OP-03 — real IBKR Paper account/session unavailable; no need to install Java/CPGW until this external dependency exists
 P0 READY VS-17 — risk-approved intent → deterministic execution dry-run/audit envelope; no broker call, persistence or order mutation
+NEXT ARCHITECTURE PHASE — after VS-17 execute ARCH-01 → ARCH-05 from DUAL_TOPOLOGY_ARCHITECTURE_PLAN.md
 WAIT MUTATION SLICE — only after OP-03 PASS
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
