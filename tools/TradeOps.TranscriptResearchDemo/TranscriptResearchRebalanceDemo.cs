@@ -366,6 +366,10 @@ public static class TranscriptResearchRebalanceInputLoader
     }
 }
 
+public sealed record TranscriptResearchRebalanceDemoExecution(
+    TranscriptResearchRebalanceInput Input,
+    TranscriptResearchRebalanceDemoOutput Artifact);
+
 public static class TranscriptResearchRebalanceDemoRunner
 {
     private static readonly JsonSerializerOptions JsonOptions =
@@ -380,7 +384,7 @@ public static class TranscriptResearchRebalanceDemoRunner
             }
         };
 
-    public static int Run(
+    public static TranscriptResearchRebalanceDemoExecution Create(
         TranscriptResearchDemoResolvedManifest manifest,
         EarningsResearchPolicyDefinition policy,
         string policyFingerprint,
@@ -388,9 +392,7 @@ public static class TranscriptResearchRebalanceDemoRunner
         string priorStructured,
         string currentNormalized,
         string currentStructured,
-        string rebalanceInputPath,
-        string? jsonPath,
-        TextWriter output)
+        string rebalanceInputPath)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(policy);
@@ -456,6 +458,38 @@ public static class TranscriptResearchRebalanceDemoRunner
                 downstream.Backtest.Metrics,
                 downstream.Backtest.FinalPortfolio,
                 downstream.CurrentRebalancePlan);
+        return new TranscriptResearchRebalanceDemoExecution(
+            input,
+            artifact);
+    }
+
+    public static int Run(
+        TranscriptResearchDemoResolvedManifest manifest,
+        EarningsResearchPolicyDefinition policy,
+        string policyFingerprint,
+        string priorNormalized,
+        string priorStructured,
+        string currentNormalized,
+        string currentStructured,
+        string rebalanceInputPath,
+        string? jsonPath,
+        TextWriter output)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(policy);
+
+        var execution =
+            Create(
+                manifest,
+                policy,
+                policyFingerprint,
+                priorNormalized,
+                priorStructured,
+                currentNormalized,
+                currentStructured,
+                rebalanceInputPath);
+        var artifact =
+            execution.Artifact;
         var outputPath =
             ResolveJsonOutputPath(
                 jsonPath,
