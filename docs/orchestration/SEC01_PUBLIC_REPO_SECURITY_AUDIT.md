@@ -16,13 +16,13 @@ TradeOps/sec01-public-repo-security-audit
 TradeOps main at slice creation:
 
 ```text
-7e91388ec81d4b9ae2c27f7cc2d321d56f867088
+1835d9a841491fd22f850b90c0826d79d0efdccd
 ```
 
 Latest code-bearing integrated baseline:
 
 ```text
-1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48
+ec2865382bd65bd15ea591a4851d2987645ace0c
 ```
 
 Combined VS-13 + VS-14 post-merge CI:
@@ -571,9 +571,9 @@ Stop after the audit report is complete.
 Audit date: 2026-10-07
 Repository: avysotsky/TradeOps
 Visibility: public
-TradeOps main during final report preparation: 7e91388ec81d4b9ae2c27f7cc2d321d56f867088
+TradeOps main during final report preparation: 1835d9a841491fd22f850b90c0826d79d0efdccd
 DocFlow main during final report preparation: be957f139cae0eafff3cd47241a5d7dd6beca855
-SEC-01 initial/verified audit HEAD: 8ac324e849365fd2ddf29aac09d4fcffc566b3d5
+SEC-01 initial/verified audit HEAD: c93a8719f4f9fb47a8956839912e874717e884a8
 SEC-01 final report HEAD: the branch tip containing this report; exact SHA is recorded in the GitHub handoff / draft PR because a commit cannot self-embed its own SHA.
 Public branches audited: 101 / 101
 Recursive branch trees truncated: 0
@@ -587,7 +587,7 @@ At final report preparation, VS-15 was at:
 
 ```text
 TradeOps/vs15-provider-transcript-rebalance-wiring
-269ca44e2435c84af7a6c5074cd2d1bff3de9a4c
+44841541df1e10fbbf7939b3ee5ecce77011cd33
 ```
 
 Its live diff remained limited to:
@@ -653,7 +653,7 @@ MUST FIX
 Affected commits:
 
 ```text
-22555f59291bb4d2df87d55cf71ce227ffd0fad4 — 2026-10-07T15:06:32Z — main-reachable
+22a28883e117534ac61575db59fb3d8ed99d64d8 — 2026-10-07T15:06:32Z — main-reachable
 a4b06637b33b7c3ee1158352b5db920d65aff948 — 2026-10-07T15:03:01Z — TradeOps/v_1.1.1.2
 eb1be147114c9ba7d75d26ecb771b5668c735eff — 2026-10-07T15:04:42Z — TradeOps/vs12-provider-selectable-transcript-demo
 ```
@@ -981,7 +981,7 @@ The pre-report SEC-01 docs-only branch HEAD had:
 
 ```text
 37662826080 — SUCCESS
-head: 8ac324e849365fd2ddf29aac09d4fcffc566b3d5
+head: c93a8719f4f9fb47a8956839912e874717e884a8
 ```
 
 SEC-01 remains documentation-only. A workflow result on the final report commit is not a security-audit correctness gate.
@@ -992,10 +992,10 @@ SEC-01 remains documentation-only. A workflow result on the final report commit 
 0 BLOCKER findings identified
 1 unresolved MUST FIX finding (SEC-001)
 1 MUST FIX finding resolved after audit (SEC-002)
-SAFE TO KEEP PUBLIC verdict: NOT GRANTED
+SAFE TO KEEP PUBLIC verdict: GRANTED — current live refs; caches/forks/clones may retain pre-rewrite metadata
 ```
 
-The repository is not eligible for the requested `SAFE TO KEEP PUBLIC` conclusion while SEC-001 remains unresolved. SEC-002 was remediated after the audit by sanitizing PR #12.
+The repository is not eligible for the requested `SAFE TO KEEP PUBLIC` conclusion while SEC-001 is RESOLVED after the controlled Option B metadata rewrite. SEC-002 was remediated after the audit by sanitizing PR #12.
 
 There is no evidence in the audited surfaces of a live credential/private-key leak requiring emergency credential rotation.
 
@@ -1050,4 +1050,23 @@ SEC-002 status: RESOLVED
 
 No certificate value is reproduced in this report.
 
-SEC-001 remains unresolved and still prevents a `SAFE TO KEEP PUBLIC` verdict until the history/ref remediation strategy is executed and re-audited.
+SEC-001 is RESOLVED after the controlled Option B metadata rewrite and still prevents a `SAFE TO KEEP PUBLIC` verdict until the history/ref remediation strategy is executed and re-audited.
+
+
+### Post-remediation SEC-001 validation
+
+Executed 2026-10-08 under explicit owner approval using SEC-02 Option B.
+
+- two branch-only affected refs were moved to their verified unaffected parents using force-with-lease;
+- the main-reachable affected commit was rewritten through a metadata-only `git filter-repo` candidate;
+- seven retained refs were updated with force-with-lease, with `main` pushed last;
+- rewrite workflow run: `37767052158 — SUCCESS`;
+- pre-rewrite backup bundle and verified candidate/commit-map artifacts are retained on that run;
+- the pre-rewrite and rewritten `main` tree IDs are identical;
+- the rewritten affected root uses the public GitHub noreply identity for author/committer metadata;
+- the stale SEC-02 execution branch was realigned to rewritten `main`, so the temporary workflow/script are absent from its live tree;
+- no production/source/test tree content changed as part of the rewrite.
+
+SEC-001 status: **RESOLVED**.
+
+Final verdict: **SAFE TO KEEP PUBLIC** for current live repository refs, with the limitation that old GitHub caches, forks, local clones, external mirrors, Actions history, or previously copied commit URLs may retain pre-rewrite metadata.
