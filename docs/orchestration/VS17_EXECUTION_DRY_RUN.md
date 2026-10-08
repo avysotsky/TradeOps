@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 
@@ -383,3 +383,133 @@ Before handoff:
 Do not merge independently.
 
 Stop after the bounded dry-run/audit slice.
+
+
+## Completion status — 2026-10-08
+
+Implementation HEAD before this status-only update:
+
+```text
+5d9269d9a2afe77f98b137cbf4938c86da59562d
+```
+
+Synchronization commit:
+
+```text
+0b68893ee325698435a11431ac61749e11318ad5
+```
+
+The synchronization commit preserves the original VS-17 spec commit and merges current TradeOps `main` `68e56c2183288b5c23a3d72603fc1ccd84ad32ed`.
+
+Completed:
+
+- added additive `--execution-dry-run`;
+- `--execution-dry-run` requires `--risk-preview-input`, while the existing risk-preview prerequisite on `--rebalance-input` remains unchanged;
+- reused the existing VS-16 risk-preview composition and the existing production `RiskEngine.CheckAsync(...)`; no second risk decision is calculated;
+- preserved the deterministic VS-16 `TradingSignal` identity;
+- reused production `ClientOrderIdGenerator` for allowed dry-runs;
+- emits `Prepared` only when risk is allowed;
+- emits `BlockedByRisk` with no client-order identity when risk is rejected;
+- copies symbol, side, quantity, reference price and estimated notional from the existing `RebalanceOrderIntent`;
+- preserves `OrderType.Market` semantics without constructing an `Order`;
+- writes a separate `transcript-research-execution-dry-run-result.json` artifact;
+- provider/DocFlow stages remain unchanged; the provider harness only forwards the additive flag to the existing TradeOps consumer.
+
+Public/shared contracts changed:
+
+```text
+NO
+```
+
+Application/Domain production files changed:
+
+```text
+NO
+```
+
+Broker/account dependency added:
+
+```text
+NO
+```
+
+Execution/persistence boundary:
+
+```text
+OrderManager: NOT USED
+SignalExecutionService: NOT USED
+IOrderRepository: NOT USED
+ITradingSignalRepository: NOT USED
+OrderStateMachine: NOT USED
+IAlertService: NOT USED
+IExchangeClient in VS-17 dry-run service: NOT USED
+PlaceOrderAsync: NOT USED
+CancelOrderAsync: NOT USED
+Order entity creation: NONE
+database writes: NONE
+broker requests: NONE
+```
+
+Implementation-head validation:
+
+```text
+GitHub Actions build: 37771043950 — SUCCESS
+full suite: 543 / 543 tests passed
+build warnings: 0
+API + PostgreSQL smoke: SUCCESS
+signed webhook demo: SUCCESS
+customer TradingView demo: SUCCESS
+client pilot starter kit validation: SUCCESS
+Docker Compose validation: SUCCESS
+TradingView gateway deployment validation: SUCCESS
+Docker image build: SUCCESS
+```
+
+Changed-file ownership:
+
+```text
+PASS
+```
+
+Only the VS-17 allowlist is changed relative to current main:
+- this status/spec file;
+- `tools/TradeOps.TranscriptResearchDemo/**`;
+- `tools/TradeOps.ProviderTranscriptResearchDemo/ProviderTranscriptResearchDemo.cs`;
+- `tests/TradeOps.UnitTests/TranscriptResearchRiskPreviewTests.cs`;
+- one focused new VS-17 test file.
+
+Privacy / secret boundary:
+
+```text
+PASS
+```
+
+Exact-format scan of the owned VS-17 files found no committed OpenAI project key, Groq key, GitHub token or private-key material. Runtime provider credentials remain environment-only.
+
+Real Groq execution-dry-run smoke:
+
+```text
+NOT RUN in this worker environment
+```
+
+Reason: this worker runtime has neither `GROQ_API_KEY` nor a local `dotnet` host. The requested real-provider smoke is explicitly conditional on an already-available local credential/runtime. This does not introduce an IBKR dependency and is not a VS-17 code blocker.
+
+OP-03 remains:
+
+```text
+WAITING_EXTERNAL
+```
+
+Reason: a real IBKR Paper account/session is unavailable. Java / Client Portal Gateway alone does not satisfy that external gate.
+
+Blockers:
+
+```text
+NONE for orchestrator review
+```
+
+Next integration action:
+
+- verify the final status-only branch HEAD CI;
+- review the draft VS-17 PR;
+- do not merge from the worker chat.
