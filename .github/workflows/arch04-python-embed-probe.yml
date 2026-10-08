@@ -1,0 +1,38 @@
+name: ARCH04 Python Embed Probe
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tools/TradeOps.DocFlowInProcessProbe/**'
+      - '.github/workflows/arch04-python-embed-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Identify native CPython library
+        shell: bash
+        run: |
+          python - <<'PY'
+          import ctypes.util, os, sys, sysconfig
+          libdir = sysconfig.get_config_var("LIBDIR")
+          libname = sysconfig.get_config_var("LDLIBRARY")
+          path = os.path.join(libdir, libname)
+          assert os.path.isfile(path), path
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+              f.write(f"PYTHONNET_PYDLL={path}\n")
+          print("CPython:", sys.version.split()[0])
+          PY
+      - name: Compile probe
+        run: dotnet build tools/TradeOps.DocFlowInProcessProbe/TradeOps.DocFlowInProcessProbe.csproj -c Release -warnaserror
+      - name: Same-process proof
+        run: dotnet run --project tools/TradeOps.DocFlowInProcessProbe/TradeOps.DocFlowInProcessProbe.csproj -c Release --no-build
