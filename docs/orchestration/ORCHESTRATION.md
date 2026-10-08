@@ -12,15 +12,15 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: 3e70999cb281eb682426bce20b3ac9880b23a0ab
+main: dbffd94bd3759b0007cea7b7e284ac750c4e7a3c
 latest production merge: VS-15 — Provider Transcript → Research → Backtest/Rebalance Wiring (PR #67)
-VS-15 merge commit: 54e981d51bc7de5746371106509cc92030767916
+VS-15 merge commit: a62e603ec7d590f0f692db6f1f437f454584d0e9
 VS-15 post-merge CI: 37669861416 — SUCCESS
 full suite: 519 / 519 tests passed
 CodeQL default setup on current main: 37670319399 — SUCCESS
 current-main build: 37670318847 — SUCCESS
 SEC-01 integrated via PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX
-prior real Groq research-only validation record: b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 — SUCCESS
+prior real Groq research-only validation record: bfef73cd98e7db72eb6b13dcdab3bdccd679ab1f; CI 37651614554 — SUCCESS
 ```
 
 DocFlow repository:
@@ -94,14 +94,14 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-10 | Provider-Backed Two-Repository Transcript Research Demo | TradeOps/vs10-provider-backed-transcript-demo | INTEGRATED | PR #63; synchronized-head CI 37629377614 SUCCESS; PR-head CI 37629904230 SUCCESS; post-merge CI 37630315790 SUCCESS; real-provider smoke externally gated |
 | VS-11 | Transcript Research-to-Backtest/Rebalance Composition | TradeOps/vs11-transcript-research-rebalance-demo | INTEGRATED | PR #62; exact-head CI 37627834233 SUCCESS; post-merge CI 37628959669 SUCCESS; 463/463 tests; fail-closed research equivalence gate |
 | VS-12 | Provider-Selectable Two-Repository Demo Harness | TradeOps/vs12-provider-selectable-transcript-demo | INTEGRATED | PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS; local real Groq run is next |
-| VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | INTEGRATED | PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca; combined post-merge CI 37660656844 SUCCESS |
-| VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS |
-| VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | INTEGRATED | PR #67; exact-head CI 37663139885 SUCCESS; merge 54e981d51bc7de5746371106509cc92030767916; post-merge CI 37669861416 SUCCESS; 519/519 tests |
-| SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | INTEGRATED | PR #68; 101/101 public branch tips audited; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX |
-| OP-01 | Real Groq Provider → Research → Backtest/Rebalance Validation | operator/local | DONE | PASS on TradeOps main 8afc2528eb672a424bbee3635afff2484a7a8fc4; Groq/DocFlow prior+current/TradeOps VS-13 all exit 0; SAMP targetWeight 0.40; rebalance Ready; runtime JSON 7838 bytes |
-| SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | INTEGRATED | PR #69; exact-head CI 37759473126 SUCCESS; Option B recommended; no history rewrite executed; execution deferred until active work is finished and refs are frozen |
-| VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge 6b4baf35e11988143d94580449bc7d8a85c3183a; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
-| OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main bd9d128a5b97b6c59efeb7cd5b455120fa7bdd3f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
+| VS-13 | Provider Transcript → Backtest/Rebalance End-to-End Consumer | TradeOps/vs13-provider-transcript-rebalance-e2e | INTEGRATED | PR #66; exact-head CI 37658577157 SUCCESS; merge f8c56d22c40e800421e3402d1a061257c0ee3171; combined post-merge CI 37660656844 SUCCESS |
+| VS-14 | .NET Child Host & Process Diagnostics Hardening | TradeOps/vs14-dotnet-child-process-hardening | INTEGRATED | PR #65; exact-head CI 37659413168 SUCCESS; merge ec2865382bd65bd15ea591a4851d2987645ace0c; combined post-merge CI 37660656844 SUCCESS |
+| VS-15 | Provider Transcript → Research → Backtest/Rebalance Wiring | TradeOps/vs15-provider-transcript-rebalance-wiring | INTEGRATED | PR #67; exact-head CI 37663139885 SUCCESS; merge a62e603ec7d590f0f692db6f1f437f454584d0e9; post-merge CI 37669861416 SUCCESS; 519/519 tests |
+| SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | INTEGRATED | 0 BLOCKER; SEC-002 RESOLVED; SEC-001 RESOLVED by controlled metadata rewrite; live refs revalidated; public-safe verdict restored with cache/fork limitations |
+| OP-01 | Real Groq Provider → Research → Backtest/Rebalance Validation | operator/local | DONE | PASS on TradeOps main eaa2420c68f4dc554838c6803e3d034f99c2d793; Groq/DocFlow prior+current/TradeOps VS-13 all exit 0; SAMP targetWeight 0.40; rebalance Ready; runtime JSON 7838 bytes |
+| SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | EXECUTED | Option B executed 2026-10-08; two branch-only refs cleaned; 7 retained refs rewritten with force-with-lease; backup + commit-map retained in Actions run 37767052158 |
+| VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge c86ed98032c551d59fcc807cacc220539c6446bc; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
+| OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main 084624291ca3a0554bcd6a31e8541fc187490e6f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -170,10 +170,10 @@ WS-04 bounded v1 is integrated by PR #52 and reuses the integrated WS-02 event-t
 26. WAITING_EXTERNAL — OpenAI real-provider smoke remains optional and blocked by separate OpenAI API billing; do not require it for progress.
 27. DONE — DF-07 Groq Schema-Driven Text Extraction Backend integrated via PR #7; exact-head CI 37639935357 SUCCESS; 116/116 tests; post-merge CI 37640516860 SUCCESS.
 28. DONE — VS-12 Provider-Selectable Two-Repository Demo Harness integrated via PR #64; exact-head CI 37640551725 SUCCESS; 490/490 tests; post-merge CI 37640969754 SUCCESS.
-29. DONE — local real Groq smoke completed on integrated mains with environment-only GROQ_API_KEY and model openai/gpt-oss-20b; DocFlow prior/current and TradeOps VS-08 all exited 0; provider transcript research demo passed; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS.
-30. DONE — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer integrated via PR #66; exact-head CI 37658577157 SUCCESS; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca.
-31. DONE — VS-14 .NET Child Host & Process Diagnostics Hardening integrated via PR #65; exact-head CI 37659413168 SUCCESS; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS.
-32. DONE — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring integrated via PR #67; exact-head CI 37663139885 SUCCESS; merge 54e981d51bc7de5746371106509cc92030767916; post-merge CI 37669861416 SUCCESS; 519/519 tests. Real Groq rebalance smoke remains an explicit local/operator validation.
+29. DONE — local real Groq smoke completed on integrated mains with environment-only GROQ_API_KEY and model openai/gpt-oss-20b; DocFlow prior/current and TradeOps VS-08 all exited 0; provider transcript research demo passed; record commit bfef73cd98e7db72eb6b13dcdab3bdccd679ab1f; CI 37651614554 SUCCESS.
+30. DONE — VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer integrated via PR #66; exact-head CI 37658577157 SUCCESS; merge f8c56d22c40e800421e3402d1a061257c0ee3171.
+31. DONE — VS-14 .NET Child Host & Process Diagnostics Hardening integrated via PR #65; exact-head CI 37659413168 SUCCESS; merge ec2865382bd65bd15ea591a4851d2987645ace0c; combined post-merge CI 37660656844 SUCCESS.
+32. DONE — VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring integrated via PR #67; exact-head CI 37663139885 SUCCESS; merge a62e603ec7d590f0f692db6f1f437f454584d0e9; post-merge CI 37669861416 SUCCESS; 519/519 tests. Real Groq rebalance smoke remains an explicit local/operator validation.
 33. DONE — SEC-01 Public Repository Security & Privacy Audit integrated via PR #68. Audit covered 101/101 public branch tips; 0 BLOCKER findings. SEC-002 public PR-body certificate identity was sanitized and verified. SEC-001 personal/custom email metadata remains the sole unresolved MUST FIX finding and requires coordinated history/ref remediation.
 34. After Paper validation, consider RebalanceOrderIntent -> existing risk/order lifecycle -> IBKR Paper mutation bridge.
 
@@ -278,9 +278,9 @@ DONE VS-11 Transcript Research-to-Backtest/Rebalance Composition — PR #62; pos
 WAIT OpenAI real-provider smoke — separate API billing unavailable; not a blocker
 DONE DF-07 Groq Schema-Driven Text Extraction Backend — PR #7; post-merge CI 37640516860 SUCCESS; 116/116 tests
 DONE VS-12 Provider-Selectable Two-Repository Demo Harness — PR #64; post-merge CI 37640969754 SUCCESS; 490/490 tests
-DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow prior/current + TradeOps VS-08 exit 0; record commit b27ebdde88c8671815f363500abaf01a4622daa1; CI 37651614554 SUCCESS
-DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR #66; merge 642b254c625c6e96c1c318f375ba58e91c32e8ca
-DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 1444a6ccb023d2545c0b1bf8ba6d52b71e6b6f48; combined post-merge CI 37660656844 SUCCESS
+DONE REAL GROQ VALIDATION — provider groq; model openai/gpt-oss-20b; DocFlow prior/current + TradeOps VS-08 exit 0; record commit bfef73cd98e7db72eb6b13dcdab3bdccd679ab1f; CI 37651614554 SUCCESS
+DONE VS-13 Provider Transcript -> Backtest/Rebalance End-to-End Consumer — PR #66; merge f8c56d22c40e800421e3402d1a061257c0ee3171
+DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge ec2865382bd65bd15ea591a4851d2987645ace0c; combined post-merge CI 37660656844 SUCCESS
 DONE VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — PR #67; post-merge CI 37669861416 SUCCESS; 519/519 tests
 DONE SEC-01 Public Repository Security & Privacy Audit — PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 remains MUST FIX
 DONE OP-01 — real Groq provider -> DocFlow -> research -> backtest/rebalance validated; SAMP targetWeight 0.40; rebalance Ready; runtime artifact remains local
@@ -289,7 +289,7 @@ DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existin
 NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
 WAIT WS-01 real IBKR Paper validation — broker mutation remains blocked
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
-WAIT SEC-001 EXECUTION — finish VS-16, freeze merges/refs, obtain explicit owner approval, then run the verified Option B rewrite procedure
+DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
 WAIT WS-01 real IBKR Paper validation — mutation remains blocked
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
@@ -300,3 +300,6 @@ DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
 DONE WS-01 IBKR Paper read boundary — PR #50
 HOLD DocFlow QBO sandbox work
 ```
+
+
+SEC-001 POST-REWRITE — Actions run 37767052158 SUCCESS; pre-rewrite main tree = rewritten main tree; sanitized root = 22a28883e117534ac61575db59fb3d8ed99d64d8; backup and verified candidate artifacts retained.
