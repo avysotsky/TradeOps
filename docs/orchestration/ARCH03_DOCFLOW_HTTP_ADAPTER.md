@@ -1,7 +1,7 @@
 # ARCH-03 — TradeOps-Owned DocFlow Port + HTTP Adapter
 
 ## Status
-READY — SPECIFICATION ONLY
+VALIDATION — implementation in draft PR #73; CI pending
 
 ## Baselines
 - Repository: avysotsky/TradeOps
@@ -48,3 +48,14 @@ Define a **TradeOps-owned** application port for document normalization + schema
 
 ## Hard safety rule
 ARCH-03 is a read-only document extraction dependency. Do not add order mutation, broker requests, or secret-bearing request fields. OP-03 remains WAITING_EXTERNAL.
+
+## Implementation checkpoint — 2026-10-08
+
+- TradeOps-owned `IDocFlowExtractionPort`, `DocFlowExtractionRequest` and `DocFlowExtractionResult` added in Application, carrying canonical raw/schema JSON and canonical normalized/structured JSON without TradeOps domain contamination.
+- Infrastructure HTTP adapter `DocFlowHttpExtractionAdapter` implemented for DocFlow `POST /api/v1/extractions` contract v1; errors sanitized; rejects invalid payload, unsupported provider/version/response structure; preserves complete nested JSON and audit identity; 1 MiB request / 2 MiB response limits; cancellation and timeout supported by `HttpClient`.
+- Typed DI registration explicit opt-in through `AddTradeOpsDocFlowHttp`, configuration `DocFlow:BaseAddress`, 30-second timeout and auto-redirect disabled.
+- Constructor blocks non-loopback plain HTTP, embedded URI credentials and unsupported URI schemes. No user-supplied URI in extraction request. **Production private network or independently authenticated TLS boundary still required; public unauthenticated DocFlow access is not approved.**
+- Offline fake-handler tests: success preserving canonical document/fingerprint/data, version/schema failures, invalid JSON, bounded response, sanitized provider errors, unsupported provider, canceled request, unsafe base URLs. No live network or credentials.
+- Draft PR: https://github.com/avysotsky/TradeOps/pull/73. No broker methods, trades, DB or live providers are touched.
+- CI: pending latest exact-head validation. Do not merge without full green checks.
+- This initial contract port does not introduce a new orchestration endpoint or erase existing CLI child-process regression path; integration at the research-composition layer belongs to the following bounded adapter use case.
