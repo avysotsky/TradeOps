@@ -20,7 +20,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
         ProviderTranscriptResearchProvider.OpenAi,
     string? DotNetExecutable = null,
     string? RebalanceInputPath = null,
-    string? RiskPreviewInputPath = null)
+    string? RiskPreviewInputPath = null,
+    bool ExecutionDryRun = false)
 {
     public const string DefaultPythonExecutable =
         "python";
@@ -45,6 +46,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             null;
         string? riskPreviewInputPath =
             null;
+        var executionDryRun =
+            false;
         var provider =
             ProviderTranscriptResearchProvider
                 .OpenAi;
@@ -120,9 +123,14 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                             "--risk-preview-input");
                     break;
 
+                case "--execution-dry-run":
+                    executionDryRun =
+                        true;
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>, --rebalance-input <path>, --risk-preview-input <path>.");
+                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>, --rebalance-input <path>, --risk-preview-input <path>, --execution-dry-run.");
             }
         }
 
@@ -138,6 +146,14 @@ public sealed record ProviderTranscriptResearchDemoOptions(
         {
             throw new ArgumentException(
                 "--model <explicit-model> is required; no default model is configured.");
+        }
+
+        if (executionDryRun
+            && string.IsNullOrWhiteSpace(
+                riskPreviewInputPath))
+        {
+            throw new ArgumentException(
+                "--execution-dry-run requires --risk-preview-input.");
         }
 
         if (!string.IsNullOrWhiteSpace(
@@ -157,7 +173,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             provider,
             dotNetExecutable,
             rebalanceInputPath,
-            riskPreviewInputPath);
+            riskPreviewInputPath,
+            executionDryRun);
     }
 
     private static ProviderTranscriptResearchProvider ParseProvider(
@@ -976,6 +993,13 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 options.RiskPreviewInputPath,
                 resolvedTradeOpsRoot);
 
+        if (options.ExecutionDryRun
+            && riskPreviewInput is null)
+        {
+            throw new InvalidOperationException(
+                "--execution-dry-run requires --risk-preview-input.");
+        }
+
         ValidateDocFlow(
             docFlowRoot,
             docFlowEntryPoint);
@@ -1060,11 +1084,13 @@ public sealed class ProviderTranscriptResearchDemoHarness
         var resultJson =
             Path.Combine(
                 workDirectory,
-                riskPreviewInput is not null
-                    ? "transcript-research-risk-preview-result.json"
-                    : rebalanceInput is null
-                        ? "transcript-research-result.json"
-                        : "transcript-research-rebalance-result.json");
+                options.ExecutionDryRun
+                    ? "transcript-research-execution-dry-run-result.json"
+                    : riskPreviewInput is not null
+                        ? "transcript-research-risk-preview-result.json"
+                        : rebalanceInput is null
+                            ? "transcript-research-result.json"
+                            : "transcript-research-rebalance-result.json");
 
         output.WriteLine(
             "Stage: initialize");
@@ -1185,17 +1211,25 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 riskPreviewInput);
         }
 
+        if (options.ExecutionDryRun)
+        {
+            consumerArguments.Add(
+                "--execution-dry-run");
+        }
+
         consumerArguments.Add(
             "--json");
         consumerArguments.Add(
             resultJson);
 
         var consumerStage =
-            riskPreviewInput is not null
-                ? "TradeOps VS-16"
-                : rebalanceInput is null
-                    ? "TradeOps VS-08"
-                    : "TradeOps VS-13";
+            options.ExecutionDryRun
+                ? "TradeOps VS-17"
+                : riskPreviewInput is not null
+                    ? "TradeOps VS-16"
+                    : rebalanceInput is null
+                        ? "TradeOps VS-08"
+                        : "TradeOps VS-13";
         var consumerResult =
             RunStage(
                 output,

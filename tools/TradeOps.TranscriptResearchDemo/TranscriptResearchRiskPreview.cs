@@ -634,6 +634,10 @@ public sealed record TranscriptResearchRiskPreviewDemoOutput(
     RebalancePlan CurrentRebalancePlan,
     TranscriptResearchRiskPreviewOutput RiskPreview);
 
+public sealed record TranscriptResearchRiskPreviewDemoExecution(
+    TranscriptResearchRiskPreviewDemoOutput Artifact,
+    TranscriptResearchRiskPreviewExecution RiskExecution);
+
 public static class TranscriptResearchRiskPreviewDemoRunner
 {
     private static readonly JsonSerializerOptions JsonOptions =
@@ -660,6 +664,80 @@ public static class TranscriptResearchRiskPreviewDemoRunner
         string riskPreviewInputPath,
         string? jsonPath,
         TextWriter output)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(policy);
+
+        var execution =
+            Create(
+                manifest,
+                policy,
+                policyFingerprint,
+                priorNormalized,
+                priorStructured,
+                currentNormalized,
+                currentStructured,
+                rebalanceInputPath,
+                riskPreviewInputPath);
+        var artifact =
+            execution.Artifact;
+        var outputPath =
+            ResolveJsonOutputPath(
+                jsonPath,
+                manifest,
+                riskPreviewInputPath);
+        var directory =
+            Path.GetDirectoryName(
+                outputPath);
+
+        if (!string.IsNullOrWhiteSpace(
+                directory))
+        {
+            Directory.CreateDirectory(
+                directory);
+        }
+
+        File.WriteAllText(
+            outputPath,
+            JsonSerializer.Serialize(
+                artifact,
+                JsonOptions));
+
+        output.WriteLine(
+            "TRANSCRIPT RESEARCH RISK PREVIEW DEMO: PASS");
+        output.WriteLine(
+            "Instrument: " +
+            artifact.Instrument.Symbol);
+        output.WriteLine(
+            "Rebalance status: " +
+            artifact.CurrentRebalancePlan.Status);
+        output.WriteLine(
+            "Risk allowed: " +
+            artifact.RiskPreview.Allowed);
+        output.WriteLine(
+            "Risk signal: " +
+            artifact.RiskPreview.SignalId);
+        output.WriteLine(
+            "Policy fingerprint: " +
+            artifact.Policy.Fingerprint);
+        output.WriteLine(
+            "JSON artifact: " +
+            outputPath);
+
+        return 0;
+    }
+
+
+    public static TranscriptResearchRiskPreviewDemoExecution Create(
+        TranscriptResearchDemoResolvedManifest manifest,
+        EarningsResearchPolicyDefinition policy,
+        string policyFingerprint,
+        string priorNormalized,
+        string priorStructured,
+        string currentNormalized,
+        string currentStructured,
+        string rebalanceInputPath,
+        string riskPreviewInputPath)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(policy);
@@ -705,50 +783,10 @@ public static class TranscriptResearchRiskPreviewDemoRunner
                 baseline.FinalBacktestPortfolio,
                 baseline.CurrentRebalancePlan,
                 risk.Output);
-        var outputPath =
-            ResolveJsonOutputPath(
-                jsonPath,
-                manifest,
-                riskPreviewInputPath);
-        var directory =
-            Path.GetDirectoryName(
-                outputPath);
 
-        if (!string.IsNullOrWhiteSpace(
-                directory))
-        {
-            Directory.CreateDirectory(
-                directory);
-        }
-
-        File.WriteAllText(
-            outputPath,
-            JsonSerializer.Serialize(
-                artifact,
-                JsonOptions));
-
-        output.WriteLine(
-            "TRANSCRIPT RESEARCH RISK PREVIEW DEMO: PASS");
-        output.WriteLine(
-            "Instrument: " +
-            artifact.Instrument.Symbol);
-        output.WriteLine(
-            "Rebalance status: " +
-            artifact.CurrentRebalancePlan.Status);
-        output.WriteLine(
-            "Risk allowed: " +
-            artifact.RiskPreview.Allowed);
-        output.WriteLine(
-            "Risk signal: " +
-            artifact.RiskPreview.SignalId);
-        output.WriteLine(
-            "Policy fingerprint: " +
-            artifact.Policy.Fingerprint);
-        output.WriteLine(
-            "JSON artifact: " +
-            outputPath);
-
-        return 0;
+        return new TranscriptResearchRiskPreviewDemoExecution(
+            artifact,
+            risk);
     }
 
     private static string ResolveJsonOutputPath(

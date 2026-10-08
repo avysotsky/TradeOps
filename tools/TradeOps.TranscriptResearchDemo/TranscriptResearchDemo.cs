@@ -271,6 +271,23 @@ public static class TranscriptResearchDemoCli
                     manifest.Current.StructuredExtractionPath,
                     "Current structured extraction");
 
+            if (options.ExecutionDryRun)
+            {
+                return TranscriptResearchExecutionDryRunDemoRunner
+                    .Run(
+                        manifest,
+                        policyLoad.Definition,
+                        policyLoad.Fingerprint,
+                        priorNormalized,
+                        priorStructured,
+                        currentNormalized,
+                        currentStructured,
+                        options.RebalanceInputPath!,
+                        options.RiskPreviewInputPath!,
+                        options.JsonPath,
+                        output);
+            }
+
             if (!string.IsNullOrWhiteSpace(
                     options.RiskPreviewInputPath))
             {
@@ -403,6 +420,8 @@ public static class TranscriptResearchDemoCli
             null;
         string? riskPreviewInputPath =
             null;
+        var executionDryRun =
+            false;
 
         for (var index = 0;
              index < args.Length;
@@ -450,9 +469,14 @@ public static class TranscriptResearchDemoCli
                             "--risk-preview-input");
                     break;
 
+                case "--execution-dry-run":
+                    executionDryRun =
+                        true;
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>, --rebalance-input <path>, --risk-preview-input <path>.");
+                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>, --rebalance-input <path>, --risk-preview-input <path>, --execution-dry-run.");
             }
         }
 
@@ -470,6 +494,14 @@ public static class TranscriptResearchDemoCli
                 "--policy <path> is required.");
         }
 
+        if (executionDryRun
+            && string.IsNullOrWhiteSpace(
+                riskPreviewInputPath))
+        {
+            throw new ArgumentException(
+                "--execution-dry-run requires --risk-preview-input.");
+        }
+
         if (!string.IsNullOrWhiteSpace(
                 riskPreviewInputPath)
             && string.IsNullOrWhiteSpace(
@@ -484,7 +516,8 @@ public static class TranscriptResearchDemoCli
             policyPath,
             jsonPath,
             rebalanceInputPath,
-            riskPreviewInputPath);
+            riskPreviewInputPath,
+            executionDryRun);
     }
 
     private static string RequireValue(
@@ -567,5 +600,6 @@ public static class TranscriptResearchDemoCli
         string PolicyPath,
         string? JsonPath,
         string? RebalanceInputPath,
-        string? RiskPreviewInputPath);
+        string? RiskPreviewInputPath,
+        bool ExecutionDryRun);
 }
