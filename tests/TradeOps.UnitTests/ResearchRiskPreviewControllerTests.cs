@@ -12,7 +12,10 @@ public sealed class ResearchRiskPreviewControllerTests
 {
     private static ResearchRiskPreviewController Controller(bool enabled) =>
         new(new ConfigurationBuilder().AddInMemoryCollection(
-            new Dictionary<string, string?> { ["ResearchPreview:Enabled"] = enabled.ToString() }).Build());
+            new Dictionary<string, string?> {
+                ["ResearchPreview:Enabled"] = enabled.ToString(),
+                ["OperatorApiAuth:Enabled"] = "true"
+            }).Build());
 
     private static SnapshotRiskPreviewRequest Request(bool enabled) => new(
         Guid.Parse("22222222-2222-2222-2222-222222222222"),
