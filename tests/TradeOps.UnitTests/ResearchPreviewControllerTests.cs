@@ -95,7 +95,13 @@ public sealed class ResearchPreviewControllerTests
         var body = Assert.IsType<OkObjectResult>(response).Value;
         Assert.NotNull(body);
         var decision = (ResearchDecision)body.GetType().GetProperty("Decision")!.GetValue(body)!;
-        Assert.Equal(expected.Decision, decision);
+        Assert.Equal(expected.Decision.DecisionId, decision.DecisionId);
+        Assert.Equal(expected.Decision.Action, decision.Action);
+        Assert.Equal(expected.Decision.TargetWeight, decision.TargetWeight);
+        Assert.Equal(expected.Decision.GeneratedAt, decision.GeneratedAt);
+        Assert.Equal(expected.Decision.Instrument, decision.Instrument);
+        Assert.Equal(expected.Decision.Metadata?.OrderBy(x => x.Key),
+            decision.Metadata?.OrderBy(x => x.Key));
     }
 
     [Fact]
