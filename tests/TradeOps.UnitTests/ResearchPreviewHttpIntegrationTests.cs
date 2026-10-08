@@ -82,6 +82,21 @@ public sealed class ResearchPreviewHttpIntegrationTests
             };
             var controls = new RiskControlSnapshot(true, false, null, "USD",
                 0m, 0m, 0m, Array.Empty<UnconvertedFee>(), 0, portfolio.AsOf);
+            var riskPreview = await client.PostAsJsonAsync("/api/v1/risk/preview",
+                new
+                {
+                    signalId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    symbol = "SAMP", side = OrderSide.Buy, quantity = 30m,
+                    createdAt = portfolio.AsOf,
+                    settings = riskSettings, controls, positions = Array.Empty<object>()
+                });
+            Assert.Equal(HttpStatusCode.OK, riskPreview.StatusCode);
+            using (var riskJson = await System.Text.Json.JsonDocument.ParseAsync(
+                await riskPreview.Content.ReadAsStreamAsync()))
+            {
+                Assert.True(riskJson.RootElement.GetProperty("allowed").GetBoolean());
+            }
+
             var preview = await client.PostAsJsonAsync("/api/v1/execution/dry-run",
                 new { plan, settings = riskSettings, controls, positions = Array.Empty<object>() });
             Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
