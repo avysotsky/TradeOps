@@ -2,7 +2,7 @@
 
 ## State
 
-IN_PROGRESS — five query endpoints; hosted HTTP tests and exact-head CI pending
+INTEGRATED — PR #72 merged, exact-head build successful; post-merge CI not independently verified
 
 ## Repository
 
@@ -135,3 +135,16 @@ The existing `POST /api/v1/research/decisions` validates a supplied decision usi
 Added hosted ASP.NET HTTP integration coverage in `ResearchPreviewHttpIntegrationTests` using isolated PostgreSQL test database and real authentication filter for research-validation, rebalance and dry-run routes, including serializer and no-mutation flags. Existing seeded tests remain synthetic and offline. This test runs when the existing `TRADEOPS_TEST_POSTGRES_ADMIN` is set or GitHub Actions PostgreSQL service is present.
 
 Final implementation HEAD before this documentation update: `f8df0f9e678c0969de4964d273ebb55a9d276676`. Exact-head CI pending. Review must verify the HTTP integration test and final full suite before integration; no merge from this worker.
+
+## Orchestrator integration verdict — 2026-10-08
+
+- PR #72: https://github.com/avysotsky/TradeOps/pull/72 — merged (squash).
+- Final reviewed branch HEAD: `c1dd06bb4aa21912db126681a7d421d97a76daaf`.
+- Exact final-head PR CI: `37798316067` — SUCCESS (full build/unit tests, API/PostgreSQL smoke and deployment pipeline).
+- Other same-head runs: push build `37798306782` — SUCCESS; dynamic PR #72 check `37798308432` — SUCCESS.
+- Squash merge commit in TradeOps main: `c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d`.
+- Post-merge push CI has not yet been separately verified.
+- Root-cause/fix log: initial API controller attribute placement error CS0592 fixed; hosted JSON model binding of multi-constructor RiskControlSnapshot fixed with HTTP-only `ResearchRiskControlsRequest`; research parity test corrected to compare metadata structurally.
+- Final endpoints: research validation, deterministic research derivation, rebalance preview, risk preview, execution dry-run. All are additive, opt-in, protected by operator authentication and do not authorize live trades.
+- Existing VS-16 deterministic signal IDs shared with application projector; no new broker mutators, order persistence, risk rejection recording or DocFlow ingestion implementation.
+- ARCH-03 may proceed to the TradeOps-owned port and HTTP DocFlow adapter. Do not treat client-supplied preview snapshots as authoritative production risk approval.
