@@ -2,7 +2,7 @@
 
 ## State
 
-READY — SPECIFICATION ONLY
+IN_PROGRESS — API composition discovery; production endpoint implementation gated
 
 ## Repository
 
@@ -60,3 +60,26 @@ Exact request/response DTO shapes must be based on existing frozen application m
 ## Completion
 
 Update this document with exact HEAD, changed-file ownership, tests, exact CI, contracts, known gaps and next integration action. Create **draft PR only**, then stop for orchestrator review. Do not merge from worker chat.
+
+## Live discovery checkpoint — 2026-10-08
+
+TradeOps main observed: `d1f0ed6c2d42562e75c0653c390e1a34b0c5fcb6`.
+DocFlow main observed: `d6de1b5168c156b107cb3c3d71ef29983401ad40`.
+Initial ARCH-02 branch was ahead 1 / behind 1 because the orchestrator status commit advanced main after branch registration. No overlapping production files were changed.
+
+Confirmed code:
+- Existing `src/TradeOps.Api/Program.cs` registers the production `IRiskEngine` with database-backed `IRiskControlService`; the web host runs database migrations on startup.
+- `src/TradeOps.Application/Services/RiskEngine.cs` invokes `IRiskControlService.RecordRejectionAsync` when policy rejects a signal. Therefore **injecting the normal production risk engine in a preview endpoint is not read-only**.
+- VS-16 demo uses a non-mutating risk-control adapter and isolated position exchange-client adapter; its `RebalanceRiskPreviewSignalProjector` supplies stable `TradingSignal` identity.
+- VS-17 dry-run service in the transcript demo owns an additive execution envelope with production `ClientOrderIdGenerator`.
+- TradeOps.Api already exists; no new API project or duplicate host should be created.
+
+## Required correction before implementing risk HTTP
+
+Refactor/share the **pure** preview composition into the appropriate reusable application boundary, or isolate it behind a DI-registered query service with explicitly non-mutating `IRiskControlService` and read-only portfolio snapshot adapter. Do not route any HTTP preview through the standard DI-registered, database-backed `IRiskControlService` that records risk rejection. For the same reason, do not mutate operational run state, exchange state, orders, alerts, or persistence while previewing.
+
+All four endpoints must be driven by bounded request DTOs (not local filesystem paths). A proposed plan/risk/dry-run request may carry only validated snapshot data and stable IDs. A real-provider source acquisition or DocFlow transport is not part of ARCH-02.
+
+## Current status and gate
+
+No HTTP endpoint implementation has been committed in this discovery checkpoint. No tests or CI for ARCH-02 can yet be claimed. The next code slice must first provide safe reusable preview services and fixture tests demonstrating **zero calls** to rejection-recording, storage and broker mutation interfaces. Then thin HTTP routing and direct-vs-HTTP parity tests can be added. Do not mark ready for integration until all four contract surfaces are implemented and CI passes.
