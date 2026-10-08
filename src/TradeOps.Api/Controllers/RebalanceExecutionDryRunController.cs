@@ -31,7 +31,7 @@ public sealed class RebalanceExecutionDryRunController(IConfiguration configurat
         try
         {
             var result = await RebalanceExecutionDryRunPreview.RunAsync(
-                request.Plan, request.Settings, request.Controls, request.Positions,
+                request.Plan, request.Settings, request.Controls.ToSnapshot(), request.Positions,
                 cancellationToken);
             return Ok(result);
         }
@@ -51,5 +51,5 @@ public sealed class RebalanceExecutionDryRunController(IConfiguration configurat
 }
 
 public sealed record ExecutionDryRunHttpRequest(
-    RebalancePlan Plan, RiskSettings Settings, RiskControlSnapshot Controls,
+    RebalancePlan Plan, RiskSettings Settings, ResearchRiskControlsRequest Controls,
     IReadOnlyCollection<Position> Positions);
