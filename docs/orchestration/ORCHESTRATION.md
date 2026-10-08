@@ -12,14 +12,14 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: dbffd94bd3759b0007cea7b7e284ac750c4e7a3c
-latest production merge: VS-15 — Provider Transcript → Research → Backtest/Rebalance Wiring (PR #67)
-VS-15 merge commit: a62e603ec7d590f0f692db6f1f437f454584d0e9
-VS-15 post-merge CI: 37669861416 — SUCCESS
-full suite: 519 / 519 tests passed
-CodeQL default setup on current main: 37670319399 — SUCCESS
-current-main build: 37670318847 — SUCCESS
-SEC-01 integrated via PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX
+main: 9006e06bc7265c2e9048fcf9b32daa532498650d
+latest production merge: VS-16 — Rebalance Order Intent → Existing RiskEngine Preview (PR #70)
+VS-16 post-merge CI: 37760934674 — SUCCESS
+VS-16 CodeQL: 37760933995 — SUCCESS
+full suite: 537 / 537 tests passed
+post-SEC-001 build: 37767816902 — SUCCESS
+post-SEC-001 CodeQL: 37767816589 — SUCCESS
+SEC-01/SEC-02: SEC-001 + SEC-002 RESOLVED; current live refs SAFE TO KEEP PUBLIC with cache/fork limitations
 prior real Groq research-only validation record: bfef73cd98e7db72eb6b13dcdab3bdccd679ab1f; CI 37651614554 — SUCCESS
 ```
 
@@ -102,6 +102,7 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | EXECUTED | Option B executed 2026-10-08; two branch-only refs cleaned; 7 retained refs rewritten with force-with-lease; backup + commit-map retained in Actions run 37767052158 |
 | VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge c86ed98032c551d59fcc807cacc220539c6446bc; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
 | OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main 084624291ca3a0554bcd6a31e8541fc187490e6f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
+| OP-03 | Real IBKR Paper Read-Path Validation | operator/local | READY | real authenticated Client Portal Gateway Paper session required; read-only harness only; no broker mutation |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -287,13 +288,14 @@ DONE OP-01 — real Groq provider -> DocFlow -> research -> backtest/rebalance v
 DONE VS-16 — integrated via PR #70; exact-head CI 37760138944 SUCCESS; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings
 DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existing RiskEngine validated; SAMP Buy 30; allowed=true; no broker mutation
 NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
-WAIT WS-01 real IBKR Paper validation — broker mutation remains blocked
+P0 READY OP-03 — real authenticated IBKR Paper read-path validation via existing harness; no broker mutation
+WAIT MUTATION SLICE — only after OP-03 PASS
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
 WAIT WS-01 real IBKR Paper validation — mutation remains blocked
 HOLD VS-05 TradeOps prototype — preserve as reference; do not merge
 DONE VS-01 Research-to-Rebalance Client Demo — PR #54
-WAIT WS-01 real Paper validation — harness integrated via PR #53; external Paper account unavailable
+READY OP-03 real Paper validation — harness integrated via PR #53; requires local CPGW + manual Paper login
 DONE WS-04 Event-driven Backtester — PR #52
 DONE WS-02 Earnings Intelligence boundary — PR #51
 DONE WS-03 Portfolio Target & Rebalancing Engine — PR #49
