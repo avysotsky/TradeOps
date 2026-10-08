@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Npgsql;
@@ -66,7 +68,9 @@ public sealed class ResearchPreviewHttpIntegrationTests
             var rebalance = await client.PostAsJsonAsync("/api/v1/rebalance/preview",
                 new { decision, portfolio, referencePrice = 100m });
             Assert.Equal(HttpStatusCode.OK, rebalance.StatusCode);
-            var plan = await rebalance.Content.ReadFromJsonAsync<RebalancePlan>();
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            options.Converters.Add(new JsonStringEnumConverter());
+            var plan = await rebalance.Content.ReadFromJsonAsync<RebalancePlan>(options);
             Assert.NotNull(plan);
             Assert.Equal(RebalancePlanStatus.Ready, plan.Status);
 
@@ -82,7 +86,7 @@ public sealed class ResearchPreviewHttpIntegrationTests
                 new { plan, settings = riskSettings, controls, positions = Array.Empty<object>() });
             Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
             var dryRun = await preview.Content.ReadFromJsonAsync<
-                TradeOps.Application.Services.RebalanceExecutionDryRunResult>();
+                TradeOps.Application.Services.RebalanceExecutionDryRunResult>(options);
             Assert.NotNull(dryRun);
             Assert.Equal("Prepared", dryRun.State);
             Assert.False(dryRun.MutationPerformed);
