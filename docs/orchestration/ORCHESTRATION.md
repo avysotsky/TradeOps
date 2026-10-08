@@ -12,7 +12,7 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: f78aed7d641eccd0ab9d50edfdb8cd591a8333d0 (VS-17 PR #71 merged; post-merge CI unverified)
+main: c13e229835bd17e49430afe7d773c2e618e6e5d4 (VS-17 PR #71 integrated; orchestration updated)
 latest production merge: VS-16 — Rebalance Order Intent → Existing RiskEngine Preview (PR #70)
 VS-16 post-merge CI: 37760934674 — SUCCESS
 VS-16 CodeQL: 37760933995 — SUCCESS
@@ -27,7 +27,7 @@ DocFlow repository:
 
 ```text
 avysotsky/DocFlow
-main: be957f139cae0eafff3cd47241a5d7dd6beca855
+main: d6de1b5168c156b107cb3c3d71ef29983401ad40 (ARCH-01 PR #8 merged; push CI not independently verified)
 latest integrated slice: DF-07 — Groq Schema-Driven Text Extraction Backend (PR #7)
 DF-07 merge commit: 211f890625712a161eadad09e56962ad69a759f5
 post-merge CI: 37640516860 — SUCCESS
@@ -126,8 +126,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main 084624291ca3a0554bcd6a31e8541fc187490e6f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
 | OP-03 | Real IBKR Paper Read-Path Validation | operator/local | WAITING_EXTERNAL | no available real IBKR Paper account/session; Java/CPGW alone is insufficient; read-only harness remains ready |
 | VS-17 | Risk-Approved Intent → Execution Dry-Run/Audit Boundary | TradeOps/vs17-risk-approved-execution-dry-run | INTEGRATED (post-merge CI unverified) | PR #71 merged as f78aed7d641eccd0ab9d50edfdb8cd591a8333d0; exact-head build 37772150069 SUCCESS; worker reports 543/543 tests and 0 warnings; no broker mutation or persistence |
-| ARCH-01 | DocFlow Application Boundary → HTTP Host | DocFlow/arch01-application-http-host | READY | worker specification docs/ARCH01_APPLICATION_HTTP_HOST.md on DocFlow branch c2d4b67dec33c7e781efec55e46f4b60c8fcaa80; implementation not started; reusable generic application flow + HTTP host |
-| ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TBD | PLANNED | reuse existing application services; no broker mutation endpoint |
+| ARCH-01 | DocFlow Application Boundary → HTTP Host | DocFlow/arch01-application-http-host | INTEGRATED (post-merge CI unverified) | PR #8 merged d6de1b5168c156b107cb3c3d71ef29983401ad40; exact-head Python Worker CI 37786661428 SUCCESS; in-memory extraction + HTTP host parity |
+| ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TradeOps/arch02-research-risk-http-host | READY | specification commit 0caf62322c0a7c83ac94750fdc15a90f444c16a6; implement additive thin HTTP routes reusing existing services, no broker mutation |
 | ARCH-03 | TradeOps → DocFlow HTTP Adapter | TBD | PLANNED | TradeOps-owned port implemented over versioned DocFlow HTTP contract |
 | ARCH-04 | TradeOps → DocFlow In-Process Adapter | TBD | PLANNED | same TradeOps-owned port implemented directly against DocFlow.Application |
 | ARCH-05 | HTTP ↔ Monolith Topology Equivalence Harness | TBD | PLANNED | prove semantically equivalent results for same input across both deployment topologies |
@@ -318,7 +318,8 @@ DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existin
 NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
 WAIT OP-03 — real IBKR Paper account/session unavailable; no need to install Java/CPGW until this external dependency exists
 DONE MERGE VS-17 — PR #71 merged as f78aed7d641eccd0ab9d50edfdb8cd591a8333d0; post-merge CI not yet verifiable through available workflow lookup; no broker call, persistence or order mutation
-READY ARCH-01 — DocFlow/arch01-application-http-host, spec commit c2d4b67dec33c7e781efec55e46f4b60c8fcaa80; then ARCH-02 → ARCH-05 from DUAL_TOPOLOGY_ARCHITECTURE_PLAN.md
+DONE MERGE ARCH-01 — DocFlow PR #8 merged d6de1b5168c156b107cb3c3d71ef29983401ad40; exact-head CI 37786661428 SUCCESS; post-merge push CI unverified
+READY ARCH-02 — TradeOps/arch02-research-risk-http-host, spec commit 0caf62322c0a7c83ac94750fdc15a90f444c16a6; then ARCH-03 → ARCH-05
 WAIT MUTATION SLICE — only after OP-03 PASS
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
@@ -341,3 +342,9 @@ SEC-001 POST-REWRITE — Actions run 37767052158 SUCCESS; pre-rewrite main tree 
 VS-17 PR #71 merged to TradeOps main as `f78aed7d641eccd0ab9d50edfdb8cd591a8333d0` after successful final PR-head build `37772150069`. Worker reported 543/543 tests, 0 warnings and successful CodeQL. Post-merge push-triggered CI for this SHA has **not** been independently verified; the available commit workflow lookup only surfaces PR-triggered runs. Do not report post-merge CI success without exact run evidence.
 
 ARCH-01 branch `DocFlow/arch01-application-http-host` started from DocFlow main `be957f139cae0eafff3cd47241a5d7dd6beca855`, with worker assignment/spec commit `c2d4b67dec33c7e781efec55e46f4b60c8fcaa80` at `docs/ARCH01_APPLICATION_HTTP_HOST.md`. This is a specification-only branch at initiation. HTTP host implementation has not begun. ARCH-02 remains on hold until ARCH-01 establishes a reusable application boundary. OP-03 remains WAITING_EXTERNAL; broker mutation remains gated.
+
+## ARCH-01 integration / ARCH-02 initiation — 2026-10-08
+
+DocFlow ARCH-01 merged through PR #8 as `d6de1b5168c156b107cb3c3d71ef29983401ad40` after exact-HEAD Python Worker CI run `37786661428` SUCCESS (install, compile, pytest). No post-merge push workflow was surfaced by the available connector; do not claim such a result without evidence. ARCH-01 implements an in-memory generic extraction entrypoint and thin versioned FastAPI HTTP host while retaining CLI and existing providers. TradeOps contracts are unchanged.
+
+ARCH-02 worker branch `TradeOps/arch02-research-risk-http-host` was created from main `c13e229835bd17e49430afe7d773c2e618e6e5d4` and registered via specification commit `0caf62322c0a7c83ac94750fdc15a90f444c16a6` at `docs/orchestration/ARCH02_TRADEOPS_HTTP_HOST.md`. No ARCH-02 production files have been changed. ARCH-03 remains downstream of ARCH-02 integration. OP-03 remains WAITING_EXTERNAL and broker mutation blocked.
