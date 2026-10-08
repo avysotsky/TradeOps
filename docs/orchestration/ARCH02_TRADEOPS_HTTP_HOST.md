@@ -83,3 +83,18 @@ All four endpoints must be driven by bounded request DTOs (not local filesystem 
 ## Current status and gate
 
 No HTTP endpoint implementation has been committed in this discovery checkpoint. No tests or CI for ARCH-02 can yet be claimed. The next code slice must first provide safe reusable preview services and fixture tests demonstrating **zero calls** to rejection-recording, storage and broker mutation interfaces. Then thin HTTP routing and direct-vs-HTTP parity tests can be added. Do not mark ready for integration until all four contract surfaces are implemented and CI passes.
+
+## Risk-preview HTTP slice — 2026-10-08
+
+Production application + unit-test slice at `6f26abfe94b50aa5c7b36d3e2ff52f0aac28e3db` passed build CI `37794873196` SUCCESS.
+
+The following incremental HTTP slice is committed:
+- `src/TradeOps.Api/Controllers/ResearchRiskPreviewController.cs`
+- `tests/TradeOps.UnitTests/ResearchRiskPreviewControllerTests.cs`
+- HTTP endpoint: `POST /api/v1/risk/preview`; requires existing `[OperatorApiKey]` and `ResearchPreview:Enabled=true` (disabled by default).
+- The controller constructs only a transient signal, executes `NonMutatingRiskPreview.CheckAsync` with provided snapshots, and returns risk decision.
+- No database-backed IRiskControlService is injected into this endpoint and no broker invocation or order persistence occurs.
+- Validated test cases: disabled endpoint, allowed risk, rejected risk, invalid quantity. Tests are committed but their exact-head CI remains PENDING.
+- **Security review required before enabling endpoint**: confirm operator authentication is enabled in deployed settings (existing operator auth may itself be optional), and trust/authenticate submitted risk snapshots. An attacker-supplied snapshot must not be mistaken for authoritative live risk approval.
+- HTTP risk response is informational only; it **must never authorize production order execution**.
+- Other ARCH-02 routes (research/rebalance/dry-run) are not yet implemented. No integration or merge before all gates.
