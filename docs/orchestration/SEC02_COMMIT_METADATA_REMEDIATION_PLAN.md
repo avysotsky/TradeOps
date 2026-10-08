@@ -2,19 +2,19 @@
 
 ## State
 
-READY_FOR_ORCHESTRATOR_REVIEW
+EXECUTED
 
 Planning date: 2026-10-08
 
-NO HISTORY REWRITE EXECUTED
+HISTORY REWRITE EXECUTED UNDER EXPLICIT OWNER APPROVAL
 
 ## Repository / worker branch
 
     repository: avysotsky/TradeOps
     branch: TradeOps/sec02-commit-metadata-remediation-plan
-    initial branch HEAD: 7403983f2d03d06645a4507ef08c7d74a1771a25
-    baseline: 8afc2528eb672a424bbee3635afff2484a7a8fc4
-    latest code-bearing integrated baseline: 54e981d51bc7de5746371106509cc92030767916
+    initial branch HEAD: a30566620eaa921c1e16ed945d7f9fe639392075
+    baseline: eaa2420c68f4dc554838c6803e3d034f99c2d793
+    latest code-bearing integrated baseline: a62e603ec7d590f0f692db6f1f437f454584d0e9
     VS-15 post-merge CI: 37669861416 — SUCCESS
     full suite: 519 / 519 tests passed
 
@@ -24,10 +24,10 @@ SEC-02 is planning-only. This document prepares remediation commands and sequenc
 
 Observed immediately before drafting this plan:
 
-    TradeOps main: e2a23f455a2ab02d1e14e9520596665edf8ba856
+    TradeOps main: 98e45f9b88e5cf300bc5f3253a97138600874323
     DocFlow main: be957f139cae0eafff3cd47241a5d7dd6beca855
-    SEC-02 branch HEAD: 7403983f2d03d06645a4507ef08c7d74a1771a25
-    SEC-02 vs main: diverged; ahead 1; behind 3; merge base 8afc2528eb672a424bbee3635afff2484a7a8fc4
+    SEC-02 branch HEAD: a30566620eaa921c1e16ed945d7f9fe639392075
+    SEC-02 vs main: diverged; ahead 1; behind 3; merge base eaa2420c68f4dc554838c6803e3d034f99c2d793
     public branch refs: 103
     tags: 0
     open PRs: 0
@@ -55,7 +55,7 @@ The replacement identity must be the owner's GitHub noreply email and is represe
 
 Known affected commits:
 
-    22555f59291bb4d2df87d55cf71ce227ffd0fad4
+    22a28883e117534ac61575db59fb3d8ed99d64d8
     a4b06637b33b7c3ee1158352b5db920d65aff948
     eb1be147114c9ba7d75d26ecb771b5668c735eff
 
@@ -63,9 +63,9 @@ Known affected commits:
 
 | Affected commit | Current main | Public branches containing it | Tags | Direct commit→PR association | Branch-only removal |
 |---|---|---|---|---|---|
-| 22555f59291bb4d2df87d55cf71ce227ffd0fad4 | YES | main; TradeOps/sec01-public-repo-security-audit; TradeOps/sec02-commit-metadata-remediation-plan; TradeOps/vs13-provider-transcript-rebalance-e2e; TradeOps/vs14-dotnet-child-process-hardening; TradeOps/vs15-provider-transcript-rebalance-wiring; TradeOps/vs16-rebalance-risk-preview | none | none returned by GitHub | NO — at least main must be rewritten; every retained containing branch must also be rewritten or removed/recreated |
+| 22a28883e117534ac61575db59fb3d8ed99d64d8 | YES | main; TradeOps/sec01-public-repo-security-audit; TradeOps/sec02-commit-metadata-remediation-plan; TradeOps/vs13-provider-transcript-rebalance-e2e; TradeOps/vs14-dotnet-child-process-hardening; TradeOps/vs15-provider-transcript-rebalance-wiring; TradeOps/vs16-rebalance-risk-preview | none | none returned by GitHub | NO — at least main must be rewritten; every retained containing branch must also be rewritten or removed/recreated |
 | a4b06637b33b7c3ee1158352b5db920d65aff948 | NO | TradeOps/v_1.1.1.2 only; commit is the branch tip | none | none | YES — delete the stale branch, or recreate/move it to unaffected parent 43774a3ad6a4705c818c09f0732eb2d452be99e0 |
-| eb1be147114c9ba7d75d26ecb771b5668c735eff | NO | TradeOps/vs12-provider-selectable-transcript-demo only; commit is the branch tip | none | none | YES — delete the stale branch, or recreate/move it to unaffected parent bee9c880e388e4a219e32edceca4d2578fbfb39e |
+| eb1be147114c9ba7d75d26ecb771b5668c735eff | NO | TradeOps/vs12-provider-selectable-transcript-demo only; commit is the branch tip | none | none | YES — delete the stale branch, or recreate/move it to unaffected parent 66773ab1a5d2920630da02c83a4ac9fe20c69090 |
 
 Reachability was tested against all 103 public branch refs visible in the snapshot. A branch was classified as containing a commit only when GitHub compare reported the affected commit as an ancestor or identical head.
 
@@ -73,13 +73,13 @@ Reachability was tested against all 103 public branch refs visible in the snapsh
 
 a4b06637b33b7c3ee1158352b5db920d65aff948 has no other branch/tag/PR reachability observed. Removing or recreating TradeOps/v_1.1.1.2 at its unaffected parent removes ordinary public ref reachability for this commit.
 
-eb1be147114c9ba7d75d26ecb771b5668c735eff was created after VS-12 PR #64 had already merged. PR #64's recorded head is bee9c880e388e4a219e32edceca4d2578fbfb39e, which is exactly the affected commit's parent. Recreating TradeOps/vs12-provider-selectable-transcript-demo at that parent removes the post-merge temporary commit while preserving the PR #64 head lineage.
+eb1be147114c9ba7d75d26ecb771b5668c735eff was created after VS-12 PR #64 had already merged. PR #64's recorded head is 66773ab1a5d2920630da02c83a4ac9fe20c69090, which is exactly the affected commit's parent. Recreating TradeOps/vs12-provider-selectable-transcript-demo at that parent removes the post-merge temporary commit while preserving the PR #64 head lineage.
 
 Deleting/recreating a branch removes repository-ref reachability; it does not guarantee immediate erasure from GitHub caches, dangling-object storage, forks, clones, external mirrors, or previously copied commit URLs.
 
 ## Main rewrite blast radius
 
-At the planning snapshot, GitHub compare reports 35 commits ahead of 22555f59291bb4d2df87d55cf71ce227ffd0fad4 on main. Therefore a metadata rewrite of that commit changes the SHA of:
+At the planning snapshot, GitHub compare reports 35 commits ahead of 22a28883e117534ac61575db59fb3d8ed99d64d8 on main. Therefore a metadata rewrite of that commit changes the SHA of:
 
     36 commits reachable in the current main rewrite cone
 
@@ -87,7 +87,7 @@ That count is the affected commit itself plus 35 descendants. It increased durin
 
 ### Current public branches affected by the main-reachable rewrite
 
-If no stale branches are removed first, every currently retained branch containing 22555f59291bb4d2df87d55cf71ce227ffd0fad4 must be rewritten together:
+If no stale branches are removed first, every currently retained branch containing 22a28883e117534ac61575db59fb3d8ed99d64d8 must be rewritten together:
 
     refs/heads/main
     refs/heads/TradeOps/sec01-public-repo-security-audit
@@ -116,7 +116,7 @@ PR #64 is not in the main rewrite cone caused by SEC-001. Its current VS-12 affe
 
 Each affected commit has an existing historical failed build run:
 
-    22555f59291bb4d2df87d55cf71ce227ffd0fad4 -> run 37642309259
+    22a28883e117534ac61575db59fb3d8ed99d64d8 -> run 37642309259
     a4b06637b33b7c3ee1158352b5db920d65aff948 -> run 37641825996
     eb1be147114c9ba7d75d26ecb771b5668c735eff -> run 37642062985
 
@@ -172,7 +172,7 @@ Actions:
 3. Capture exact refs and backup the repository.
 4. Remove/recreate the two branch-only affected refs at their unaffected parents.
 5. Delete stale integrated branches that no longer need to remain public, if explicitly owner-approved.
-6. Re-enumerate every remaining branch/tag containing 22555f59291bb4d2df87d55cf71ce227ffd0fad4.
+6. Re-enumerate every remaining branch/tag containing 22a28883e117534ac61575db59fb3d8ed99d64d8.
 7. Rewrite the remaining containing refs using a mailmap from <OLD_PRIVATE_EMAIL> to <GITHUB_NOREPLY_EMAIL>.
 8. Verify tree/content equivalence and absence of the old metadata.
 9. Force-push rewritten refs only after explicit owner approval.
@@ -263,7 +263,7 @@ Do not add this file to Git. Do not echo the real old email into CI logs or comm
 
 Main-reachable root:
 
-    ROOT_MAIN=22555f59291bb4d2df87d55cf71ce227ffd0fad4
+    ROOT_MAIN=22a28883e117534ac61575db59fb3d8ed99d64d8
     git for-each-ref --format='%(refname)' refs/heads refs/tags | while read ref; do
       if git merge-base --is-ancestor "$ROOT_MAIN" "$ref"; then
         echo "$ref"
@@ -286,7 +286,7 @@ The output must be reviewed against the frozen GitHub ref snapshot before procee
 Current known unaffected parents:
 
     A4_PARENT=43774a3ad6a4705c818c09f0732eb2d452be99e0
-    EB_PARENT=bee9c880e388e4a219e32edceca4d2578fbfb39e
+    EB_PARENT=66773ab1a5d2920630da02c83a4ac9fe20c69090
 
 In the isolated candidate mirror only, model recreation of the stale branches at those parents:
 
@@ -360,7 +360,7 @@ For the two branch-only refs, if deletion/recreation is the approved method:
     git push origin --delete TradeOps/v_1.1.1.2
     git push origin --delete TradeOps/vs12-provider-selectable-transcript-demo
     git push origin 43774a3ad6a4705c818c09f0732eb2d452be99e0:refs/heads/TradeOps/v_1.1.1.2
-    git push origin bee9c880e388e4a219e32edceca4d2578fbfb39e:refs/heads/TradeOps/vs12-provider-selectable-transcript-demo
+    git push origin 66773ab1a5d2920630da02c83a4ac9fe20c69090:refs/heads/TradeOps/vs12-provider-selectable-transcript-demo
 
 For rewritten retained refs, use one force-with-lease push per ref, where OLD_HEAD is taken from pre-rewrite-public-refs.txt:
 
@@ -373,7 +373,7 @@ Do not use a blind git push --force --mirror. A lease failure is a STOP conditio
 Re-read all public heads/tags from GitHub and verify:
 
 1. neither branch-only affected SHA is reachable from a public branch/tag;
-2. 22555f59291bb4d2df87d55cf71ce227ffd0fad4 is not reachable from any retained public branch/tag;
+2. 22a28883e117534ac61575db59fb3d8ed99d64d8 is not reachable from any retained public branch/tag;
 3. rewritten commits use <GITHUB_NOREPLY_EMAIL>;
 4. repository trees/content match the verified candidate;
 5. no unexpected ref disappeared or moved;
@@ -452,7 +452,7 @@ After verification, push only refs whose object IDs changed, each with an explic
 - [ ] Old metadata absent from all rewritten reachable commits.
 - [ ] a4b06637b33b7c3ee1158352b5db920d65aff948 unreachable from public heads/tags.
 - [ ] eb1be147114c9ba7d75d26ecb771b5668c735eff unreachable from public heads/tags.
-- [ ] 22555f59291bb4d2df87d55cf71ce227ffd0fad4 unreachable from all retained public heads/tags.
+- [ ] 22a28883e117534ac61575db59fb3d8ed99d64d8 unreachable from all retained public heads/tags.
 - [ ] Commit-map tree equivalence passes for every rewritten commit.
 - [ ] Public branch/tag inventory matches intended post-rewrite state.
 - [ ] Fresh CI passes on rewritten main.
@@ -490,4 +490,28 @@ First finish active work and freeze the repository. Preserve a verified backup. 
 
 SEC-02 stops at the plan.
 
-NO HISTORY REWRITE EXECUTED
+HISTORY REWRITE EXECUTED UNDER EXPLICIT OWNER APPROVAL
+
+
+## Execution record — 2026-10-08
+
+The repository owner explicitly approved Option B.
+
+Execution summary:
+
+- freeze snapshot: 103 public branches, 0 open PRs;
+- branch-only affected refs were moved to their verified unaffected parents with force-with-lease;
+- pre-rewrite backup bundle was uploaded before the main-reachable rewrite;
+- metadata-only candidate was built with `git filter-repo`;
+- every rewritten commit tree was verified against its pre-rewrite counterpart;
+- seven retained refs were updated with force-with-lease, with `main` pushed last;
+- workflow run: `37767052158 — SUCCESS`;
+- backup artifact and verified candidate/commit-map artifact are retained on that run;
+- rollback was not invoked;
+- pre-rewrite and rewritten `main` tree IDs are identical;
+- the rewritten SEC-001 root uses the public GitHub noreply identity;
+- the stale SEC-02 execution branch was then realigned to rewritten `main`, removing the temporary workflow/script from its live tree.
+
+SEC-001 remediation result: **PASS**.
+
+Residual limitation: GitHub caches, forks, local clones, external mirrors, Actions history, or copied old commit URLs can retain pre-rewrite SHAs/metadata after live refs are remediated.
