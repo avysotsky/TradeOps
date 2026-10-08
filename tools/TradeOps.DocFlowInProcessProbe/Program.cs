@@ -24,7 +24,12 @@ try
             var dotnetPid = Environment.ProcessId;
             if (pythonPid != dotnetPid)
                 throw new InvalidOperationException("Python and .NET PIDs differ.");
-            Console.WriteLine($"ARCH04 SAME_PID PASS dotnet={dotnetPid} python={pythonPid}");
+            PythonEngine.Exec("import asyncio\nasync def arch04_probe_coroutine():\n    return os.getpid()");
+            using var asyncPidObject = PythonEngine.Eval("asyncio.run(arch04_probe_coroutine())");
+            var asyncPid = asyncPidObject.As<int>();
+            if (asyncPid != dotnetPid)
+                throw new InvalidOperationException("Python coroutine escaped the .NET process.");
+            Console.WriteLine($"ARCH04 SAME_PID PASS dotnet={dotnetPid} python={pythonPid} asyncPython={asyncPid}");
         }
     }
     finally
