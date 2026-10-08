@@ -11,6 +11,7 @@ namespace TradeOps.Infrastructure.DocFlow;
 public sealed class DocFlowHttpExtractionAdapter : IDocFlowExtractionPort
 {
     private const int MaximumResponseBytes = 2_097_152;
+    private const int MaximumRequestBytes = 1_048_576;
     private readonly HttpClient _client;
 
     public DocFlowHttpExtractionAdapter(HttpClient client)
@@ -40,8 +41,12 @@ public sealed class DocFlowHttpExtractionAdapter : IDocFlowExtractionPort
             model = request.Model,
             documentName = request.DocumentName
         };
+        var requestBody = JsonSerializer.SerializeToUtf8Bytes(payload);
+        if (requestBody.Length > MaximumRequestBytes)
+            throw new ArgumentException("DocFlow request exceeds maximum size.", nameof(request));
         using var message = new HttpRequestMessage(HttpMethod.Post, "api/v1/extractions");
-        message.Content = JsonContent.Create(payload);
+        message.Content = new ByteArrayContent(requestBody);
+        message.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
         using var response = await _client.SendAsync(
             message, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
