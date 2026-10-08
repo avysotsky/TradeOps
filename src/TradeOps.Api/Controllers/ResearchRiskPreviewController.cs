@@ -9,10 +9,10 @@ namespace TradeOps.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/risk")]
-[OperatorApiKey]
 public sealed class ResearchRiskPreviewController(IConfiguration configuration) : ControllerBase
 {
     [HttpPost("preview")]
+    [OperatorApiKey]
     [RequestSizeLimit(1048576)]
     public async Task<IActionResult> Preview([FromBody] SnapshotRiskPreviewRequest request, CancellationToken cancellationToken)
     {
