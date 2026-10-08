@@ -12,7 +12,7 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: c4c349ee94e37708ef9a2ee9c0bcfc9813e33c11 (ARCH-02 PR #72 merged; ARCH-02 status updated)
+main: 54be1190764703b8dd76a47356daecd9bfbe8d49 (ARCH-03 PR #73 merged and integration recorded)
 latest production merge: VS-16 — Rebalance Order Intent → Existing RiskEngine Preview (PR #70)
 VS-16 post-merge CI: 37760934674 — SUCCESS
 VS-16 CodeQL: 37760933995 — SUCCESS
@@ -128,8 +128,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | VS-17 | Risk-Approved Intent → Execution Dry-Run/Audit Boundary | TradeOps/vs17-risk-approved-execution-dry-run | INTEGRATED (post-merge CI unverified) | PR #71 merged as f78aed7d641eccd0ab9d50edfdb8cd591a8333d0; exact-head build 37772150069 SUCCESS; worker reports 543/543 tests and 0 warnings; no broker mutation or persistence |
 | ARCH-01 | DocFlow Application Boundary → HTTP Host | DocFlow/arch01-application-http-host | INTEGRATED (post-merge CI unverified) | PR #8 merged d6de1b5168c156b107cb3c3d71ef29983401ad40; exact-head Python Worker CI 37786661428 SUCCESS; in-memory extraction + HTTP host parity |
 | ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TradeOps/arch02-research-risk-http-host | INTEGRATED (post-merge CI unverified) | PR #72 squash-merged c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d; exact-head CI 37798316067 SUCCESS; query-only HTTP, hosted tests, shared deterministic identity |
-| ARCH-03 | TradeOps → DocFlow HTTP Adapter | TradeOps/arch03-docflow-http-adapter | READY | Spec commit 53418956daa9394950cab9990dac2cfdf96950d3; TradeOps-owned port, versioned DocFlow HTTP adapter; prohibit unauthenticated public deployment |
-| ARCH-04 | TradeOps → DocFlow In-Process Adapter | TBD | PLANNED | same TradeOps-owned port implemented directly against DocFlow.Application |
+| ARCH-03 | TradeOps → DocFlow HTTP Adapter | TradeOps/arch03-docflow-http-adapter | INTEGRATED (post-merge CI unverified) | PR #73 squash merged 4ead2320733fea459b51fce64de17a07bf6f4246; exact-head build 37806608859 SUCCESS; port, bounded HTTP adapter and offline tests |
+| ARCH-04 | TradeOps → DocFlow In-Process Adapter | TradeOps/arch04-docflow-inprocess-adapter | DISCOVERY_GATED | Spec commit 7eb42d1fb697f48a13d9b2adc15747838db76148; .NET 8/Python 3.11 same-PID embedding feasibility must be proven before implementation |
 | ARCH-05 | HTTP ↔ Monolith Topology Equivalence Harness | TBD | PLANNED | prove semantically equivalent results for same input across both deployment topologies |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
@@ -355,3 +355,9 @@ ARCH-02 worker branch `TradeOps/arch02-research-risk-http-host` was created from
 TradeOps PR #72 integrated by squash merge `c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d` after final branch-head `c1dd06bb4aa21912db126681a7d421d97a76daaf` passed exact-head build `37798316067` SUCCESS (unit tests, API/Postgres smoke, Docker/demo checks); same-head push build `37798306782` and dynamic PR check `37798308432` also SUCCESS. Corrected actual HTTP JSON-binding defect with transport-only snapshot DTO and corrected dictionary-value parity assertion. PR #72 was reviewed for non-mutating semantics, auth gate, no broker/persistence. Post-merge CI is not independently verified. Detail: `ARCH02_TRADEOPS_HTTP_HOST.md`.
 
 ARCH-03 now assigned as specification-only branch `TradeOps/arch03-docflow-http-adapter`, commit `53418956daa9394950cab9990dac2cfdf96950d3` at `docs/orchestration/ARCH03_DOCFLOW_HTTP_ADAPTER.md`. Application port and HTTP adapter should be implemented next. Note ARCH-01 DocFlow HTTP host lacks native service-to-service authentication; unauthenticated public deployment is prohibited. ARCH-04 and ARCH-05 remain downstream. OP-03 WAITING_EXTERNAL.
+
+## ARCH-03 integration / ARCH-04 registration — 2026-10-08
+
+TradeOps ARCH-03 PR #73 squash merged as `4ead2320733fea459b51fce64de17a07bf6f4246`; exact reviewed head `3f81d61b9e956ee8fb735476e767e719465c6abf`, GitHub Actions `37806608859` SUCCESS; dynamic check `37806604366` SUCCESS. TradeOps owns `IDocFlowExtractionPort`; Infrastructure provides a versioned, bounded HttpClient adapter and opt-in DI, offline security tests. No new broker mutation, data storage or executable signal boundary. Post-merge CI is unverified. DocFlow HTTP deployment remains private-network/loopback-only until service authentication is added.
+
+ARCH-04 branch `TradeOps/arch04-docflow-inprocess-adapter` registered from current main `54be1190764703b8dd76a47356daecd9bfbe8d49`; spec `docs/orchestration/ARCH04_DOCFLOW_INPROCESS_ADAPTER.md` commit `7eb42d1fb697f48a13d9b2adc15747838db76148`. Critical runtime issue: TradeOps is .NET 8 and DocFlow application is Python 3.11. A true same-process topology requires an explicit embedded Python runtime proof (no subprocess or localhost HTTP) or a documented ADR deferral; cannot mark ARCH-04 implemented by wrapping the HTTP client. ARCH-05 must follow feasibility evidence rather than assert unsupported parity.
