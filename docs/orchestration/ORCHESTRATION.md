@@ -12,7 +12,7 @@ TradeOps repository:
 
 ```text
 avysotsky/TradeOps
-main: c13e229835bd17e49430afe7d773c2e618e6e5d4 (VS-17 PR #71 integrated; orchestration updated)
+main: c4c349ee94e37708ef9a2ee9c0bcfc9813e33c11 (ARCH-02 PR #72 merged; ARCH-02 status updated)
 latest production merge: VS-16 — Rebalance Order Intent → Existing RiskEngine Preview (PR #70)
 VS-16 post-merge CI: 37760934674 — SUCCESS
 VS-16 CodeQL: 37760933995 — SUCCESS
@@ -127,8 +127,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | OP-03 | Real IBKR Paper Read-Path Validation | operator/local | WAITING_EXTERNAL | no available real IBKR Paper account/session; Java/CPGW alone is insufficient; read-only harness remains ready |
 | VS-17 | Risk-Approved Intent → Execution Dry-Run/Audit Boundary | TradeOps/vs17-risk-approved-execution-dry-run | INTEGRATED (post-merge CI unverified) | PR #71 merged as f78aed7d641eccd0ab9d50edfdb8cd591a8333d0; exact-head build 37772150069 SUCCESS; worker reports 543/543 tests and 0 warnings; no broker mutation or persistence |
 | ARCH-01 | DocFlow Application Boundary → HTTP Host | DocFlow/arch01-application-http-host | INTEGRATED (post-merge CI unverified) | PR #8 merged d6de1b5168c156b107cb3c3d71ef29983401ad40; exact-head Python Worker CI 37786661428 SUCCESS; in-memory extraction + HTTP host parity |
-| ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TradeOps/arch02-research-risk-http-host | READY | specification commit 0caf62322c0a7c83ac94750fdc15a90f444c16a6; implement additive thin HTTP routes reusing existing services, no broker mutation |
-| ARCH-03 | TradeOps → DocFlow HTTP Adapter | TBD | PLANNED | TradeOps-owned port implemented over versioned DocFlow HTTP contract |
+| ARCH-02 | TradeOps Research/Risk Pipeline → HTTP Host | TradeOps/arch02-research-risk-http-host | INTEGRATED (post-merge CI unverified) | PR #72 squash-merged c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d; exact-head CI 37798316067 SUCCESS; query-only HTTP, hosted tests, shared deterministic identity |
+| ARCH-03 | TradeOps → DocFlow HTTP Adapter | TradeOps/arch03-docflow-http-adapter | READY | Spec commit 53418956daa9394950cab9990dac2cfdf96950d3; TradeOps-owned port, versioned DocFlow HTTP adapter; prohibit unauthenticated public deployment |
 | ARCH-04 | TradeOps → DocFlow In-Process Adapter | TBD | PLANNED | same TradeOps-owned port implemented directly against DocFlow.Application |
 | ARCH-05 | HTTP ↔ Monolith Topology Equivalence Harness | TBD | PLANNED | prove semantically equivalent results for same input across both deployment topologies |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
@@ -319,7 +319,8 @@ NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner app
 WAIT OP-03 — real IBKR Paper account/session unavailable; no need to install Java/CPGW until this external dependency exists
 DONE MERGE VS-17 — PR #71 merged as f78aed7d641eccd0ab9d50edfdb8cd591a8333d0; post-merge CI not yet verifiable through available workflow lookup; no broker call, persistence or order mutation
 DONE MERGE ARCH-01 — DocFlow PR #8 merged d6de1b5168c156b107cb3c3d71ef29983401ad40; exact-head CI 37786661428 SUCCESS; post-merge push CI unverified
-READY ARCH-02 — TradeOps/arch02-research-risk-http-host, spec commit 0caf62322c0a7c83ac94750fdc15a90f444c16a6; then ARCH-03 → ARCH-05
+DONE MERGE ARCH-02 — PR #72 squash merge c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d; exact-head build 37798316067 SUCCESS; post-merge CI unverified
+READY ARCH-03 — TradeOps/arch03-docflow-http-adapter, spec commit 53418956daa9394950cab9990dac2cfdf96950d3; ARCH-04/05 downstream
 WAIT MUTATION SLICE — only after OP-03 PASS
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
@@ -348,3 +349,9 @@ ARCH-01 branch `DocFlow/arch01-application-http-host` started from DocFlow main 
 DocFlow ARCH-01 merged through PR #8 as `d6de1b5168c156b107cb3c3d71ef29983401ad40` after exact-HEAD Python Worker CI run `37786661428` SUCCESS (install, compile, pytest). No post-merge push workflow was surfaced by the available connector; do not claim such a result without evidence. ARCH-01 implements an in-memory generic extraction entrypoint and thin versioned FastAPI HTTP host while retaining CLI and existing providers. TradeOps contracts are unchanged.
 
 ARCH-02 worker branch `TradeOps/arch02-research-risk-http-host` was created from main `c13e229835bd17e49430afe7d773c2e618e6e5d4` and registered via specification commit `0caf62322c0a7c83ac94750fdc15a90f444c16a6` at `docs/orchestration/ARCH02_TRADEOPS_HTTP_HOST.md`. No ARCH-02 production files have been changed. ARCH-03 remains downstream of ARCH-02 integration. OP-03 remains WAITING_EXTERNAL and broker mutation blocked.
+
+## ARCH-02 merge / ARCH-03 kickoff — 2026-10-08
+
+TradeOps PR #72 integrated by squash merge `c0d589c91d49d4cffda1deb99dc9ba0ea4e4ca3d` after final branch-head `c1dd06bb4aa21912db126681a7d421d97a76daaf` passed exact-head build `37798316067` SUCCESS (unit tests, API/Postgres smoke, Docker/demo checks); same-head push build `37798306782` and dynamic PR check `37798308432` also SUCCESS. Corrected actual HTTP JSON-binding defect with transport-only snapshot DTO and corrected dictionary-value parity assertion. PR #72 was reviewed for non-mutating semantics, auth gate, no broker/persistence. Post-merge CI is not independently verified. Detail: `ARCH02_TRADEOPS_HTTP_HOST.md`.
+
+ARCH-03 now assigned as specification-only branch `TradeOps/arch03-docflow-http-adapter`, commit `53418956daa9394950cab9990dac2cfdf96950d3` at `docs/orchestration/ARCH03_DOCFLOW_HTTP_ADAPTER.md`. Application port and HTTP adapter should be implemented next. Note ARCH-01 DocFlow HTTP host lacks native service-to-service authentication; unauthenticated public deployment is prohibited. ARCH-04 and ARCH-05 remain downstream. OP-03 WAITING_EXTERNAL.
