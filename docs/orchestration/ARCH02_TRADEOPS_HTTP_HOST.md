@@ -2,7 +2,7 @@
 
 ## State
 
-IN_PROGRESS — four HTTP routes implemented; final exact-head CI pending
+IN_PROGRESS — five query endpoints; hosted HTTP tests and exact-head CI pending
 
 ## Repository
 
@@ -127,3 +127,11 @@ Security considerations:
 - The legacy operator API auth filter is configurable; disabling it must not expose these new endpoints.
 - Request-local risk controls are untrusted and have no power to submit trades.
 - Do not add `OrderManager`, `SignalExecutionService`, order repositories, execution triggers or provider credentials to these routes.
+
+## Integrated API expansion (same ARCH-02 workstream)
+
+The existing `POST /api/v1/research/decisions` validates a supplied decision using the production validator. In addition, `POST /api/v1/research/decisions/derive` creates a real deterministic `ResearchDecision` from two caller-supplied canonical DocFlow normalized/structured artifacts and an explicit research policy through `TranscriptResearchDecisionDemoService.Run`, without embedding DocFlow normalization or invoking a provider. The derivation endpoint returns bounded decision, assessment and policy fingerprint rather than raw artifacts. Its fixture test compares the output decision against direct application service invocation and tests malformed input rejection.
+
+Added hosted ASP.NET HTTP integration coverage in `ResearchPreviewHttpIntegrationTests` using isolated PostgreSQL test database and real authentication filter for research-validation, rebalance and dry-run routes, including serializer and no-mutation flags. Existing seeded tests remain synthetic and offline. This test runs when the existing `TRADEOPS_TEST_POSTGRES_ADMIN` is set or GitHub Actions PostgreSQL service is present.
+
+Final implementation HEAD before this documentation update: `f8df0f9e678c0969de4964d273ebb55a9d276676`. Exact-head CI pending. Review must verify the HTTP integration test and final full suite before integration; no merge from this worker.
