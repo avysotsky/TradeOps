@@ -356,6 +356,62 @@ public sealed class TranscriptResearchRiskPreviewTests
             StringComparison.Ordinal);
     }
 
+
+    [Fact]
+    public void Provider_harness_forwards_execution_dry_run_to_vs17_without_changing_provider_stages()
+    {
+        using var fixture =
+            new ProviderFixture();
+        var runner =
+            new RecordingProcessRunner();
+        var output =
+            new StringWriter();
+        var error =
+            new StringWriter();
+        var harness =
+            new ProviderTranscriptResearchDemoHarness(
+                runner,
+                new ApiKeyEnvironmentReader());
+
+        var exitCode =
+            harness.Run(
+                fixture.Options(
+                    fixture.RiskInput,
+                    executionDryRun:
+                        true),
+                fixture.TradeOpsRoot,
+                output,
+                error);
+
+        Assert.Equal(
+            0,
+            exitCode);
+        Assert.Single(
+            runner.PreflightInvocations);
+        Assert.Equal(
+            3,
+            runner.Invocations.Count);
+
+        var consumer =
+            runner.Invocations[2];
+
+        Assert.Contains(
+            "--risk-preview-input",
+            consumer.Arguments);
+        Assert.Contains(
+            "--execution-dry-run",
+            consumer.Arguments);
+        Assert.Contains(
+            Path.Combine(
+                fixture.WorkDirectory,
+                "transcript-research-execution-dry-run-result.json"),
+            consumer.Arguments);
+        Assert.Contains(
+            "Stage: TradeOps VS-17",
+            output.ToString(),
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Intent_projection_is_exact_and_signal_id_is_deterministic()
     {
@@ -1053,7 +1109,8 @@ public sealed class TranscriptResearchRiskPreviewTests
         public string RiskInput { get; }
 
         public ProviderTranscriptResearchDemoOptions Options(
-            string riskInput) =>
+            string riskInput,
+            bool executionDryRun = false) =>
             new(
                 DocFlowRoot,
                 "explicit-model",
@@ -1062,7 +1119,8 @@ public sealed class TranscriptResearchRiskPreviewTests
                 ProviderTranscriptResearchProvider.OpenAi,
                 null,
                 RebalanceInput,
-                riskInput);
+                riskInput,
+                executionDryRun);
 
         private string CreateTradeOpsFile(
             params string[] segments)
