@@ -14,7 +14,7 @@ public sealed class ResearchRiskPreviewControllerTests
         new(new ConfigurationBuilder().AddInMemoryCollection(
             new Dictionary<string, string?> {
                 ["ResearchPreview:Enabled"] = enabled.ToString(),
-                ["OperatorApiAuth:Enabled"] = "true"
+                ["OperatorApi:Authentication:Enabled"] = "true"
             }).Build());
 
     private static SnapshotRiskPreviewRequest Request(bool enabled) => new(
