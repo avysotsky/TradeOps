@@ -272,6 +272,24 @@ public static class TranscriptResearchDemoCli
                     "Current structured extraction");
 
             if (!string.IsNullOrWhiteSpace(
+                    options.RiskPreviewInputPath))
+            {
+                return TranscriptResearchRiskPreviewDemoRunner
+                    .Run(
+                        manifest,
+                        policyLoad.Definition,
+                        policyLoad.Fingerprint,
+                        priorNormalized,
+                        priorStructured,
+                        currentNormalized,
+                        currentStructured,
+                        options.RebalanceInputPath!,
+                        options.RiskPreviewInputPath,
+                        options.JsonPath,
+                        output);
+            }
+
+            if (!string.IsNullOrWhiteSpace(
                     options.RebalanceInputPath))
             {
                 return TranscriptResearchRebalanceDemoRunner
@@ -383,6 +401,8 @@ public static class TranscriptResearchDemoCli
             null;
         string? rebalanceInputPath =
             null;
+        string? riskPreviewInputPath =
+            null;
 
         for (var index = 0;
              index < args.Length;
@@ -422,9 +442,17 @@ public static class TranscriptResearchDemoCli
                             "--rebalance-input");
                     break;
 
+                case "--risk-preview-input":
+                    riskPreviewInputPath =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--risk-preview-input");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>, --rebalance-input <path>.");
+                        $"Unknown argument '{args[index]}'. Supported: --manifest <path>, --policy <path>, --json <path>, --rebalance-input <path>, --risk-preview-input <path>.");
             }
         }
 
@@ -442,11 +470,21 @@ public static class TranscriptResearchDemoCli
                 "--policy <path> is required.");
         }
 
+        if (!string.IsNullOrWhiteSpace(
+                riskPreviewInputPath)
+            && string.IsNullOrWhiteSpace(
+                rebalanceInputPath))
+        {
+            throw new ArgumentException(
+                "--risk-preview-input requires --rebalance-input.");
+        }
+
         return new CliOptions(
             manifestPath,
             policyPath,
             jsonPath,
-            rebalanceInputPath);
+            rebalanceInputPath,
+            riskPreviewInputPath);
     }
 
     private static string RequireValue(
@@ -528,5 +566,6 @@ public static class TranscriptResearchDemoCli
         string ManifestPath,
         string PolicyPath,
         string? JsonPath,
-        string? RebalanceInputPath);
+        string? RebalanceInputPath,
+        string? RiskPreviewInputPath);
 }
