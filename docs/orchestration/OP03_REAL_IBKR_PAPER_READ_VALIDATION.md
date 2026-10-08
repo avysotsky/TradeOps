@@ -2,7 +2,7 @@
 
 ## State
 
-READY
+WAITING_EXTERNAL
 
 ## Date opened
 
@@ -20,7 +20,7 @@ warnings: 0
 
 ## Purpose
 
-Validate the already integrated Interactive Brokers Paper read-only adapter against a real authenticated Client Portal Gateway Paper session.
+Validate the already integrated Interactive Brokers Paper read-only adapter against a real authenticated Client Portal Gateway Paper session when a real IBKR Paper account becomes available.
 
 This is an operator validation only.
 
@@ -196,3 +196,18 @@ After operator handoff:
 4. only then consider a separate mutation-enablement workstream.
 
 Do not enable or test real order placement in OP-03.
+
+
+## External blocker status
+
+As of 2026-10-08, the operator does not have an available IBKR Paper account/session.
+
+Installing Java or Client Portal Gateway alone would not satisfy this gate, because meaningful account/read-path validation requires an authenticated brokerage Paper session.
+
+Status remains:
+
+```text
+WAITING_EXTERNAL
+```
+
+Development may continue through non-mutating execution dry-run/audit slices that do not depend on IBKR.

@@ -102,7 +102,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | EXECUTED | Option B executed 2026-10-08; two branch-only refs cleaned; 7 retained refs rewritten with force-with-lease; backup + commit-map retained in Actions run 37767052158 |
 | VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge c86ed98032c551d59fcc807cacc220539c6446bc; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
 | OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | DONE | PASS on main 084624291ca3a0554bcd6a31e8541fc187490e6f; Groq/DocFlow prior+current/TradeOps VS-16 exit 0; SAMP Buy 30; requiresRiskApproval=true; existing RiskEngine allowed=true; no order mutation |
-| OP-03 | Real IBKR Paper Read-Path Validation | operator/local | READY | real authenticated Client Portal Gateway Paper session required; read-only harness only; no broker mutation |
+| OP-03 | Real IBKR Paper Read-Path Validation | operator/local | WAITING_EXTERNAL | no available real IBKR Paper account/session; Java/CPGW alone is insufficient; read-only harness remains ready |
+| VS-17 | Risk-Approved Intent → Execution Dry-Run/Audit Boundary | TradeOps/vs17-risk-approved-execution-dry-run | READY | non-mutating: existing risk-approved signal → production client-order identity → auditable dry-run envelope; no persistence, OrderManager, SignalExecutionService or exchange call |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -288,7 +289,8 @@ DONE OP-01 — real Groq provider -> DocFlow -> research -> backtest/rebalance v
 DONE VS-16 — integrated via PR #70; exact-head CI 37760138944 SUCCESS; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings
 DONE OP-02 — real Groq -> DocFlow -> research -> backtest/rebalance -> existing RiskEngine validated; SAMP Buy 30; allowed=true; no broker mutation
 NEXT SECURITY GATE — SEC-001 execution may begin only after explicit owner approval of the destructive history/ref rewrite plan
-P0 READY OP-03 — real authenticated IBKR Paper read-path validation via existing harness; no broker mutation
+WAIT OP-03 — real IBKR Paper account/session unavailable; no need to install Java/CPGW until this external dependency exists
+P0 READY VS-17 — risk-approved intent → deterministic execution dry-run/audit envelope; no broker call, persistence or order mutation
 WAIT MUTATION SLICE — only after OP-03 PASS
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 DONE SEC-001 REMEDIATION — Option B executed under explicit owner approval; old affected root removed from live rewritten refs; production/source/test trees unchanged
