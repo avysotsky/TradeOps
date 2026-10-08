@@ -27,6 +27,36 @@ public sealed class ResearchPreviewController(IConfiguration configuration) : Co
             : BadRequest(new { error = "invalid_research_decision" });
     }
 
+    [HttpPost("research/decisions/derive")]
+    [OperatorApiKey]
+    [RequestSizeLimit(1_048_576)]
+    public IActionResult Derive([FromBody] TranscriptResearchDecisionDemoRequest? request)
+    {
+        if (Disabled)
+            return NotFound();
+        if (request?.Prior is null || request.Current is null || request.Policy is null ||
+            request.Prior.NormalizedDocumentJson?.Length > 500_000 ||
+            request.Current.NormalizedDocumentJson?.Length > 500_000 ||
+            request.Prior.StructuredExtractionJson?.Length > 500_000 ||
+            request.Current.StructuredExtractionJson?.Length > 500_000)
+            return BadRequest(new { error = "invalid_request" });
+
+        try
+        {
+            var result = new TranscriptResearchDecisionDemoService().Run(request);
+            return Ok(new {
+                schemaVersion = 1,
+                result.Decision,
+                result.Assessment,
+                result.PolicyFingerprint
+            });
+        }
+        catch (Exception)
+        {
+            return BadRequest(new { error = "invalid_research_artifacts" });
+        }
+    }
+
     [HttpPost("rebalance/preview")]
     [OperatorApiKey]
     [RequestSizeLimit(1_048_576)]
