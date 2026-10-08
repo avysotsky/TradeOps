@@ -17,7 +17,7 @@ public sealed class ResearchRiskPreviewController(IConfiguration configuration) 
     public async Task<IActionResult> Preview([FromBody] SnapshotRiskPreviewRequest request, CancellationToken cancellationToken)
     {
         if (!configuration.GetValue<bool>("ResearchPreview:Enabled") ||
-            !configuration.GetValue<bool>("OperatorApiAuth:Enabled"))
+            !configuration.GetValue<bool>("OperatorApi:Authentication:Enabled"))
             return NotFound();
         if (request.SignalId == Guid.Empty || string.IsNullOrWhiteSpace(request.Symbol) ||
             request.Symbol.Length > 50 || request.Quantity <= 0 ||
