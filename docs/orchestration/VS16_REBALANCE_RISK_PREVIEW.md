@@ -1,7 +1,7 @@
 # VS-16 — Rebalance Order Intent → Existing RiskEngine Preview
 
 ## State
-READY
+READY_FOR_INTEGRATION
 
 ## Repository / branch
 avysotsky/TradeOps
@@ -278,3 +278,54 @@ Before handoff:
 
 Do not merge independently.
 Stop after the bounded preview slice.
+
+
+## Completion status — 2026-10-08
+
+Implementation HEAD before this status-only update:
+`fc62bf0b9f298578894b7f92bfd6de8d5ce03bf9`
+
+Completed:
+- reused the existing VS-13 composition through a tool-local `TranscriptResearchRebalanceDemoRunner.Create(...)` extraction; no planner/backtester duplication
+- added strict versioned synthetic risk-preview input parsing
+- projected the existing `CurrentRebalancePlan.OrderIntent` to a deterministic `TradingSignal`
+- reused the existing production `RiskEngine.CheckAsync(...)` exactly once per preview
+- derived preview exchange positions from the existing VS-13 `currentPortfolio`
+- added read-only tool-local `IExchangeClient` / `IRiskControlService` adapters whose mutation methods throw
+- emitted a separate `transcript-research-risk-preview-result.json` artifact preserving research/backtest/rebalance evidence
+- forwarded `--risk-preview-input` through the provider harness without changing provider/DocFlow stages
+- removed the provider-harness `CS8604` warning by narrowing the validated `rollForward` value; no pragma/nullable suppression
+
+Public/shared contracts changed:
+`NO`
+
+Application/Domain production files changed:
+`NO`
+
+Broker/execution mutation path added or invoked:
+`NO`
+
+Implementation-head validation:
+- GitHub Actions build run: `37759718404 — SUCCESS`
+- full test suite: `537 / 537 passed`
+- build warnings: `0`
+- `CS8604`: absent from the build log
+- API + PostgreSQL smoke: success
+- signed webhook demo: success
+- customer TradingView demo: success
+- Docker/deployment validation: success
+- changed-file ownership: within the VS-16 allowlist only
+- privacy scan: no committed key/private-key material detected
+- preview runtime source contains no `OrderManager`, `SignalExecutionService`, or `IbkrPaperExchangeClient` bridge and does not use `Guid.NewGuid()` for the signal ID
+
+Real Groq preview smoke:
+`NOT RUN in this worker environment` — `GROQ_API_KEY` and a local `dotnet` host are not available here. This does not replace OP-01; the requested real-provider run remains conditional on an already-available local credential/runtime.
+
+Draft PR:
+`#70 — VS-16: Rebalance risk preview`
+
+Blockers:
+`NONE for orchestrator review`
+
+Next integration action:
+orchestrator reviews draft PR #70 and the final branch-tip CI. Do not merge from the worker chat.
