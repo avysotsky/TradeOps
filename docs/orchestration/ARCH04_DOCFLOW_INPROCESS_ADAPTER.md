@@ -1,7 +1,7 @@
 # ARCH-04 — In-Process DocFlow Adapter (Architecture Feasibility Gate)
 
 ## State
-DISCOVERY_GATED — specification only; no production changes
+FEASIBILITY_PROVEN — same-PID interpreter/coroutine CI PASS; actual DocFlow in-process adapter NOT IMPLEMENTED
 
 ## Baselines
 - TradeOps main at registration: `54be1190764703b8dd76a47356daecd9bfbe8d49`.
@@ -43,3 +43,9 @@ Fetch live TradeOps and DocFlow GitHub state, compare current branch, read canon
 ## Completion
 
 Draft PR only. Supply exact HEAD/CI, repository files, same-process evidence or blocker and decision for ARCH-05. Orchestrator owns merge. No third repository, monorepo or NuGet packaging yet.
+
+## Completed feasibility checkpoint — 2026-10-08
+
+PR #74 squash merged as `52dbfe375f63857e733d5c6617f987960f4338a3`; exact-head `439ec026dfc9cd04e47050e0b64f89da451c5de1`. Python.NET embedded CPython 3.11 and async coroutine same-PID proof passed `ARCH04 Python Embed Probe` run `37807983142` SUCCESS. Full TradeOps build run `37807982919` SUCCESS. The initial async probe error resulted from transient Python scope; corrected to one persistent `Py.CreateScope()`. The minimal isolated POC introduces no production runtime dependency. ADR: `docs/orchestration/ARCH04_EMBEDDED_PYTHON_FEASIBILITY_ADR.md`.
+
+**The actual production-grade in-process DocFlow adapter is not implemented or certified.** The evidence establishes a same-process runtime option, not completed application-level parity. Next engineering gate: pinned/secure DocFlow package distribution, actual `extract_text_document` invocation using deterministic fake backend, GIL/cancellation/native dependency tests, and then ARCH-05 HTTP equivalence. Retain ARCH-03 HTTP adapter as default in the meantime. No broker mutation.
