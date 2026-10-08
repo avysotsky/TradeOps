@@ -100,7 +100,8 @@ Worker branches must not change this v1 contract without an explicit orchestrato
 | SEC-01 | Public Repository Security & Privacy Audit | TradeOps/sec01-public-repo-security-audit | INTEGRATED | PR #68; 101/101 public branch tips audited; 0 BLOCKER; SEC-002 resolved; SEC-001 commit-email metadata remains MUST FIX |
 | OP-01 | Real Groq Provider → Research → Backtest/Rebalance Validation | operator/local | DONE | PASS on TradeOps main 8afc2528eb672a424bbee3635afff2484a7a8fc4; Groq/DocFlow prior+current/TradeOps VS-13 all exit 0; SAMP targetWeight 0.40; rebalance Ready; runtime JSON 7838 bytes |
 | SEC-02 | Commit Metadata Remediation Plan | TradeOps/sec02-commit-metadata-remediation-plan | INTEGRATED | PR #69; exact-head CI 37759473126 SUCCESS; Option B recommended; no history rewrite executed; execution deferred until active work is finished and refs are frozen |
-| VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | READY | non-mutating preview only: integrated rebalance intent -> deterministic TradingSignal projection -> existing RiskEngine; no OrderManager/SignalExecutionService/IBKR mutation |
+| VS-16 | Rebalance Order Intent → Existing RiskEngine Preview | TradeOps/vs16-rebalance-risk-preview | INTEGRATED | PR #70; exact-head CI 37760138944 SUCCESS; merge 6b4baf35e11988143d94580449bc7d8a85c3183a; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings |
+| OP-02 | Real Groq → Rebalance → Risk Preview Validation | operator/local | READY | run integrated VS-16 with environment-only GROQ_API_KEY; expect riskPreview.allowed=true; no order mutation |
 | DF-01 | DocFlow QBO | avysotsky/DocFlow / v1.1.1.34 | HOLD | no, unless reprioritized |
 | DF-02 | DocFlow Generic Text/Transcript Normalization | DocFlow/transcript-normalization-boundary | INTEGRATED | PR #2; generic offline text/transcript normalization; no TradeOps dependency |
 | DF-03 | DocFlow Generic Text Structured Extraction Boundary | DocFlow/df03-text-structured-extraction | INTEGRATED | PR #3; exact-head CI 37605915999 SUCCESS; post-merge CI 37607059797 SUCCESS |
@@ -283,8 +284,8 @@ DONE VS-14 .NET Child Host & Process Diagnostics Hardening — PR #65; merge 144
 DONE VS-15 Provider Transcript -> Research -> Backtest/Rebalance Wiring — PR #67; post-merge CI 37669861416 SUCCESS; 519/519 tests
 DONE SEC-01 Public Repository Security & Privacy Audit — PR #68; 0 BLOCKER; SEC-002 resolved; SEC-001 remains MUST FIX
 DONE OP-01 — real Groq provider -> DocFlow -> research -> backtest/rebalance validated; SAMP targetWeight 0.40; rebalance Ready; runtime artifact remains local
-P0 PARALLEL SEC-02 — map SEC-001 affected refs and produce a safe history/ref remediation plan only; no rewrite yet
-P0 READY VS-16 — integrated rebalance intent -> existing RiskEngine preview; no order mutation; include narrow CS8604 cleanup in touched provider harness
+DONE VS-16 — integrated via PR #70; exact-head CI 37760138944 SUCCESS; post-merge CI 37760934674 SUCCESS; CodeQL 37760933995 SUCCESS; 537/537 tests; 0 warnings
+P0 READY OP-02 — real Groq -> research -> backtest/rebalance -> existing RiskEngine preview; expect allowed=true on synthetic SAMP risk state; no broker mutation
 DONE SEC-02 — remediation plan integrated via PR #69; Option B selected as recommended plan; NO HISTORY REWRITE EXECUTED
 WAIT SEC-001 EXECUTION — finish VS-16, freeze merges/refs, obtain explicit owner approval, then run the verified Option B rewrite procedure
 WAIT WS-01 real IBKR Paper validation — mutation remains blocked
