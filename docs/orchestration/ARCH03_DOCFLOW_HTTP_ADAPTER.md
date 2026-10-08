@@ -1,7 +1,7 @@
 # ARCH-03 — TradeOps-Owned DocFlow Port + HTTP Adapter
 
 ## Status
-VALIDATION — implementation in draft PR #73; CI pending
+INTEGRATED — PR #73 squash-merged; exact-head CI passed; post-merge CI unverified
 
 ## Baselines
 - Repository: avysotsky/TradeOps
@@ -59,3 +59,7 @@ ARCH-03 is a read-only document extraction dependency. Do not add order mutation
 - Draft PR: https://github.com/avysotsky/TradeOps/pull/73. No broker methods, trades, DB or live providers are touched.
 - CI: pending latest exact-head validation. Do not merge without full green checks.
 - This initial contract port does not introduce a new orchestration endpoint or erase existing CLI child-process regression path; integration at the research-composition layer belongs to the following bounded adapter use case.
+
+## Integration record — 2026-10-08
+
+PR #73 merged to TradeOps main via squash commit `4ead2320733fea459b51fce64de17a07bf6f4246`. Final PR-head `3f81d61b9e956ee8fb735476e767e719465c6abf` passed exact-head GitHub Actions build `37806608859` SUCCESS (compile, unit tests, API/PostgreSQL smoke, signed webhook/TradingView, deployment/Docker). Dynamic PR #73 check `37806604366` SUCCESS. Post-merge push-triggered CI is not yet independently verified. No broker mutation or persistence added. Remaining deployment constraint: no public unauthenticated DocFlow HTTP; use localhost/private/secure service mesh until service authentication exists. ARCH-04 follows using the **same TradeOps-owned port** with a direct in-process extraction adapter.
