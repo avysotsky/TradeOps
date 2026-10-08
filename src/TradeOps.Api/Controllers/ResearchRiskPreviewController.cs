@@ -38,7 +38,7 @@ public sealed class ResearchRiskPreviewController(IConfiguration configuration) 
         try
         {
             var decision = await NonMutatingRiskPreview.CheckAsync(
-                signal, request.Settings, request.Controls, request.Positions, cancellationToken);
+                signal, request.Settings, request.Controls.ToSnapshot(), request.Positions, cancellationToken);
             return Ok(new SnapshotRiskPreviewResponse(1, signal.Id, decision.IsAllowed, decision.Reasons));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -54,7 +54,7 @@ public sealed class ResearchRiskPreviewController(IConfiguration configuration) 
 
 public sealed record SnapshotRiskPreviewRequest(
     Guid SignalId, string Symbol, OrderSide Side, decimal Quantity,
-    DateTimeOffset CreatedAt, RiskSettings Settings, RiskControlSnapshot Controls,
+    DateTimeOffset CreatedAt, RiskSettings Settings, ResearchRiskControlsRequest Controls,
     IReadOnlyCollection<Position> Positions);
 
 public sealed record SnapshotRiskPreviewResponse(
