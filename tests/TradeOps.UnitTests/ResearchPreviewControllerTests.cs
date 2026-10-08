@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using TradeOps.Api.Controllers;
 using TradeOps.Application.Models;
+using TradeOps.Application.Services;
+using TradeOps.TranscriptResearchDemo;
 using TradeOps.Domain.Enums;
 using Xunit;
 
@@ -66,4 +68,41 @@ public sealed class ResearchPreviewControllerTests
         Assert.IsType<NotFoundResult>(Controller(false).Decision(Decision()));
         Assert.IsType<NotFoundResult>(Controller(false).Rebalance(Request()));
     }
+    [Fact]
+    public void DerivationFromDocFlowArtifactsMatchesApplicationService()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "TradeOps.sln")))
+            root = root.Parent;
+        Assert.NotNull(root);
+        var sample = Path.Combine(root.FullName, "samples", "research", "transcript-research");
+        var manifest = TranscriptResearchDemoManifestLoader.Load(Path.Combine(sample, "manifest.json"));
+        var policy = EarningsResearchPolicyConfiguration.Load(
+            File.ReadAllText(Path.Combine(sample, "policy.json")));
+        Assert.True(policy.IsValid);
+        var request = new TranscriptResearchDecisionDemoRequest(
+            new TranscriptResearchArtifactBundle(
+                File.ReadAllText(manifest.Prior.NormalizedDocumentPath),
+                File.ReadAllText(manifest.Prior.StructuredExtractionPath),
+                manifest.Prior.Context),
+            new TranscriptResearchArtifactBundle(
+                File.ReadAllText(manifest.Current.NormalizedDocumentPath),
+                File.ReadAllText(manifest.Current.StructuredExtractionPath),
+                manifest.Current.Context),
+            policy.Definition!);
+        var expected = new TranscriptResearchDecisionDemoService().Run(request);
+        var response = Controller().Derive(request);
+        var body = Assert.IsType<OkObjectResult>(response).Value;
+        Assert.NotNull(body);
+        var decision = (ResearchDecision)body.GetType().GetProperty("Decision")!.GetValue(body)!;
+        Assert.Equal(expected.Decision, decision);
+    }
+
+    [Fact]
+    public void MalformedResearchArtifactsFailClosed()
+    {
+        var result = Controller().Derive(null);
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
 }
