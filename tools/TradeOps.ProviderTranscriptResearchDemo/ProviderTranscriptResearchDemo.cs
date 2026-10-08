@@ -19,7 +19,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
     ProviderTranscriptResearchProvider Provider =
         ProviderTranscriptResearchProvider.OpenAi,
     string? DotNetExecutable = null,
-    string? RebalanceInputPath = null)
+    string? RebalanceInputPath = null,
+    string? RiskPreviewInputPath = null)
 {
     public const string DefaultPythonExecutable =
         "python";
@@ -41,6 +42,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
         string? dotNetExecutable =
             null;
         string? rebalanceInputPath =
+            null;
+        string? riskPreviewInputPath =
             null;
         var provider =
             ProviderTranscriptResearchProvider
@@ -109,9 +112,17 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                             "--rebalance-input");
                     break;
 
+                case "--risk-preview-input":
+                    riskPreviewInputPath =
+                        RequireValue(
+                            args,
+                            ref index,
+                            "--risk-preview-input");
+                    break;
+
                 default:
                     throw new ArgumentException(
-                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>, --rebalance-input <path>.");
+                        "Unknown argument '" + args[index] + "'. Supported: --provider openai|groq, --docflow-root <path>, --model <model>, --python <executable>, --work-dir <path>, --dotnet <path-to-dotnet-host>, --rebalance-input <path>, --risk-preview-input <path>.");
             }
         }
 
@@ -129,6 +140,15 @@ public sealed record ProviderTranscriptResearchDemoOptions(
                 "--model <explicit-model> is required; no default model is configured.");
         }
 
+        if (!string.IsNullOrWhiteSpace(
+                riskPreviewInputPath)
+            && string.IsNullOrWhiteSpace(
+                rebalanceInputPath))
+        {
+            throw new ArgumentException(
+                "--risk-preview-input requires --rebalance-input.");
+        }
+
         return new ProviderTranscriptResearchDemoOptions(
             docFlowRoot,
             model,
@@ -136,7 +156,8 @@ public sealed record ProviderTranscriptResearchDemoOptions(
             workDirectory,
             provider,
             dotNetExecutable,
-            rebalanceInputPath);
+            rebalanceInputPath,
+            riskPreviewInputPath);
     }
 
     private static ProviderTranscriptResearchProvider ParseProvider(
@@ -608,10 +629,8 @@ public sealed record DotNetSdkPolicy(
                 ? allowPrereleaseElement.GetBoolean()
                 : true;
 
-        if (!string.Equals(
-                rollForward,
-                "latestPatch",
-                StringComparison.Ordinal))
+        if (rollForward is not
+            "latestPatch")
         {
             throw new InvalidDataException(
                 "TradeOps global.json sdk.rollForward must be latestPatch for this narrow preflight.");
@@ -952,6 +971,10 @@ public sealed class ProviderTranscriptResearchDemoHarness
             ResolveRebalanceInput(
                 options.RebalanceInputPath,
                 resolvedTradeOpsRoot);
+        var riskPreviewInput =
+            ResolveRiskPreviewInput(
+                options.RiskPreviewInputPath,
+                resolvedTradeOpsRoot);
 
         ValidateDocFlow(
             docFlowRoot,
@@ -1037,9 +1060,11 @@ public sealed class ProviderTranscriptResearchDemoHarness
         var resultJson =
             Path.Combine(
                 workDirectory,
-                rebalanceInput is null
-                    ? "transcript-research-result.json"
-                    : "transcript-research-rebalance-result.json");
+                riskPreviewInput is not null
+                    ? "transcript-research-risk-preview-result.json"
+                    : rebalanceInput is null
+                        ? "transcript-research-result.json"
+                        : "transcript-research-rebalance-result.json");
 
         output.WriteLine(
             "Stage: initialize");
@@ -1152,15 +1177,25 @@ public sealed class ProviderTranscriptResearchDemoHarness
                 rebalanceInput);
         }
 
+        if (riskPreviewInput is not null)
+        {
+            consumerArguments.Add(
+                "--risk-preview-input");
+            consumerArguments.Add(
+                riskPreviewInput);
+        }
+
         consumerArguments.Add(
             "--json");
         consumerArguments.Add(
             resultJson);
 
         var consumerStage =
-            rebalanceInput is null
-                ? "TradeOps VS-08"
-                : "TradeOps VS-13";
+            riskPreviewInput is not null
+                ? "TradeOps VS-16"
+                : rebalanceInput is null
+                    ? "TradeOps VS-08"
+                    : "TradeOps VS-13";
         var consumerResult =
             RunStage(
                 output,
@@ -1525,6 +1560,37 @@ public sealed class ProviderTranscriptResearchDemoHarness
         {
             throw new FileNotFoundException(
                 "Rebalance input file was not found.",
+                fullPath);
+        }
+
+        return fullPath;
+    }
+
+    private static string? ResolveRiskPreviewInput(
+        string? riskPreviewInputPath,
+        string tradeOpsRoot)
+    {
+        if (string.IsNullOrWhiteSpace(
+                riskPreviewInputPath))
+        {
+            return null;
+        }
+
+        var fullPath =
+            Path.IsPathRooted(
+                riskPreviewInputPath)
+                ? Path.GetFullPath(
+                    riskPreviewInputPath)
+                : Path.GetFullPath(
+                    Path.Combine(
+                        tradeOpsRoot,
+                        riskPreviewInputPath));
+
+        if (!File.Exists(
+                fullPath))
+        {
+            throw new FileNotFoundException(
+                "Risk preview input file was not found.",
                 fullPath);
         }
 
