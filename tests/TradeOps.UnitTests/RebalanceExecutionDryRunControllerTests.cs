@@ -34,7 +34,7 @@ public sealed class RebalanceExecutionDryRunControllerTests
                 MaxOrderSize = 100m, MaxPositionSize = 100m,
                 MaxDailyLoss = 500m, MaxOpenPositions = 5
             },
-            new RiskControlSnapshot(tradingEnabled, false, null, "USD",
+            new ResearchRiskControlsRequest(tradingEnabled, false, null, "USD",
                 0m, 0m, 0m, Array.Empty<UnconvertedFee>(), 0, at),
             Array.Empty<Position>());
     }
@@ -44,7 +44,7 @@ public sealed class RebalanceExecutionDryRunControllerTests
     {
         var request = Request();
         var expected = await RebalanceExecutionDryRunPreview.RunAsync(
-            request.Plan, request.Settings, request.Controls, request.Positions);
+            request.Plan, request.Settings, request.Controls.ToSnapshot(), request.Positions);
         var response = await Controller(true, true).DryRun(request, CancellationToken.None);
         var actual = Assert.IsType<RebalanceExecutionDryRunResult>(
             Assert.IsType<OkObjectResult>(response).Value);
