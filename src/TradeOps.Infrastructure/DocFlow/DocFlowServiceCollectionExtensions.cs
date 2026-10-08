@@ -24,6 +24,9 @@ public static class DocFlowServiceCollectionExtensions
             client.BaseAddress = new Uri(baseAddress.AbsoluteUri.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AllowAutoRedirect = false
         });
         return services;
     }
