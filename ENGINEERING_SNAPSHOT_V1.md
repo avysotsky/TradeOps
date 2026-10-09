@@ -1,7 +1,7 @@
 # TradeOps v1 — Public Engineering Snapshot
 
 ## Status
-**PUBLIC / APPLICATION DEVELOPMENT FROZEN — pending GitHub Archive setting.**
+**PUBLIC / APPLICATION DEVELOPMENT FROZEN.** Archive/read-only status is controlled by GitHub repository settings, not this static report.
 
 This is a historical **engineering portfolio snapshot**, not an actively maintained product or a live trading service. This repository will remain at `https://github.com/avysotsky/TradeOps`; the repository name, path, individual file/commit URLs and existing issue/PR URLs are not intended to change. Future proprietary development is private. The active private code and deployment credentials are not published here.
 
@@ -32,4 +32,4 @@ Existing GitHub links point to this repository and remain meaningful after archi
 - [Historical PRs](https://github.com/avysotsky/TradeOps/pulls)
 - [CI evidence](https://github.com/avysotsky/TradeOps/actions/runs/37810268475)
 
-Final change of GitHub archived status must be performed through the repository settings after the private continuation is verified. Read-only archival should not rename, delete or privatize this repository.
+GitHub repository metadata is authoritative for its archived/read-only status. Read-only archival does not require renaming, deleting or privatizing this repository.
