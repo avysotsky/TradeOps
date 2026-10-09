@@ -1,4 +1,4 @@
-# TradeOps
+> **Public TradeOps v1 — engineering portfolio snapshot (October 2026).** This repository's application code is frozen at [commit `77229d7`](https://github.com/avysotsky/TradeOps/tree/77229d7f4f835b8cf43eb0aeae427d2df509bb11). New development continues privately. This repository will remain **public at the same GitHub URL** and will become read-only after GitHub Archive is enabled. See [Snapshot evidence](ENGINEERING_SNAPSHOT_V1.md).\n\n# TradeOps
 
 C#/.NET trading execution and automation backend focused on reliable order handling rather than strategy research.
 
